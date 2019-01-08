@@ -7,8 +7,9 @@ from lib.setup import prepare_environment
 from lib.setup import save_settings
 from lib.setup import get_configs
 
-from lib.detection import run_detection
 from lib.constants import TRAIN, VAL, CONFIG_PATH
+from lib.detection import run_detection
+from lib.log import Logger
 
 class Trainer():
     """Trainer."""
@@ -17,7 +18,7 @@ class Trainer():
         """Constructor."""
         self._settings = settings
         self._configs = configs
-        self._logger = None
+        self._logger = Logger()
         self._data_loader = None
         self._result_saver = None
         self._loss_handler = None
@@ -49,14 +50,14 @@ class Trainer():
                 self._optimizer.zero_grad()
                 loss.backward()
                 self._optimizer.step()
-            self._logger.log_batch(mode, epoch, batch_id, loss, task_losses)
+            self._logger.log_batch(epoch, batch_id, loss, task_losses, mode)
             self._visualizer.save_images(epoch, batch, detections, mode)
 
         self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
         score = self._calculate_score(epoch, mode)
         self._visualizer.report_score(epoch, score, mode)
 
-        self._logger.finish_epoch(mode, epoch)  #self._log.epoch('Training epoch %s done!', epoch)
+        self._logger.finish_epoch(epoch, mode)
         return score
 
 
