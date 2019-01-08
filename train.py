@@ -21,20 +21,21 @@ class Trainer():
         self._data_loader = None
         self._result_saver = None
         self._loss_handler = None
-        self._optimizer = None
-        self._visualizer = None
+        self._checkpoint_handler = None
         self._model = None
+        self._optimizer = torch.optim.Adam(self._model.parameters(),
+                                           lr=configs.training.learning_rate)
+        self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
+        self._visualizer = None
 
     def train(self):
         """Main loop."""
         for epoch in range(1, self._settings.n_epochs + 1):
             self._run_epoch(epoch, TRAIN)
-            #f1_score = self._calculate_f1_score(epoch, TRAIN)
-            self._run_epoch(epoch, VAL)
-            #f1_score = self._calculate_f1_score(epoch, VAL)
-            #self._lr_scheduler.step(f1_score_epoch)
-            #self._ckpt_handler.save(self._model, epoch, f1_score=f1_score_epoch)
-            #self._visualizer.write_html()
+            score_val = self._run_epoch(epoch, VAL)
+
+            self._lr_scheduler.step(score_val)
+            self._checkpoint_handler.save(self._model, epoch, score=score_val)
 
     def _run_epoch(self, epoch, mode):
         getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
@@ -52,7 +53,12 @@ class Trainer():
             self._visualizer.save_images(epoch, batch, detections, mode)
 
         self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
-        self._logger.log_epoch(mode, epoch)  #self._log.epoch('Training epoch %s done!', epoch)
+        score = self._calculate_score(epoch, mode)
+        self._visualizer.report_score(epoch, score, mode)
+
+        self._logger.finish_epoch(mode, epoch)  #self._log.epoch('Training epoch %s done!', epoch)
+        return score
+
 
     def _run_model(self, inputs, mode):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
