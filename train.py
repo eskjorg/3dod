@@ -7,9 +7,12 @@ from lib.setup import prepare_environment
 from lib.setup import save_settings
 from lib.setup import get_configs
 
+from lib.checkpoint import CheckpointHandler
 from lib.constants import TRAIN, VAL, CONFIG_PATH
 from lib.detection import run_detection
 from lib.log import Logger
+from lib.model import Model
+from lib.util import get_device
 
 class Trainer():
     """Trainer."""
@@ -18,12 +21,12 @@ class Trainer():
         """Constructor."""
         self._settings = settings
         self._configs = configs
-        self._logger = Logger()
+        self._logger = Logger(self.__class__.__name__)
         self._data_loader = None
         self._result_saver = None
         self._loss_handler = None
-        self._checkpoint_handler = None
-        self._model = None
+        self._checkpoint_handler = CheckpointHandler(settings)
+        self._model = self._checkpoint_handler.init(Model())
         self._optimizer = torch.optim.Adam(self._model.parameters(),
                                            lr=configs.training.learning_rate)
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
@@ -33,10 +36,10 @@ class Trainer():
         """Main loop."""
         for epoch in range(1, self._settings.n_epochs + 1):
             self._run_epoch(epoch, TRAIN)
-            score_val = self._run_epoch(epoch, VAL)
+            val_score = self._run_epoch(epoch, VAL)
 
-            self._lr_scheduler.step(score_val)
-            self._checkpoint_handler.save(self._model, epoch, score=score_val)
+            self._lr_scheduler.step(val_score)
+            self._checkpoint_handler.save(self._model, epoch, val_score)
 
     def _run_epoch(self, epoch, mode):
         getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
@@ -62,8 +65,7 @@ class Trainer():
 
 
     def _run_model(self, inputs, mode):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        inputs = inputs.to(device)
+        inputs = inputs.to(get_device())
         #inputs = inputs.float()
         with torch.set_grad_enabled(mode == TRAIN):
             return self._model(inputs)
