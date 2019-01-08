@@ -1,14 +1,14 @@
 """Main training script."""
 import torch
 
-from setup import parse_arguments
-from setup import setup_logging
-from setup import prepare_environment
-from setup import save_settings
-from setup import get_configs
+from lib.setup import parse_arguments
+from lib.setup import setup_logging
+from lib.setup import prepare_environment
+from lib.setup import save_settings
+from lib.setup import get_configs
 
-from detection import run_detection
-from constants import TRAIN, VAL, CONFIG_PATH
+from lib.detection import run_detection
+from lib.constants import TRAIN, VAL, CONFIG_PATH
 
 class Trainer():
     """Trainer."""
