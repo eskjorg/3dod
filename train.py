@@ -1,18 +1,16 @@
 """Main training script."""
 import torch
 
-from lib.setup import parse_arguments
-from lib.setup import setup_logging
-from lib.setup import prepare_environment
-from lib.setup import save_settings
-from lib.setup import get_configs
-
+import lib.setup
 from lib.checkpoint import CheckpointHandler
 from lib.constants import TRAIN, VAL, CONFIG_PATH
-from lib.detection import run_detection
+from lib.detection import Detector
+from lib.evaluation import Evaluator
 from lib.log import Logger
 from lib.model import Model
-from lib.util import get_device
+from lib.utils import get_device
+
+from lib.data.loader import Loader
 
 class Trainer():
     """Trainer."""
@@ -22,15 +20,17 @@ class Trainer():
         self._settings = settings
         self._configs = configs
         self._logger = Logger(self.__class__.__name__)
-        self._data_loader = None
-        self._result_saver = None
-        self._loss_handler = None
+        self._data_loader = Loader((TRAIN, VAL), self._configs)
+        self._result_saver = None  # TODO:
+        self._loss_handler = None  # TODO:
         self._checkpoint_handler = CheckpointHandler(settings)
         self._model = self._checkpoint_handler.init(Model())
         self._optimizer = torch.optim.Adam(self._model.parameters(),
                                            lr=configs.training.learning_rate)
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
-        self._visualizer = None
+        self._detector = None  # TODO:
+        self._evaluator = None  # TODO:
+        self._visualizer = None  # TODO:
 
     def train(self):
         """Main loop."""
@@ -45,7 +45,7 @@ class Trainer():
         getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
         for batch_id, batch in self._data_loader.gen_batches(mode):
             outputs_cnn = self._run_model(batch.inputs, mode)
-            detections = run_detection(outputs_cnn)
+            detections = self._detector.run_detection(outputs_cnn)
 
             self._result_saver.saver(detections, mode)
             loss, task_losses = self._loss_handler.calc_losses(batch, outputs_cnn, detections)
@@ -57,7 +57,7 @@ class Trainer():
             self._visualizer.save_images(epoch, batch, detections, mode)
 
         self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
-        score = self._calculate_score(epoch, mode)
+        score = self._evaluator.calculate_score(epoch, mode)
         self._visualizer.report_score(epoch, score, mode)
 
         self._logger.finish_epoch(epoch, mode)
@@ -71,14 +71,14 @@ class Trainer():
             return self._model(inputs)
 
 
-def main():
-    args = parse_arguments()
-    setup_logging(args.experiment_path, 'train')
-    prepare_environment(args)
-    save_settings(args)
+def main(setup):
+    args = setup.parse_arguments()
+    setup.setup_logging(args.experiment_path, 'train')
+    setup.prepare_environment(args)
+    setup.save_settings(args)
 
-    trainer = Trainer(args, get_configs(CONFIG_PATH))
+    trainer = Trainer(args, setup.get_configs(CONFIG_PATH))
     trainer.train()
 
 if __name__ == '__main__':
-    main()
+    main(lib.setup)
