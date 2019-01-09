@@ -4,21 +4,21 @@ import logging
 import os
 import json
 import shutil
-from attrdict import AttrDict
 import torch
 
-from utils import show_gpu_info
+from lib.constants import PROJECT_PATH
+from lib.utils import show_gpu_info
 
 
 def parse_arguments():
     """Parse input arguments."""
     parser = argparse.ArgumentParser(description='3D object detection',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--dataset', default='nuscenes',
-                        help='name of the dataset that are going to be used')
-    parser.add_argument('--load-path', default='',
+    parser.add_argument('--config-load-path', default='3dod_demo',
+                        help='name of the config dir that is going to be used')
+    parser.add_argument('--checkpoint-load-path', default='',
                         help='path of the model to load')
-    parser.add_argument('--name', default='od_test',
+    parser.add_argument('--name', default='3dod_demo',
                         help='name of the execution, will be '
                              'the name of the experiment\'s directory')
     parser.add_argument('--root-path', default=get_default_root(),
@@ -26,7 +26,7 @@ def parse_arguments():
 
     args = parser.parse_args()
 
-    experiment_path = os.path.join(args.experiments_root_path, args.name)
+    experiment_path = os.path.join(args.root_path, args.name)
     args.experiment_path = experiment_path
     args.checkpoint_root_dir = os.path.join(experiment_path, 'checkpoints')
     os.makedirs(args.checkpoint_root_dir, exist_ok=True)
@@ -38,12 +38,6 @@ def get_default_root():
     """Get default root."""
     project_root_path = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(project_root_path, 'experiments')
-
-
-def get_configs(path):
-    with open(path) as file:
-        json_dict = json.loads(file.read())
-    return AttrDict(json_dict)
 
 
 def setup_logging(experiment_path, mode):
@@ -68,9 +62,9 @@ def setup_logging(experiment_path, mode):
     logger.info('Log file is %s', log_path)
 
 
-def prepare_environment(args):
+def prepare_environment():
     """Prepare environment."""
-    os.environ['TORCH_HOME'] = os.path.join(args.experiments_root_path, 'torch')
+    os.environ['TORCH_HOME'] = os.path.join(PROJECT_PATH, '.torch')
     cuda_is_available = torch.cuda.is_available()
     logging.info('Use cuda: %s', cuda_is_available)
     if cuda_is_available:

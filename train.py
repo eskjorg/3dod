@@ -8,7 +8,7 @@ from lib.detection import Detector
 from lib.evaluation import Evaluator
 from lib.log import Logger
 from lib.model import Model
-from lib.utils import get_device
+from lib.utils import get_device, read_json
 
 from lib.data.loader import Loader
 
@@ -63,10 +63,9 @@ class Trainer():
         self._logger.finish_epoch(epoch, mode)
         return score
 
-
     def _run_model(self, inputs, mode):
         inputs = inputs.to(get_device())
-        #inputs = inputs.float()
+        #inputs = inputs.float()  # TODO:
         with torch.set_grad_enabled(mode == TRAIN):
             return self._model(inputs)
 
@@ -74,10 +73,10 @@ class Trainer():
 def main(setup):
     args = setup.parse_arguments()
     setup.setup_logging(args.experiment_path, 'train')
-    setup.prepare_environment(args)
+    setup.prepare_environment()
     setup.save_settings(args)
 
-    trainer = Trainer(args, setup.get_configs(CONFIG_PATH))
+    trainer = Trainer(args, read_json(CONFIG_PATH))
     trainer.train()
 
 if __name__ == '__main__':
