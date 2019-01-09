@@ -1,8 +1,0 @@
-{
-  "validation": {
-    "score": "f1_score"
-  },
-  "training": {
-    "learning_rate": 0.0001
-  }
-}
