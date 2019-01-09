@@ -24,7 +24,7 @@ class Trainer():
         self._result_saver = None  # TODO:
         self._loss_handler = None  # TODO:
         self._checkpoint_handler = CheckpointHandler(settings)
-        self._model = self._checkpoint_handler.init(Model())
+        self._model = self._checkpoint_handler.init(Model(self._configs))
         self._optimizer = torch.optim.Adam(self._model.parameters(),
                                            lr=configs.training.learning_rate)
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
