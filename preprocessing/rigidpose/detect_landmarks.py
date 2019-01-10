@@ -3,9 +3,20 @@
 # YAML reader
 # PLY reader
 
-# Loop over all objects
-    # Read object model from file
+import sys
+import os
+# Add parent directory to python path, to find libraries:
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__))))
+from lib.rigidpose.sixd_toolkit import pysixd
 
+# Path to a BOP-SIXD dataset
+data_path = '/home/lucas'
+objects = ['duck']
+
+# Loop over all objects
+for obj in objects:
+    # TODO: Read object model from file
+    print(pysixd)
     # Loop over all images
         # Read camera calibration etc. from yaml
         # Read pose annotations from yaml
