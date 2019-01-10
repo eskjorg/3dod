@@ -2,22 +2,23 @@
 
 import os
 
-from log import Logger
-from util import get_device
+from lib.log import Logger
+from lib.utils import get_device
 
 class CheckpointHandler:
     """Save and load PyTorch checkpoint."""
-    def __init__(self, settings):
-        self._settings = settings
+    def __init__(self, configs):
+        self._configs = configs
         self._logger = Logger(self.__class__.__name__)
         self._best_score = 0
-        os.makedirs(settings.checkpoint_dir, exist_ok=True)
+        self._checkpoint_dir = os.path.join(configs.experiment_path, 'checkpoints')
+        os.makedirs(self._checkpoint_dir, exist_ok=True)
 
     def init(self, model):
         """Create or load model."""
-        if self._settings.load_path:
-            self._logger.info('Loading checkpoint from: %s', self._settings.load_path)
-            checkpoint = torch.load(self._settings.load_path, map_location=get_device())
+        if self._configs.load_path:
+            self._logger.info('Loading checkpoint from: %s', self._configs.load_path)
+            checkpoint = torch.load(self._configs.load_path, map_location=get_device())
             model.load_state_dict(checkpoint)
         else:
             model = model.to(get_device())
@@ -26,7 +27,7 @@ class CheckpointHandler:
         if score > self._best_score:
             self._best_score = score
             file_name = 'best_model.pth.tar'
-            torch.save(model_params, os.path.join(self._settings.checkpoint_dir, file_name))
-        if self._settings.train.backup_epochs:
+            torch.save(model_params, os.path.join(self._configs.checkpoint_dir, file_name))
+        if self._configs.train.backup_epochs:
             file_name = 'epoch{0:03d}.pth.tar'.format(epoch)
-            torch.save(model_params, os.path.join(self._settings.checkpoint_dir, file_name))
+            torch.save(model_params, os.path.join(self._configs.checkpoint_dir, file_name))

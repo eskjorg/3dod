@@ -27,11 +27,12 @@ def read_json(path):
     return AttrDict(json_dict)
 
 def get_configs(config_name):
-    default_config_path = os.path.join(SETTINGS_PATH, 'config.json')
+    default_config_path = os.path.join(SETTINGS_PATH, 'default_config.json')
     configs = read_json(default_config_path)
 
     experiment_config_path = os.path.join(SETTINGS_PATH, config_name, 'config.json')
-    configs.update(read_json(experiment_config_path))
+    if os.path.isfile(experiment_config_path):
+        configs.update(read_json(experiment_config_path))
 
     return configs
 

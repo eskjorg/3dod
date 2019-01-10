@@ -15,16 +15,15 @@ from lib.data.loader import Loader
 class Trainer():
     """Trainer."""
 
-    def __init__(self, settings, configs):
+    def __init__(self, configs):
         """Constructor."""
-        self._settings = settings
         self._configs = configs
         self._logger = Logger(self.__class__.__name__)
         self._data_loader = Loader((TRAIN, VAL), self._configs)
         self._result_saver = None  # TODO:
         self._loss_handler = None  # TODO:
-        self._checkpoint_handler = CheckpointHandler(settings)
-        self._model = self._checkpoint_handler.init(Model(self._configs))
+        self._checkpoint_handler = CheckpointHandler(configs)
+        self._model = self._checkpoint_handler.init(Model(configs))
         self._optimizer = torch.optim.Adam(self._model.parameters(),
                                            lr=configs.training.learning_rate)
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
@@ -76,7 +75,9 @@ def main(setup):
     setup.prepare_environment()
     setup.save_settings(args)
 
-    trainer = Trainer(args, get_configs(args.config_load_path))
+    configs = get_configs(args.config_load_path)
+    configs.update(vars(args))
+    trainer = Trainer(configs)
     trainer.train()
 
 if __name__ == '__main__':

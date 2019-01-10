@@ -2,6 +2,7 @@
 import argparse
 import logging
 import os
+from os.path import join
 import json
 import shutil
 import torch
@@ -26,9 +27,9 @@ def parse_arguments():
 
     args = parser.parse_args()
 
-    experiment_path = os.path.join(args.root_path, args.name)
+    experiment_path = join(args.root_path, args.name)
     args.experiment_path = experiment_path
-    args.checkpoint_root_dir = os.path.join(experiment_path, 'checkpoints')
+    args.checkpoint_root_dir = join(experiment_path, 'checkpoints')
     os.makedirs(args.checkpoint_root_dir, exist_ok=True)
 
     return args
@@ -37,15 +38,15 @@ def parse_arguments():
 def get_default_root():
     """Get default root."""
     project_root_path = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(project_root_path, 'experiments')
+    return join(project_root_path, 'experiments')
 
 
 def setup_logging(experiment_path, mode):
     """Setup logging."""
-    logs_path = os.path.join(experiment_path, 'logs')
+    logs_path = join(experiment_path, 'logs')
     log_file_name = '{}.log'.format(mode)
     os.makedirs(logs_path, exist_ok=True)
-    log_path = os.path.join(logs_path, log_file_name)
+    log_path = join(logs_path, log_file_name)
 
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -64,7 +65,7 @@ def setup_logging(experiment_path, mode):
 
 def prepare_environment():
     """Prepare environment."""
-    os.environ['TORCH_HOME'] = os.path.join(PROJECT_PATH, '.torch')
+    os.environ['TORCH_HOME'] = join(PROJECT_PATH, '.torch')
     cuda_is_available = torch.cuda.is_available()
     logging.info('Use cuda: %s', cuda_is_available)
     if cuda_is_available:
@@ -74,12 +75,14 @@ def prepare_environment():
 
 def save_settings(args):
     """Save user settings to experiment's setting directory."""
-    experiment_settings_path = os.path.join(args.experiment_path, 'settings')
+    experiment_settings_path = join(args.experiment_path, 'settings')
+    repo_settings_path = join(os.path.dirname(os.path.dirname(__file__)), 'settings')
     logging.info('Save settings to %s', experiment_settings_path)
 
     shutil.rmtree(experiment_settings_path, ignore_errors=True)
-    shutil.copytree(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'settings'),
-                    experiment_settings_path)
+    shutil.copytree(join(repo_settings_path, args.config_load_path), experiment_settings_path)
+    shutil.copyfile(join(repo_settings_path, 'default_config.json'),
+                    join(experiment_settings_path, 'default_config.json'))
 
-    with open(os.path.join(experiment_settings_path, 'args.json'), 'w') as file:
+    with open(join(experiment_settings_path, 'args.json'), 'w') as file:
         json.dump(vars(args), file, indent=4)
