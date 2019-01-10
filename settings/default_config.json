@@ -1,8 +1,25 @@
 {
+    "network": {
+        "encoder": "resnet34",
+        "upsampling": 8
+    },
     "validation": {
         "score": "f1_score"
     },
     "training": {
         "learning_rate": 0.0001
+    },
+    "data": {
+        "train": {
+            "batch_size": 16,
+            "shuffle": true,
+            "num_workers": 8
+        },
+        "val": {
+            "batch_size": 16,
+            "shuffle": false,
+            "num_workers": 8
+        },
+        "test": {}
     }
 }

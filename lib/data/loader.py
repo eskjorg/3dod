@@ -17,13 +17,14 @@ class Loader:
     def _get_loader_config(self, mode):
         dataset = ptdata.Subset(dataset=Dataset(self._configs, mode),
                                 indices=self._get_indices(mode))
+        data_configs = getattr(self._configs.data, mode)
         return {
             'dataset': dataset,
             'collate_fn': process.collate_batch,
             'drop_last': True,
-            'batch_size': self._configs.batch_size,
-            'shuffle': self._configs.shuffle,
-            'num_workers': self._configs.shuffle
+            'batch_size': data_configs.batch_size,
+            'shuffle': data_configs.shuffle,
+            'num_workers': data_configs.num_workers
         }
 
     def _get_indices(self, mode):
@@ -34,7 +35,7 @@ class Loader:
 
         """
         path = os.path.join(SETTINGS_PATH,
-                            self._configs.name,
+                            self._configs.config_load_path,
                             self._configs.split_dir,
                             '{}.txt'.format(mode))
         with open(path) as file:

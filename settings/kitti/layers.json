@@ -21,6 +21,6 @@
     },
     "keypoints": {
         "n_layers": 16,
-        "loss": "L1",
+        "loss": "L1"
     }
 }

@@ -1,7 +1,7 @@
 """Neural network model."""
 
+from importlib import import_module
 from torch import nn
-from lib import models
 from lib.utils import get_layers
 
 class Model(nn.Module):
@@ -10,16 +10,19 @@ class Model(nn.Module):
     def __init__(self, configs):
         super().__init__()
         self._configs = configs
-        self._encoder = self._create_encoder()
+        self._encoder, self._bottleneck_channels = self._create_encoder()
         self._decoder = self._create_decoder()
+        self._encoder_output_channels = None
 
     def _create_encoder(self):
-        return getattr(models, self._configs.encoder).get_module()
+        encoder_name = self._configs.network.encoder
+        module = import_module('lib.models.{}'.format(encoder_name))
+        return module.get_encoder()
 
     def _create_decoder(self):
         return MultiTaskNet(get_layers(self._configs.config_load_path),
-                            in_channels=self._encoder.out_channels_backbone,
-                            upsampling_factor=self._configs.upsampling_factor)
+                            in_channels=self._bottleneck_channels,
+                            upsampling_factor=self._configs.network.upsampling)
 
     def forward(self, input_data):
         return self._encoder(self._decoder(input_data))
