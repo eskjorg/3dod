@@ -3,12 +3,12 @@ import torch
 
 import lib.setup
 from lib.checkpoint import CheckpointHandler
-from lib.constants import TRAIN, VAL, CONFIG_PATH
+from lib.constants import TRAIN, VAL
 from lib.detection import Detector
 from lib.evaluation import Evaluator
 from lib.log import Logger
 from lib.model import Model
-from lib.utils import get_device, read_json
+from lib.utils import get_device, get_configs
 
 from lib.data.loader import Loader
 
@@ -76,7 +76,7 @@ def main(setup):
     setup.prepare_environment()
     setup.save_settings(args)
 
-    trainer = Trainer(args, read_json(CONFIG_PATH))
+    trainer = Trainer(args, get_configs(args.config_load_path))
     trainer.train()
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@
 
 from torch import nn
 from lib import models
-from lib.utils import read_json
+from lib.utils import get_layers
 
 class Model(nn.Module):
     """Neural network module."""
@@ -17,9 +17,7 @@ class Model(nn.Module):
         return getattr(models, self._configs.encoder).get_module()
 
     def _create_decoder(self):
-        path = None  # TODO:
-        layers = read_json(path)
-        return MultiTaskNet(layers,
+        return MultiTaskNet(get_layers(self._configs.config_load_path),
                             in_channels=self._encoder.out_channels_backbone,
                             upsampling_factor=self._configs.upsampling_factor)
 
@@ -35,7 +33,7 @@ class MultiTaskNet(nn.ModuleDict):
             heads[name] = MultiTaskHead(in_channels=in_channels,
                                         out_channels=settings.n_layers,
                                         upsampling=upsampling_factor)
-        super(MultiTaskHead, self).__init__(heads)
+        super(MultiTaskNet, self).__init__(heads)
 
     def forward(self, x):
         """Forward pass of input through module."""
