@@ -2,9 +2,7 @@
 
 from collections import namedtuple
 
-from lib.constants import ANNOTATION, INPUT, MASK, CALIBRATION, ID
-
-Batch = namedtuple('Batch', [ANNOTATION, INPUT, MASK, CALIBRATION, ID])
+#from lib.data.loader import Batch
 
 def collate_batch(batch_list):
     # TODO:
@@ -40,4 +38,4 @@ class Test(PreProcessIf):
     def __init__(self, arg):
         super(Test, self).__init__()
         self.arg = arg
-        # TODO: 
+        # TODO:

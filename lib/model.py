@@ -34,7 +34,7 @@ class MultiTaskNet(nn.ModuleDict):
         heads = {}
         for name, settings in layers.items():
             heads[name] = MultiTaskHead(in_channels=in_channels,
-                                        out_channels=settings.n_layers,
+                                        out_channels=settings['n_layers'],
                                         upsampling=upsampling_factor)
         super(MultiTaskNet, self).__init__(heads)
 

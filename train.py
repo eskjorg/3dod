@@ -33,7 +33,7 @@ class Trainer():
 
     def train(self):
         """Main loop."""
-        for epoch in range(1, self._settings.n_epochs + 1):
+        for epoch in range(1, self._configs.training.n_epochs + 1):
             self._run_epoch(epoch, TRAIN)
             val_score = self._run_epoch(epoch, VAL)
 

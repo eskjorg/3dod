@@ -16,12 +16,14 @@ class CheckpointHandler:
 
     def init(self, model):
         """Create or load model."""
-        if self._configs.load_path:
-            self._logger.info('Loading checkpoint from: %s', self._configs.load_path)
-            checkpoint = torch.load(self._configs.load_path, map_location=get_device())
+        load_path = self._configs.checkpoint_load_path
+        if load_path:
+            self._logger.info('Loading checkpoint from: %s', load_path)
+            checkpoint = torch.load(load_path, map_location=get_device())
             model.load_state_dict(checkpoint)
         else:
             model = model.to(get_device())
+        return model
 
     def save(self, model_params, epoch, score):
         if score > self._best_score:

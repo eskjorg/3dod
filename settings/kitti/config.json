@@ -1,3 +1,13 @@
 {
-    "split_dir": "split_3dop"
+    "data":{
+        "dataset": "kitti",
+        "path": "/datasets/kitti/object/training/",
+        "modalities": {
+            "cam": [
+                "left_color"
+            ],
+            "lidar": []
+        },
+        "split_dir": "split_3dop"
+    }
 }

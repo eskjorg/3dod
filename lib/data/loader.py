@@ -1,9 +1,17 @@
 """Load batches for training."""
 import os
+from collections import namedtuple
+from importlib import import_module
 import torch.utils.data as ptdata
 
 from lib.constants import SETTINGS_PATH
+from lib.constants import ANNOTATION, INPUT, MASK, CALIBRATION, ID
 from lib.data import process
+
+
+Batch = namedtuple('Batch', [ANNOTATION, INPUT, MASK, CALIBRATION, ID])
+Sample = namedtuple('Sample', [ANNOTATION, INPUT, MASK, CALIBRATION, ID])
+
 
 class Loader:
     """docstring for Loader."""
@@ -15,9 +23,9 @@ class Loader:
             setattr(self, mode, loader)
 
     def _get_loader_config(self, mode):
-        dataset = ptdata.Subset(dataset=Dataset(self._configs, mode),
+        dataset = ptdata.Subset(dataset=Dataset(self._configs),
                                 indices=self._get_indices(mode))
-        data_configs = getattr(self._configs.data, mode)
+        data_configs = getattr(self._configs.loading, mode)
         return {
             'dataset': dataset,
             'collate_fn': process.collate_batch,
@@ -36,7 +44,7 @@ class Loader:
         """
         path = os.path.join(SETTINGS_PATH,
                             self._configs.config_load_path,
-                            self._configs.split_dir,
+                            self._configs.data.split_dir,
                             '{}.txt'.format(mode))
         with open(path) as file:
             return file.read().splitlines()
@@ -48,9 +56,9 @@ class Loader:
 
 class Dataset(ptdata.Dataset):
     """docstring for Dataset."""
-    def __init__(self, configs, mode):
+    def __init__(self, configs):
         self._configs = configs
-        self._reader = None  # TODO:
+        self._reader = self._get_reader()
         self._processor = None  # TODO:
         super(Dataset, self).__init__()
 
@@ -61,3 +69,7 @@ class Dataset(ptdata.Dataset):
         raw_sample = self._reader[idx]
         sample = self._processor.get_sample(raw_sample)
         return sample
+
+    def _get_reader(self):
+        reader_module = import_module('lib.data.readers.{}'.format(self._configs.data.dataset))
+        return reader_module.Reader(self._configs)
