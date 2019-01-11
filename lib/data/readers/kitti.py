@@ -33,14 +33,17 @@ class Reader:
     def _get_path(self, modality, index):
         root = self._configs.path
         id_str = str(index).zfill(6)
-        ext = '.bin' if modality == VELODYNE else '.png'
+        extensions = {VELODYNE: '.bin',
+                      CALIB: '.txt',
+                      LABEL_2: '.txt'}
+        ext = extensions.get(modality, '.png')
         return os.path.join(root, modality, id_str + ext)
 
     def _read_data(self, index):
         data = {}
         for cam_name in self._configs.modalities.cam:
             path = self._get_path(cam_name, index)
-            load_type = cam_name.split('_')[-1] is 'color'
+            load_type = cam_name.split('_')[-1] in (2, 3)
             data[cam_name] = read_image_to_pt(path, load_type)
         if VELODYNE in self._configs.modalities.lidar:
             path = self._get_path(VELODYNE, index)
@@ -49,7 +52,7 @@ class Reader:
 
     def _read_annotations(self, index):
         object_class, truncation, occlusion, alpha, bounding_box, dimension, location, rotation \
-            = ([] for _ in range(9))
+            = ([] for _ in range(8))
 
         with open(self._get_path(LABEL_2, index)) as annotations:
             for line in annotations:

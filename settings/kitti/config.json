@@ -4,7 +4,7 @@
         "path": "/datasets/kitti/object/training/",
         "modalities": {
             "cam": [
-                "left_color"
+                "image_2"
             ],
             "lidar": []
         },
