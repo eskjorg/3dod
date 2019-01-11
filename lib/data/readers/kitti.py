@@ -20,6 +20,10 @@ class Reader:
         super(Reader, self).__init__()
         self._configs = configs.data
 
+    def __len__(self):
+        calib_path = os.path.join(self._configs.path, CALIB)
+        return len(os.listdir(calib_path))
+
     def __getitem__(self, index):
         data = self._read_data(index)
         annotations = self._read_annotations(index)
