@@ -8,6 +8,22 @@
             ],
             "lidar": []
         },
-        "split_dir": "split_3dop"
+        "img_dims": [352, 1216],
+        "split_dir": "split_3dop",
+        "threshold": {
+            "truncation": 0.9,
+            "occlusion": 3
+        },
+        "class_map": {
+            "DontCare": 1,
+            "Tram": 1,
+            "Misc": 1,
+            "Person_sitting": 1,
+            "Car": 2,
+            "Van": 2,
+            "Truck": 1,
+            "Pedestrian": 3,
+            "Cyclist": 4
+        }
     }
 }

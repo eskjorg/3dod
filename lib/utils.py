@@ -62,3 +62,19 @@ def get_configs(config_name):
 def get_layers(config_name):
     path = os.path.join(SETTINGS_PATH, config_name, 'layers.json')
     return read_json(path)
+
+# Geometry
+
+def project_3d_box(dims, loc, rot, p_matrix):
+    h, _, _ = dims
+    _, w2, l2 = dims / 2
+    rot_matrix = np.array([[np.cos(rot), 0, np.sin(rot)],
+                           [0, 1, 0],
+                           [-np.sin(rot), 0, np.cos(rot)]])
+    points_3d = np.ones((4,8))
+                                                                #    BLR  BLF BRF BRR  TLR  TLF TRF TRR
+    points_3d[:3] = np.tile(loc, (8, 1)).T + rot_matrix @ np.array([[-l2, l2, l2, -l2, -l2, l2, l2, -l2],
+                                                                    [0, 0, 0, 0, -h, -h, -h, -h],
+                                                                    [w2, w2, -w2, -w2, w2, w2, -w2, -w2]])
+    points_2d = p_matrix @ points_3d
+    return points_2d[:2] / points_2d[2]

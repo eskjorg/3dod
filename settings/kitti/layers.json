@@ -1,25 +1,21 @@
 {
     "class": {
-        "n_layers": 3,
-        "loss": "CE",
-        "suppression": "class"
+        "n_layers": 1,
+        "loss": "CE"
     },
     "bbox2d": {
         "n_layers": 4,
-        "loss": "L1",
-        "suppression": "2D"
+        "loss": "L1"
     },
-    "depth": {
+    "zdepth": {
         "n_layers": 1,
-        "loss": "L1",
-        "suppression": "2D"
+        "loss": "L1"
     },
     "size": {
         "n_layers": 3,
-        "loss": "L1",
-        "suppression": "2D"
+        "loss": "L1"
     },
-    "keypoints": {
+    "corners": {
         "n_layers": 16,
         "loss": "L1"
     }

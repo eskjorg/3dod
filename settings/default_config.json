@@ -1,7 +1,9 @@
 {
     "network": {
         "encoder": "resnet34",
-        "upsampling": 8
+        "tiling_upsampling": 8,
+        "output_stride": 4,
+        "support_region": 0.2
     },
     "validation": {
         "score": "f1_score"
@@ -14,13 +16,17 @@
         "train": {
             "batch_size": 16,
             "shuffle": true,
-            "num_workers": 8
+            "num_workers": 4
         },
         "val": {
             "batch_size": 16,
             "shuffle": false,
-            "num_workers": 8
+            "num_workers": 4
         },
-        "test": {}
+        "test": {
+            "batch_size": 1,
+            "shuffle": false,
+            "num_workers": 4
+        }
     }
 }

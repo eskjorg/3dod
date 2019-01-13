@@ -5,10 +5,14 @@ import os
 TRAIN = 'train'
 VAL = 'val'
 
+# Training
+IGNORE_IDX_CLS = 1
+IGNORE_IDX_REG = 0
+
 # Data
 ANNOTATION = 'annotation'
 INPUT = 'input'
-MASK = 'mask'
+GT = 'gt'
 CALIBRATION = 'calibration'
 ID = 'id'
 
@@ -24,3 +28,9 @@ RIGHT_GRAY = 'right_gray'
 VELODYNE = 'velodyne'
 LABEL_2 = 'label_2'
 CALIB = 'calib'
+
+# Classes
+DONT_CARE = 'dont_care'
+
+# Geometry
+KEYPOINT_NAME_MAP = ("BLR", "BLF", "BRF", "BRR", "TLR", "TLF", "TRF", "TRR")

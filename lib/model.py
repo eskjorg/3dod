@@ -22,7 +22,7 @@ class Model(nn.Module):
     def _create_decoder(self):
         return MultiTaskNet(get_layers(self._configs.config_load_path),
                             in_channels=self._bottleneck_channels,
-                            upsampling_factor=self._configs.network.upsampling)
+                            upsampling_factor=self._configs.network.tiling_upsampling)
 
     def forward(self, input_data):
         return self._encoder(self._decoder(input_data))
