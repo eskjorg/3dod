@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 
 from math import ceil
 import numpy as np
+import torch
 
 from lib.constants import IGNORE_IDX_CLS, KEYPOINT_NAME_MAP
 from lib.utils import get_layers, project_3d_box
@@ -56,7 +57,7 @@ class GeneratorIf(metaclass=ABCMeta):
         """Constructor."""
         super().__init__()
         self._configs = configs
-        self._map = np.zeros((self._get_num_maps(), *self._configs.target_dims))
+        self._map = torch.zeros(self._get_num_maps(), *self._configs.target_dims)
 
     @abstractmethod
     def _get_num_maps(self):
@@ -81,7 +82,7 @@ class ClassGenerator(GeneratorIf):
         self._map[ymin: ymax, xmin: xmax] = obj_class or obj_annotation.obj_class
 
     def get_map(self):
-        return self._map.astype('uint8')
+        return self._map.long()
 
 
 class Bbox2dGenerator(GeneratorIf):
@@ -117,7 +118,7 @@ class SizeGenerator(GeneratorIf):
         return 3
 
     def add_obj(self, obj_annotation, map_coords):
-        log_dim = np.log(np.abs(obj_annotation.dimensions))
+        log_dim = torch.Tensor(obj_annotation.dimensions).log()
         xmin, ymin, xmax, ymax = map_coords
         for index in range(self._get_num_maps()):
             self._map[index, ymin: ymax, xmin: xmax] = log_dim[index]
@@ -160,20 +161,14 @@ class IndexCodec():
         map_height = ceil(img_height / stride)
         map_width = ceil(img_width / stride)
 
-        self._index_matrix_x = np.zeros([map_height, map_width])
-        self._index_matrix_y = np.zeros([map_height, map_width])
-
-        for i in range(map_height):
-            self._index_matrix_x[i, :] = np.arange(0, img_width, stride)
-        for i in range(map_width):
-            self._index_matrix_y[:, i] = np.arange(0, img_height, stride)
+        self._index_matrix = torch.from_numpy(stride * np.indices((map_height, map_width), dtype=np.float32))
 
     def encode(self, index_map):
-        index_map[0::2, :] -= self._index_matrix_x
-        index_map[1::2, :] -= self._index_matrix_y
+        index_map[0::2, :] -= self._index_matrix[1]
+        index_map[1::2, :] -= self._index_matrix[0]
         return index_map
 
     def decode(self, index_map):
-        index_map[0::2, :] += self._index_matrix_x
-        index_map[1::2, :] += self._index_matrix_y
+        index_map[0::2, :] += self._index_matrix[1]
+        index_map[1::2, :] += self._index_matrix[0]
         return index_map

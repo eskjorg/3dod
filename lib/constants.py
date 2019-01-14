@@ -1,5 +1,6 @@
 """Constants for 3DOD."""
 import os
+import math
 
 # Execution
 TRAIN = 'train'
@@ -8,6 +9,9 @@ VAL = 'val'
 # Training
 IGNORE_IDX_CLS = 1
 IGNORE_IDX_REG = 0
+
+# Math
+LN_SQRT_2_PI = math.log(math.sqrt(2*math.pi))
 
 # Data
 ANNOTATION = 'annotation'

@@ -62,19 +62,20 @@ class Reader:
             for line in file:
                 labels = line.split()
                 object_class = labels[0]
-                truncation = float(labels[1])
-                occlusion = float(labels[2])
-                rotation = float(labels[14])
-                if truncation > self._configs.threshold.truncation or \
-                   occlusion > self._configs.threshold.occlusion or \
-                   rotation == -10:
+                labels[1:] = map(float, labels[1:])
+                truncation = labels[1]
+                occlusion = labels[2]
+                rotation = labels[14]
+                if rotation == -10 or \
+                   truncation > self._configs.threshold.truncation or \
+                   occlusion > self._configs.threshold.occlusion:
                     object_class = IGNORE_IDX_CLS
                 annotations.append(Annotation(obj_class=self._get_class(object_class),
                                               truncation=truncation, occlusion=occlusion,
-                                              alpha=float(labels[3]),
-                                              bounding_box=np.array(labels[4:8], dtype=np.float32),
-                                              dimensions=np.array(labels[8:11], dtype=np.float32),
-                                              location=np.array(labels[11:14], dtype=np.float32),
+                                              alpha=labels[3],
+                                              bounding_box=torch.Tensor(labels[4:8]),
+                                              dimensions=torch.Tensor(labels[8:11]),
+                                              location=torch.Tensor(labels[11:14]),
                                               rotation=rotation))
         return annotations
 
