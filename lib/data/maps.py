@@ -1,4 +1,4 @@
-"""Generate GT masks for training."""
+"""Generate GT maps for training."""
 
 import sys
 from abc import ABCMeta, abstractmethod
@@ -10,17 +10,17 @@ from lib.constants import IGNORE_IDX_CLS, KEYPOINT_NAME_MAP
 from lib.utils import get_layers, project_3d_box
 
 
-class GTGenerator:
-    """GTGenerator."""
+class GtMapsGenerator:
+    """GtMapsGenerator."""
     def __init__(self, configs):
-        super(GTGenerator, self).__init__()
+        super(GtMapsGenerator, self).__init__()
         self._configs = configs
         self._configs.target_dims = [ceil(dim / self._configs.network.output_stride)
                                      for dim in self._configs.data.img_dims]
         self._layers = get_layers(self._configs.config_load_path)
 
     def generate(self, annotations, calibration):
-        gt_masks = {}
+        gt_maps = {}
         obj_coords_full = self._get_coordinates(annotations)
         obj_coords_supp = self._get_coordinates(annotations, self._configs.network.support_region)
         for layer_name in self._layers.keys():
@@ -31,7 +31,8 @@ class GTGenerator:
                     generator.add_obj(object, full)
                 if object.obj_class is not IGNORE_IDX_CLS:
                     generator.add_obj(object, supp)
-            gt_masks[layer_name] = generator.get_mask()
+            gt_maps[layer_name] = generator.get_map()
+        return gt_maps
 
     def _get_coordinates(self, objects, shrink_factor=1):
         obj_coords = []
@@ -55,85 +56,85 @@ class GeneratorIf(metaclass=ABCMeta):
         """Constructor."""
         super().__init__()
         self._configs = configs
-        self._mask = np.zeros((self._get_num_masks(), *self._configs.target_dims))
+        self._map = np.zeros((self._get_num_maps(), *self._configs.target_dims))
 
     @abstractmethod
-    def _get_num_masks(self):
-        """Specify how many outputs this mask generator supports."""
+    def _get_num_maps(self):
+        """Specify how many outputs this map generator supports."""
 
     @abstractmethod
-    def add_obj(self, obj_annotation, mask_coords):
-        """Add a single object to the masks."""
+    def add_obj(self, obj_annotation, map_coords):
+        """Add a single object to the maps."""
 
-    def get_mask(self):
+    def get_map(self):
         """Generate a network target from the `objects`."""
-        return self._mask
+        return self._map
 
 
 class ClassGenerator(GeneratorIf):
-    """GT mask ClassGenerator."""
-    def _get_num_masks(self):
+    """GT map ClassGenerator."""
+    def _get_num_maps(self):
         return 1
 
-    def add_obj(self, obj_annotation, mask_coords, obj_class=None):
-        xmin, ymin, xmax, ymax = mask_coords
-        self._mask[ymin: ymax, xmin: xmax] = obj_class or obj_annotation.obj_class
+    def add_obj(self, obj_annotation, map_coords, obj_class=None):
+        xmin, ymin, xmax, ymax = map_coords
+        self._map[ymin: ymax, xmin: xmax] = obj_class or obj_annotation.obj_class
 
-    def get_mask(self):
-        return self._mask.astype('uint8')
+    def get_map(self):
+        return self._map.astype('uint8')
 
 
 class Bbox2dGenerator(GeneratorIf):
-    """GT mask Bbox2dGenerator."""
-    def _get_num_masks(self):
+    """GT map Bbox2dGenerator."""
+    def _get_num_maps(self):
         return 4
 
-    def add_obj(self, obj_annotation, mask_coords):
-        xmin, ymin, xmax, ymax = mask_coords
+    def add_obj(self, obj_annotation, map_coords):
+        xmin, ymin, xmax, ymax = map_coords
         bbox_coords = obj_annotation.bounding_box
-        for index in range(self._get_num_masks()):
-            self._mask[index, ymin: ymax, xmin: xmax] = bbox_coords[index]
+        for index in range(self._get_num_maps()):
+            self._map[index, ymin: ymax, xmin: xmax] = bbox_coords[index]
 
-    def get_mask(self):
-        bbox_mask_handler = IndexCodec(*self._configs.data.img_dims, self._configs.network.output_stride)
-        return bbox_mask_handler.encode(self._mask)
+    def get_map(self):
+        bbox_map_handler = IndexCodec(*self._configs.data.img_dims, self._configs.network.output_stride)
+        return bbox_map_handler.encode(self._map)
 
 
 class ZdepthGenerator(GeneratorIf):
-    """GT mask ZdepthGenerator."""
-    def _get_num_masks(self):
+    """GT map ZdepthGenerator."""
+    def _get_num_maps(self):
         return 1
 
-    def add_obj(self, obj_annotation, mask_coords):
-        xmin, ymin, xmax, ymax = mask_coords
+    def add_obj(self, obj_annotation, map_coords):
+        xmin, ymin, xmax, ymax = map_coords
         zdepth = obj_annotation.location[2]
-        self._mask[0, ymin: ymax, xmin: xmax] = zdepth
+        self._map[0, ymin: ymax, xmin: xmax] = zdepth
 
 
 class SizeGenerator(GeneratorIf):
-    """GT mask SizeGenerator."""
-    def _get_num_masks(self):
+    """GT map SizeGenerator."""
+    def _get_num_maps(self):
         return 3
 
-    def add_obj(self, obj_annotation, mask_coords):
+    def add_obj(self, obj_annotation, map_coords):
         log_dim = np.log(np.abs(obj_annotation.dimensions))
-        xmin, ymin, xmax, ymax = mask_coords
-        for index in range(self._get_num_masks()):
-            self._mask[index, ymin: ymax, xmin: xmax] = log_dim[index]
+        xmin, ymin, xmax, ymax = map_coords
+        for index in range(self._get_num_maps()):
+            self._map[index, ymin: ymax, xmin: xmax] = log_dim[index]
 
 
 class CornersGenerator(GeneratorIf):
-    """GT mask CornersGenerator."""
+    """GT map CornersGenerator."""
     def __init__(self, configs, projection_matrix):
         """Constructor."""
         super().__init__(configs)
         self._projection_matrix = projection_matrix
 
-    def _get_num_masks(self):
+    def _get_num_maps(self):
         return 16
 
-    def add_obj(self, obj_annotation, mask_coords):
-        xmin, ymin, xmax, ymax = mask_coords
+    def add_obj(self, obj_annotation, map_coords):
+        xmin, ymin, xmax, ymax = map_coords
         corner_coords = project_3d_box(obj_annotation.dimensions,
                                        obj_annotation.location,
                                        obj_annotation.rotation,
@@ -145,34 +146,34 @@ class CornersGenerator(GeneratorIf):
             # If keypoint is far off, it will hurt training
             if abs(x / self._configs.data.img_dims[1] - 0.5) > 10:
                 print('Keypoint projected far outside image. Check object not behind camera.')
-            self._mask[2 * index + 0, ymin: ymax, xmin: xmax] = x
-            self._mask[2 * index + 1, ymin: ymax, xmin: xmax] = y
+            self._map[2 * index + 0, ymin: ymax, xmin: xmax] = x
+            self._map[2 * index + 1, ymin: ymax, xmin: xmax] = y
 
-    def get_mask(self):
-        corner_mask_handler = IndexCodec(*self._configs.data.img_dims, self._configs.network.output_stride)
-        return corner_mask_handler.encode(self._mask)
+    def get_map(self):
+        corner_map_handler = IndexCodec(*self._configs.data.img_dims, self._configs.network.output_stride)
+        return corner_map_handler.encode(self._map)
 
 
 class IndexCodec():
     def __init__(self, img_height, img_width, stride):
         """Constructor."""
-        mask_height = ceil(img_height / stride)
-        mask_width = ceil(img_width / stride)
+        map_height = ceil(img_height / stride)
+        map_width = ceil(img_width / stride)
 
-        self._index_matrix_x = np.zeros([mask_height, mask_width])
-        self._index_matrix_y = np.zeros([mask_height, mask_width])
+        self._index_matrix_x = np.zeros([map_height, map_width])
+        self._index_matrix_y = np.zeros([map_height, map_width])
 
-        for i in range(mask_height):
+        for i in range(map_height):
             self._index_matrix_x[i, :] = np.arange(0, img_width, stride)
-        for i in range(mask_width):
+        for i in range(map_width):
             self._index_matrix_y[:, i] = np.arange(0, img_height, stride)
 
-    def encode(self, mask):
-        mask[0::2, :] -= self._index_matrix_x
-        mask[1::2, :] -= self._index_matrix_y
-        return mask
+    def encode(self, index_map):
+        index_map[0::2, :] -= self._index_matrix_x
+        index_map[1::2, :] -= self._index_matrix_y
+        return index_map
 
-    def decode(self, mask):
-        mask[0::2, :] += self._index_matrix_x
-        mask[1::2, :] += self._index_matrix_y
-        return mask
+    def decode(self, index_map):
+        index_map[0::2, :] += self._index_matrix_x
+        index_map[1::2, :] += self._index_matrix_y
+        return index_map

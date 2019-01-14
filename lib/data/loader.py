@@ -7,12 +7,12 @@ import torch.utils.data as ptdata
 import numpy as np
 
 from lib.constants import SETTINGS_PATH, TRAIN, VAL
-from lib.constants import ANNOTATION, INPUT, GT, CALIBRATION, ID
-from lib.data.gt import GTGenerator
+from lib.constants import ANNOTATION, INPUT, GT_MAP, CALIBRATION, ID
+from lib.data.maps import GtMapsGenerator
 
 
-Sample = namedtuple('Sample', [ANNOTATION, INPUT, GT, CALIBRATION, ID])
-Batch = namedtuple('Batch', [ANNOTATION, INPUT, GT, CALIBRATION, ID])
+Sample = namedtuple('Sample', [ANNOTATION, INPUT, GT_MAP, CALIBRATION, ID])
+Batch = namedtuple('Batch', [ANNOTATION, INPUT, GT_MAP, CALIBRATION, ID])
 
 
 class Loader:
@@ -58,11 +58,11 @@ class Loader:
 
 def collate_batch(batch_list):
     """Collates for PT data loader."""
-    annotations, in_data, gt_mask, calib, img_id = zip(*batch_list)
+    annotations, in_data, gt_map, calib, img_id = zip(*batch_list)
     in_data = np.stack(in_data)
-    gt_mask = {task: np.stack([sample[task] for sample in gt_mask]) for task in gt_mask[0]}
-    calib = map(lambda x: x.P0, gt_mask)
-    return Batch(annotations, in_data, gt_mask, calib, img_id)
+    gt_map = {task: np.stack([sample[task] for sample in gt_map]) for task in gt_map[0]}
+    calib = map(lambda x: x.P0, gt_map)
+    return Batch(annotations, in_data, gt_map, calib, img_id)
 
 
 class Dataset(ptdata.Dataset):
@@ -73,21 +73,21 @@ class Dataset(ptdata.Dataset):
         self._reader = self._get_reader()
         self._augmenter = None  # TODO: or not ?
         #elf._processor = self._get_processor()
-        self._gt_generator = GTGenerator(self._configs)
+        self._gt_map_generator = GtMapsGenerator(self._configs)
         super(Dataset, self).__init__()
 
     def __len__(self):
         return(len(self._reader))
 
     def __getitem__(self, idx):
-        annotations, data, gt, calibration, index = self._reader[idx]
+        annotations, data, gt_maps, calibration, index = self._reader[idx]
         if self._mode in (TRAIN, VAL):
-            gt = self._gt_generator.generate(annotations, calibration)
+            gt_maps = self._gt_map_generator.generate(annotations, calibration)
         if self._mode is TRAIN:
             #data = self._augmenter.augment(data)
             None
         #sample = self._processor.get_sample(raw_sample)
-        return Sample(annotations, data, gt, calibration, index)
+        return Sample(annotations, data, gt_maps, calibration, index)
 
     def _get_reader(self):
         reader_module = import_module('lib.data.readers.{}'.format(self._configs.data.dataset))

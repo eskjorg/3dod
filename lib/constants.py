@@ -12,7 +12,7 @@ IGNORE_IDX_REG = 0
 # Data
 ANNOTATION = 'annotation'
 INPUT = 'input'
-GT = 'gt'
+GT_MAP = 'gt_map'
 CALIBRATION = 'calibration'
 ID = 'id'
 
