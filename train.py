@@ -42,11 +42,11 @@ class Trainer():
 
     def _run_epoch(self, epoch, mode):
         getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
-        for batch_id, batch in self._data_loader.gen_batches(mode):
-            outputs_cnn = self._run_model(batch.inputs, mode)
+        for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
+            outputs_cnn = self._run_model(batch.input, mode)
             detections = self._detector.run_detection(outputs_cnn)
 
-            self._result_saver.saver(detections, mode)
+            self._result_saver.save(detections, mode)
             loss, task_losses = self._loss_handler.calc_losses(batch, outputs_cnn, detections)
             if mode == TRAIN:
                 self._optimizer.zero_grad()

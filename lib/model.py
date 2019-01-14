@@ -25,7 +25,7 @@ class Model(nn.Module):
                             upsampling_factor=self._configs.network.tiling_upsampling)
 
     def forward(self, input_data):
-        return self._encoder(self._decoder(input_data))
+        return self._decoder(self._encoder(input_data))
 
 
 class MultiTaskNet(nn.ModuleDict):
