@@ -4,13 +4,15 @@ from collections import namedtuple
 from importlib import import_module
 import torch.utils.data as ptdata
 
+import numpy as np
+
 from lib.constants import SETTINGS_PATH, TRAIN, VAL
 from lib.constants import ANNOTATION, INPUT, GT, CALIBRATION, ID
-from lib.data import process, gt
+from lib.data.gt import GTGenerator
 
 
-Batch = namedtuple('Batch', [ANNOTATION, INPUT, GT, CALIBRATION, ID])
 Sample = namedtuple('Sample', [ANNOTATION, INPUT, GT, CALIBRATION, ID])
+Batch = namedtuple('Batch', [ANNOTATION, INPUT, GT, CALIBRATION, ID])
 
 
 class Loader:
@@ -28,7 +30,7 @@ class Loader:
         data_configs = getattr(self._configs.loading, mode)
         return {
             'dataset': dataset,
-            'collate_fn': process.collate_batch,
+            'collate_fn': collate_batch,
             'drop_last': True,
             'batch_size': data_configs.batch_size,
             'shuffle': data_configs.shuffle,
@@ -54,6 +56,15 @@ class Loader:
         return getattr(self, mode)
 
 
+def collate_batch(batch_list):
+    """Collates for PT data loader."""
+    annotations, in_data, gt_mask, calib, img_id = zip(*batch_list)
+    in_data = np.stack(in_data)
+    gt_mask = {task: np.stack([sample[task] for sample in gt_mask]) for task in gt_mask[0]}
+    calib = map(lambda x: x.P0, gt_mask)
+    return Batch(annotations, in_data, gt_mask, calib, img_id)
+
+
 class Dataset(ptdata.Dataset):
     """docstring for Dataset."""
     def __init__(self, configs, mode):
@@ -62,7 +73,7 @@ class Dataset(ptdata.Dataset):
         self._reader = self._get_reader()
         self._augmenter = None  # TODO: or not ?
         #elf._processor = self._get_processor()
-        self._gt_generator = gt.GTGenerator(self._configs)
+        self._gt_generator = GTGenerator(self._configs)
         super(Dataset, self).__init__()
 
     def __len__(self):
@@ -82,5 +93,5 @@ class Dataset(ptdata.Dataset):
         reader_module = import_module('lib.data.readers.{}'.format(self._configs.data.dataset))
         return reader_module.Reader(self._configs)
 
-    def _get_processor(self):
-        return getattr(process, self._mode.capitalize())()
+    #def _get_processor(self):
+    #    return getattr(process, self._mode.capitalize())()
