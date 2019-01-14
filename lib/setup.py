@@ -37,7 +37,7 @@ def parse_arguments():
 
 def get_default_root():
     """Get default root."""
-    project_root_path = os.path.dirname(os.path.realpath(__file__))
+    project_root_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     return join(project_root_path, 'experiments')
 
 
