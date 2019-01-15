@@ -8,6 +8,9 @@
     "validation": {
         "score": "f1_score"
     },
+    "inference": {
+        "nms_split": [2, 8]
+    },
     "training": {
         "learning_rate": 0.0001,
         "n_epochs": 100

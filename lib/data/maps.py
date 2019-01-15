@@ -71,6 +71,10 @@ class GeneratorIf(metaclass=ABCMeta):
         """Generate a network target from the `objects`."""
         return self._map
 
+    def decode(self, tensor):
+        """Decode an output tensor."""
+        return tensor
+
 
 class ClassGenerator(GeneratorIf):
     """GT map ClassGenerator."""
@@ -87,6 +91,11 @@ class ClassGenerator(GeneratorIf):
 
 class Bbox2dGenerator(GeneratorIf):
     """GT map Bbox2dGenerator."""
+    def __init__(self, configs, *args):
+        """Constructor."""
+        super().__init__(configs)
+        self._index_map = _gen_index_map(*configs.data.img_dims, configs.network.output_stride)
+
     def _get_num_maps(self):
         return 4
 
@@ -94,12 +103,12 @@ class Bbox2dGenerator(GeneratorIf):
         xmin, ymin, xmax, ymax = map_coords
         bbox_coords = obj_annotation.bounding_box
         for index in range(self._get_num_maps()):
-            self._map[index, ymin: ymax, xmin: xmax] = bbox_coords[index]
+            self._map[index, ymin: ymax, xmin: xmax] = bbox_coords[index] - self._index_map[(index + 1) % 2, ymin: ymax, xmin: xmax]
 
-    def get_map(self):
-        bbox_map_handler = IndexCodec(*self._configs.data.img_dims, self._configs.network.output_stride)
-        return bbox_map_handler.encode(self._map)
-
+    def decode(self, tensor):
+        tensor[0::2, :] += self._index_map[1]
+        tensor[1::2, :] += self._index_map[0]
+        return tensor
 
 class ZdepthGenerator(GeneratorIf):
     """GT map ZdepthGenerator."""
@@ -123,13 +132,17 @@ class SizeGenerator(GeneratorIf):
         for index in range(self._get_num_maps()):
             self._map[index, ymin: ymax, xmin: xmax] = log_dim[index]
 
+    def decode(self, tensor):
+        return tensor.exp()
+
 
 class CornersGenerator(GeneratorIf):
     """GT map CornersGenerator."""
-    def __init__(self, configs, projection_matrix):
+    def __init__(self, configs, projection_matrix=None):
         """Constructor."""
         super().__init__(configs)
         self._projection_matrix = projection_matrix
+        self._index_map = _gen_index_map(*configs.data.img_dims, configs.network.output_stride)
 
     def _get_num_maps(self):
         return 16
@@ -147,28 +160,16 @@ class CornersGenerator(GeneratorIf):
             # If keypoint is far off, it will hurt training
             if abs(x / self._configs.data.img_dims[1] - 0.5) > 10:
                 print('Keypoint projected far outside image. Check object not behind camera.')
-            self._map[2 * index + 0, ymin: ymax, xmin: xmax] = x
-            self._map[2 * index + 1, ymin: ymax, xmin: xmax] = y
+            self._map[2 * index + 0, ymin: ymax, xmin: xmax] = x - self._index_map[1, ymin: ymax, xmin: xmax]
+            self._map[2 * index + 1, ymin: ymax, xmin: xmax] = y - self._index_map[0, ymin: ymax, xmin: xmax]
 
-    def get_map(self):
-        corner_map_handler = IndexCodec(*self._configs.data.img_dims, self._configs.network.output_stride)
-        return corner_map_handler.encode(self._map)
+    def decode(self, tensor):
+        tensor[0::2, :] += self._index_map[1]
+        tensor[1::2, :] += self._index_map[0]
+        return tensor
 
 
-class IndexCodec():
-    def __init__(self, img_height, img_width, stride):
-        """Constructor."""
-        map_height = ceil(img_height / stride)
-        map_width = ceil(img_width / stride)
-
-        self._index_matrix = torch.from_numpy(stride * np.indices((map_height, map_width), dtype=np.float32))
-
-    def encode(self, index_map):
-        index_map[0::2, :] -= self._index_matrix[1]
-        index_map[1::2, :] -= self._index_matrix[0]
-        return index_map
-
-    def decode(self, index_map):
-        index_map[0::2, :] += self._index_matrix[1]
-        index_map[1::2, :] += self._index_matrix[0]
-        return index_map
+def _gen_index_map(img_height, img_width, stride):
+    map_height = ceil(img_height / stride)
+    map_width = ceil(img_width / stride)
+    return torch.from_numpy(stride * np.indices((map_height, map_width), dtype=np.float32))
