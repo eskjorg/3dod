@@ -13,7 +13,8 @@
     },
     "training": {
         "learning_rate": 0.0001,
-        "n_epochs": 100
+        "n_epochs": 100,
+        "neg_log_likelihood": false
     },
     "logging": {
         "avg_window_size": 25

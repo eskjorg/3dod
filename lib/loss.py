@@ -4,7 +4,7 @@ from collections import defaultdict
 from torch import nn
 
 from lib.constants import TRAIN, VAL
-from lib.constants import LN_SQRT_2_PI, IGNORE_IDX_CLS, IGNORE_IDX_REG
+from lib.constants import LN_2, IGNORE_IDX_CLS, IGNORE_IDX_REG
 from lib.utils import get_device
 
 
@@ -17,9 +17,9 @@ class LossHandler:
         self._losses = defaultdict(list)
 
         self._ce_loss = nn.CrossEntropyLoss(ignore_index=IGNORE_IDX_CLS).to(get_device())
-        self._l1_loss = nn.L1Loss().to(get_device())
+        self._l1_loss = nn.L1Loss(reduction='none').to(get_device())
 
-    def calc_loss(self, gt_maps, outputs_cnn):
+    def calc_loss(self, gt_maps, outputs_cnn, outputs_ln_b=None):
         loss = 0
         for layer, tensor in outputs_cnn.items():
             gt_map = gt_maps[layer].to(get_device())
@@ -28,7 +28,12 @@ class LossHandler:
             else:
                 tensor = tensor * gt_map.ne(IGNORE_IDX_REG).float()
                 task_loss = self._l1_loss(tensor, gt_map)
-            loss += task_loss
+            if outputs_ln_b:
+                ln_b = outputs_ln_b[layer]
+                loss += LN_2 + ln_b.mean() + (task_loss * torch.exp(-ln_b)).mean()
+            else:
+                task_loss = task_loss.mean()
+                loss += task_loss
             self._losses[layer].append(task_loss.item())
         return loss
 

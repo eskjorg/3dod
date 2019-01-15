@@ -12,6 +12,8 @@ class Model(nn.Module):
         self._configs = configs
         self._encoder, self._bottleneck_channels = self._create_encoder()
         self._decoder = self._create_decoder()
+        if self._configs.training.neg_log_likelihood:
+            self._decoder_ln_b = self._create_decoder()
         self._encoder_output_channels = None
 
     def _create_encoder(self):

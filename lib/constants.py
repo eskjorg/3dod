@@ -12,6 +12,7 @@ IGNORE_IDX_REG = 0
 
 # Math
 LN_SQRT_2_PI = math.log(math.sqrt(2*math.pi))
+LN_2 = math.log(2)
 
 # Data
 ANNOTATION = 'annotation'
