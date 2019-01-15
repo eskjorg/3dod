@@ -32,7 +32,7 @@ class LossHandler:
             self._losses[layer].append(task_loss.item())
         return loss
 
-    def get_avgerages(self, num_batches=0):
+    def get_averages(self, num_batches=0):
         avg_losses = defaultdict(int)
         for loss_name, loss_list in self._losses.items():
             latest_losses = loss_list[-num_batches:]
@@ -42,9 +42,9 @@ class LossHandler:
     def log_batch(self, epoch, iteration, mode):
         """Log current batch."""
         losses = {
-            'Loss': self.get_avgerages(num_batches=1),
-            'Moving Avg.': self.get_avgerages(num_batches=self._configs.logging.avg_window_size),
-            'Average': self.get_avgerages(num_batches=0)
+            'Loss': self.get_averages(num_batches=1),
+            'Moving Avg.': self.get_averages(num_batches=self._configs.logging.avg_window_size),
+            'Average': self.get_averages(num_batches=0)
         }
         status_total_loss = ('[{name:s}]  '
                              'Epoch:{epoch:<3d}  '
