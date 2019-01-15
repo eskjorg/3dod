@@ -6,7 +6,6 @@ from lib.checkpoint import CheckpointHandler
 from lib.constants import TRAIN, VAL
 from lib.detection import Detector
 from lib.evaluation import Evaluator
-from lib.log import Logger
 from lib.loss import LossHandler
 from lib.model import Model
 from lib.utils import get_device, get_configs
@@ -19,10 +18,9 @@ class Trainer():
     def __init__(self, configs):
         """Constructor."""
         self._configs = configs
-        self._logger = Logger(self.__class__.__name__)
         self._data_loader = Loader((TRAIN, VAL), self._configs)
         self._result_saver = None  # TODO:
-        self._loss_handler = LossHandler(configs)
+        self._loss_handler = LossHandler(configs, self.__class__.__name__)
         self._checkpoint_handler = CheckpointHandler(configs)
         self._model = self._checkpoint_handler.init(Model(configs))
         self._optimizer = torch.optim.Adam(self._model.parameters(),
@@ -45,12 +43,12 @@ class Trainer():
         getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
         for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
             outputs_cnn = self._run_model(batch.input, mode)
-            loss, task_losses = self._loss_handler.calc_losses(batch.gt_map, outputs_cnn)
+            loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)
             if mode == TRAIN:
                 self._optimizer.zero_grad()
                 loss.backward()
                 self._optimizer.step()
-            self._logger.log_batch(epoch, batch_id, loss, task_losses, mode)
+            self._loss_handler.log_batch(epoch, batch_id, mode)
             self._visualizer.save_images(epoch, batch, detections, mode)
 
             detections = self._detector.run_detection(outputs_cnn)
@@ -60,7 +58,7 @@ class Trainer():
         score = self._evaluator.calculate_score(epoch, mode)
         self._visualizer.report_score(epoch, score, mode)
 
-        self._logger.finish_epoch(epoch, mode)
+        self._loss_handler.finish_epoch(epoch, mode)
         return score
 
     def _run_model(self, inputs, mode):

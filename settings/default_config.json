@@ -12,6 +12,9 @@
         "learning_rate": 0.0001,
         "n_epochs": 100
     },
+    "logging": {
+        "avg_window_size": 25
+    },
     "loading": {
         "train": {
             "batch_size": 16,
