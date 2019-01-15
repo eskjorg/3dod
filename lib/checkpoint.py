@@ -30,6 +30,6 @@ class CheckpointHandler:
             self._best_score = score
             file_name = 'best_model.pth.tar'
             torch.save(model_params, os.path.join(self._configs.checkpoint_dir, file_name))
-        if self._configs.train.backup_epochs:
+        if self._configs.training.backup_epochs:
             file_name = 'epoch{0:03d}.pth.tar'.format(epoch)
             torch.save(model_params, os.path.join(self._configs.checkpoint_dir, file_name))

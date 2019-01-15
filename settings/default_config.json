@@ -14,7 +14,8 @@
     "training": {
         "learning_rate": 0.0001,
         "n_epochs": 100,
-        "neg_log_likelihood": false
+        "neg_log_likelihood": false,
+        "backup_epochs": false
     },
     "logging": {
         "avg_window_size": 25
@@ -23,17 +24,17 @@
         "train": {
             "batch_size": 16,
             "shuffle": true,
-            "num_workers": 4
+            "num_workers": 16
         },
         "val": {
-            "batch_size": 16,
+            "batch_size": 32,
             "shuffle": false,
-            "num_workers": 4
+            "num_workers": 32
         },
         "test": {
             "batch_size": 1,
             "shuffle": false,
-            "num_workers": 4
+            "num_workers": 16
         }
     }
 }

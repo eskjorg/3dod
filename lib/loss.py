@@ -22,7 +22,7 @@ class LossHandler:
     def calc_loss(self, gt_maps, outputs_cnn, outputs_ln_b=None):
         loss = 0
         for layer, tensor in outputs_cnn.items():
-            gt_map = gt_maps[layer].to(get_device())
+            gt_map = gt_maps[layer].to(get_device(), non_blocking=True)
             if layer == 'class':
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
             else:
@@ -48,7 +48,7 @@ class LossHandler:
         """Log current batch."""
         losses = {
             'Loss': self.get_averages(num_batches=1),
-            'Moving Avg.': self.get_averages(num_batches=self._configs.logging.avg_window_size),
+            'Moving Avg': self.get_averages(num_batches=self._configs.logging.avg_window_size),
             'Average': self.get_averages(num_batches=0)
         }
         status_total_loss = ('[{name:s}]  '
@@ -58,14 +58,14 @@ class LossHandler:
                                     epoch=epoch,
                                     iteration=iteration))
         for statistic, value in losses.items():
-            status_total_loss += '{stat:s}: {value:>7.3f}  '.format(stat=statistic,
+            status_total_loss += '{stat:s}: {value:>7.3f}   '.format(stat=statistic,
                                                                     value=sum(value.values()))
         self._logger.info(status_total_loss)
 
         for task_name in self._losses.keys():
             status_task_loss = '{name:<26s}'.format(name=task_name)
             for statistic, value in losses.items():
-                status_task_loss += '{stat:s}: {value:>7.3f}  '.format(stat=statistic,
+                status_task_loss += '{stat:s}: {value:>7.3f}   '.format(stat=statistic,
                                                                        value=value[task_name])
             self._logger.info(status_task_loss)
 

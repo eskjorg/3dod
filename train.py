@@ -1,6 +1,9 @@
 """Main training script."""
 import torch
 
+from apex import amp
+amp_handle = amp.init()
+
 import lib.setup
 from lib.checkpoint import CheckpointHandler
 from lib.constants import TRAIN, VAL
@@ -48,7 +51,8 @@ class Trainer():
             loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)
             if mode == TRAIN:
                 self._optimizer.zero_grad()
-                loss.backward()
+                with amp_handle.scale_loss(loss, self._optimizer) as scaled_loss:
+                    scaled_loss.backward()
                 self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
             detections = self._detector.run_detection(batch, outputs_cnn)
@@ -63,7 +67,7 @@ class Trainer():
         return score
 
     def _run_model(self, inputs, mode):
-        inputs = inputs.to(get_device())
+        inputs = inputs.to(get_device(), non_blocking=True)
         with torch.set_grad_enabled(mode == TRAIN):
             return self._model(inputs)
 

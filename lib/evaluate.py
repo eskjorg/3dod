@@ -8,3 +8,4 @@ class Evaluator:
 
     def calculate_score(self, epoch, mode):
         print("Not yet implemented: ", 'Evaluator.calculate_score()')
+        return 0

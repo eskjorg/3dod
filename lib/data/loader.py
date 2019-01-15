@@ -32,6 +32,7 @@ class Loader:
         return {
             'dataset': dataset,
             'collate_fn': collate_batch,
+            'pin_memory': True,
             'drop_last': True,
             'batch_size': data_configs.batch_size,
             'shuffle': data_configs.shuffle,
@@ -54,7 +55,8 @@ class Loader:
 
     def gen_batches(self, mode):
         """Return an iterator over batches."""
-        return getattr(self, mode)
+        for batch in getattr(self, mode):
+            yield Batch(*batch)
 
 
 def collate_batch(batch_list):
@@ -63,7 +65,7 @@ def collate_batch(batch_list):
     in_data = torch.stack([sample_data['image_2'] for sample_data in in_data])
     gt_map = {task: torch.stack([sample[task] for sample in gt_map]) for task in gt_map[0]}
     calib = [matrices.P0 for matrices in calib]
-    return Batch(annotations, in_data, gt_map, calib, img_id)
+    return (annotations, in_data, gt_map, calib, img_id)
 
 
 class Dataset(ptdata.Dataset):
@@ -73,7 +75,6 @@ class Dataset(ptdata.Dataset):
         self._mode = mode
         self._reader = self._get_reader()
         self._augmenter = None  # TODO: or not ?
-        #elf._processor = self._get_processor()
         self._gt_map_generator = GtMapsGenerator(self._configs)
         super(Dataset, self).__init__()
 
@@ -87,12 +88,8 @@ class Dataset(ptdata.Dataset):
         if self._mode is TRAIN:
             #data = self._augmenter.augment(data)
             None
-        #sample = self._processor.get_sample(raw_sample)
         return Sample(annotations, data, gt_maps, calibration, index)
 
     def _get_reader(self):
         reader_module = import_module('lib.data.readers.{}'.format(self._configs.data.dataset))
         return reader_module.Reader(self._configs)
-
-    #def _get_processor(self):
-    #    return getattr(process, self._mode.capitalize())()
