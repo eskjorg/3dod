@@ -39,9 +39,6 @@ class LossHandler:
             avg_losses[loss_name] = sum(latest_losses) / len(latest_losses)
         return avg_losses
 
-
-
-
     def log_batch(self, epoch, iteration, mode):
         """Log current batch."""
         losses = {
@@ -57,14 +54,14 @@ class LossHandler:
                                     iteration=iteration))
         for statistic, value in losses.items():
             status_total_loss += '{stat:s}: {value:>7.3f}  '.format(stat=statistic,
-                                                                 value=sum(value.values()))
+                                                                    value=sum(value.values()))
         self._logger.info(status_total_loss)
 
         for task_name in self._losses.keys():
             status_task_loss = '{name:<26s}'.format(name=task_name)
             for statistic, value in losses.items():
                 status_task_loss += '{stat:s}: {value:>7.3f}  '.format(stat=statistic,
-                                                                    value=value[task_name])
+                                                                       value=value[task_name])
             self._logger.info(status_task_loss)
 
     def finish_epoch(self, epoch, mode):

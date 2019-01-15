@@ -5,10 +5,12 @@ import lib.setup
 from lib.checkpoint import CheckpointHandler
 from lib.constants import TRAIN, VAL
 from lib.detection import Detector
-from lib.evaluation import Evaluator
+from lib.evaluate import Evaluator
 from lib.loss import LossHandler
 from lib.model import Model
+from lib.save import ResultSaver
 from lib.utils import get_device, get_configs
+from lib.visualize import Visualizer
 
 from lib.data.loader import Loader
 
@@ -19,16 +21,16 @@ class Trainer():
         """Constructor."""
         self._configs = configs
         self._data_loader = Loader((TRAIN, VAL), self._configs)
-        self._result_saver = None  # TODO:
+        self._result_saver = ResultSaver()
         self._loss_handler = LossHandler(configs, self.__class__.__name__)
         self._checkpoint_handler = CheckpointHandler(configs)
         self._model = self._checkpoint_handler.init(Model(configs))
         self._optimizer = torch.optim.Adam(self._model.parameters(),
                                            lr=configs.training.learning_rate)
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
-        self._detector = None  # TODO:
-        self._evaluator = None  # TODO:
-        self._visualizer = None  # TODO:
+        self._detector = Detector(self._configs)
+        self._evaluator = Evaluator()
+        self._visualizer = Visualizer()
 
     def train(self):
         """Main loop."""
@@ -49,9 +51,8 @@ class Trainer():
                 loss.backward()
                 self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
+            detections = self._detector.run_detection(batch, outputs_cnn)
             self._visualizer.save_images(epoch, batch, detections, mode)
-
-            detections = self._detector.run_detection(outputs_cnn)
             self._result_saver.save(detections, mode)
 
         self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
@@ -63,7 +64,6 @@ class Trainer():
 
     def _run_model(self, inputs, mode):
         inputs = inputs.to(get_device())
-        #inputs = inputs.float()  # TODO:
         with torch.set_grad_enabled(mode == TRAIN):
             return self._model(inputs)
 
