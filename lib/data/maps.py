@@ -53,7 +53,7 @@ class GtMapsGenerator:
 
 class GeneratorIf(metaclass=ABCMeta):
     """Abstract class for target gt generation."""
-    def __init__(self, configs, *args):
+    def __init__(self, configs, *args, **kwargs):
         """Constructor."""
         super().__init__()
         self._configs = configs
@@ -76,6 +76,27 @@ class GeneratorIf(metaclass=ABCMeta):
         return tensor
 
 
+class GeneratorIndex(GeneratorIf):
+    """GeneratorIndex."""
+    def __init__(self, configs, calib=None, device='cpu'):
+        """Constructor."""
+        super().__init__(configs)
+        self._calib = calib
+        self._index_map = self._gen_index_map().to(torch.device(device))
+
+    def _gen_index_map(self):
+        img_height, img_width = self._configs.data.img_dims
+        stride = self._configs.network.output_stride
+        map_height = ceil(img_height / stride)
+        map_width = ceil(img_width / stride)
+        return torch.from_numpy(stride * np.indices((map_height, map_width), dtype=np.float32))
+
+    def decode(self, tensor):
+        tensor[0::2, :] += self._index_map[1]
+        tensor[1::2, :] += self._index_map[0]
+        return tensor
+
+
 class ClassGenerator(GeneratorIf):
     """GT map ClassGenerator."""
     def _get_num_maps(self):
@@ -89,13 +110,8 @@ class ClassGenerator(GeneratorIf):
         return self._map.long()
 
 
-class Bbox2dGenerator(GeneratorIf):
+class Bbox2dGenerator(GeneratorIndex):
     """GT map Bbox2dGenerator."""
-    def __init__(self, configs, *args):
-        """Constructor."""
-        super().__init__(configs)
-        self._index_map = _gen_index_map(*configs.data.img_dims, configs.network.output_stride)
-
     def _get_num_maps(self):
         return 4
 
@@ -103,12 +119,9 @@ class Bbox2dGenerator(GeneratorIf):
         xmin, ymin, xmax, ymax = map_coords
         bbox_coords = obj_annotation.bounding_box
         for index in range(self._get_num_maps()):
-            self._map[index, ymin: ymax, xmin: xmax] = bbox_coords[index] - self._index_map[(index + 1) % 2, ymin: ymax, xmin: xmax]
+            self._map[index, ymin: ymax, xmin: xmax] = \
+                bbox_coords[index] - self._index_map[(index + 1) % 2, ymin: ymax, xmin: xmax]
 
-    def decode(self, tensor):
-        tensor[0::2, :] += self._index_map[1]
-        tensor[1::2, :] += self._index_map[0]
-        return tensor
 
 class ZdepthGenerator(GeneratorIf):
     """GT map ZdepthGenerator."""
@@ -136,14 +149,8 @@ class SizeGenerator(GeneratorIf):
         return tensor.exp()
 
 
-class CornersGenerator(GeneratorIf):
+class CornersGenerator(GeneratorIndex):
     """GT map CornersGenerator."""
-    def __init__(self, configs, projection_matrix=None):
-        """Constructor."""
-        super().__init__(configs)
-        self._projection_matrix = projection_matrix
-        self._index_map = _gen_index_map(*configs.data.img_dims, configs.network.output_stride)
-
     def _get_num_maps(self):
         return 16
 
@@ -152,7 +159,7 @@ class CornersGenerator(GeneratorIf):
         corner_coords = project_3d_box(obj_annotation.dimensions,
                                        obj_annotation.location,
                                        obj_annotation.rotation,
-                                       self._projection_matrix)
+                                       self._calib)
         for index in range(8):
             x, y = corner_coords[:, index]
             # Quite arbitrary threshold: 10
@@ -162,14 +169,3 @@ class CornersGenerator(GeneratorIf):
                 print('Keypoint projected far outside image. Check object not behind camera.')
             self._map[2 * index + 0, ymin: ymax, xmin: xmax] = x - self._index_map[1, ymin: ymax, xmin: xmax]
             self._map[2 * index + 1, ymin: ymax, xmin: xmax] = y - self._index_map[0, ymin: ymax, xmin: xmax]
-
-    def decode(self, tensor):
-        tensor[0::2, :] += self._index_map[1]
-        tensor[1::2, :] += self._index_map[0]
-        return tensor
-
-
-def _gen_index_map(img_height, img_width, stride):
-    map_height = ceil(img_height / stride)
-    map_width = ceil(img_width / stride)
-    return torch.from_numpy(stride * np.indices((map_height, map_width), dtype=np.float32))
