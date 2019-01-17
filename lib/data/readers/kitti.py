@@ -10,7 +10,7 @@ from lib.data.loader import Sample
 
 
 Annotation = namedtuple('Annotation', ['obj_class', 'truncation', 'occlusion', 'alpha',
-                                       'bounding_box', 'dimensions', 'location', 'rotation'])
+                                       'bounding_box', 'size', 'location', 'rotation'])
 Calibration = namedtuple('Calibration',
                          ['P0', 'P1', 'P2', 'P3', 'R0_rect', 'Tr_velo_to_cam', 'Tr_imu_to_velo'])
 
@@ -74,7 +74,7 @@ class Reader:
                                               truncation=truncation, occlusion=occlusion,
                                               alpha=labels[3],
                                               bounding_box=torch.Tensor(labels[4:8]),
-                                              dimensions=torch.Tensor(labels[8:11]),
+                                              size=torch.Tensor(labels[8:11]),
                                               location=torch.Tensor(labels[11:14]),
                                               rotation=rotation))
         return annotations

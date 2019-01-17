@@ -65,9 +65,9 @@ def get_layers(config_name):
 
 # Geometry
 
-def project_3d_box(dims, loc, rot, p_matrix):
-    h, _, _ = dims
-    _, w2, l2 = dims / 2
+def project_3d_box(size, loc, rot, p_matrix):
+    h, _, _ = size
+    _, w2, l2 = size / 2
     rot_matrix = np.array([[np.cos(rot), 0, np.sin(rot)],
                            [0, 1, 0],
                            [-np.sin(rot), 0, np.cos(rot)]])

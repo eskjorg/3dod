@@ -140,7 +140,7 @@ class SizeGenerator(GeneratorIf):
         return 3
 
     def add_obj(self, obj_annotation, map_coords):
-        log_dim = torch.Tensor(obj_annotation.dimensions).log()
+        log_dim = torch.Tensor(obj_annotation.size).log()
         xmin, ymin, xmax, ymax = map_coords
         for index in range(self._get_num_maps()):
             self._map[index, ymin: ymax, xmin: xmax] = log_dim[index]
@@ -156,7 +156,7 @@ class CornersGenerator(GeneratorIndex):
 
     def add_obj(self, obj_annotation, map_coords):
         xmin, ymin, xmax, ymax = map_coords
-        corner_coords = project_3d_box(obj_annotation.dimensions,
+        corner_coords = project_3d_box(obj_annotation.size,
                                        obj_annotation.location,
                                        obj_annotation.rotation,
                                        self._calib)

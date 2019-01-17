@@ -12,6 +12,14 @@
         "detection_threshold": 0.5,
         "iou_threshold": 0.3
     },
+    "estimation": {
+        "local_optimization_3d": false,
+        "weights": {
+            "corners": 1,
+            "size": 500,
+            "zdepth": 30
+        }
+    },
     "training": {
         "learning_rate": 0.0001,
         "n_epochs": 100,
