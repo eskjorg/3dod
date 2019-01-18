@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 from lib.constants import VELODYNE, LABEL_2, CALIB, IGNORE_IDX_CLS
-from lib.utils import get_layers, read_image_to_pt, read_velodyne_to_pt
+from lib.utils import get_layers, read_image_to_pt, read_velodyne_to_pt, preprocess_image
 from lib.data.loader import Sample
 
 
@@ -45,12 +45,11 @@ class Reader:
 
     def _read_data(self, index):
         data = {}
-        img_height, img_width = self._configs.img_dims
         for cam_name in self._configs.modalities.cam:
             path = self._get_path(cam_name, index)
             load_type = cam_name.split('_')[-1] in ('2', '3')
             image = read_image_to_pt(path, load_type)
-            data[cam_name] = image[:img_height, :img_width].permute(2, 0, 1)
+            data[cam_name] = preprocess_image(image, self._configs.img_dims)
         if VELODYNE in self._configs.modalities.lidar:
             path = self._get_path(VELODYNE, index)
             data[VELODYNE] = read_velodyne_to_pt(path)

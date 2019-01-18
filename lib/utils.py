@@ -6,9 +6,10 @@ from attrdict import AttrDict
 import numpy as np
 import cv2 as cv
 import torch
-from torchvision.transforms import ToTensor
+from torchvision.transforms import Normalize
 
 from lib.constants import SETTINGS_PATH
+from lib.constants import TORCHVISION_MEAN, TORCHVISION_STD
 
 
 ## GPU ##
@@ -46,6 +47,14 @@ def read_velodyne_to_pt(path):
     pointcloud = np.fromfile(path, dtype=np.float32)
     pointcloud = np.reshape(pointcloud, [-1, 4])
     return torch.from_numpy(pointcloud)
+
+# Image
+
+def preprocess_image(image_tensor, dims):
+    norm = Normalize(mean=TORCHVISION_MEAN, std=TORCHVISION_STD)
+    image_tensor = norm(image_tensor / 255)
+    image_tensor = image_tensor[:dims[0], :dims[1]]
+    return image_tensor.permute(2, 0, 1)
 
 # Load settings
 

@@ -10,6 +10,7 @@ from lib.data import maps
 from lib.estimation import BoxEstimator
 from lib.utils import get_device
 
+
 class Detector:
     """Detector."""
     def __init__(self, configs):
