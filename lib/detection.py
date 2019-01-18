@@ -2,6 +2,7 @@
 from collections import defaultdict
 from multiprocessing import Pool
 
+import numpy as np
 import torch
 
 from maskrcnn_benchmark.layers import nms
@@ -60,4 +61,5 @@ class Detector:
                 detection['size'] = box_parameters[:3]
                 detection['location'] = box_parameters[3:6]
                 detection['rotation'] = box_parameters[6]
+                detection['alpha'] = box_parameters[6] - np.arctan2(box_parameters[3], box_parameters[5])
         return frame_detections

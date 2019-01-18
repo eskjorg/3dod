@@ -9,7 +9,7 @@
         "score": "f1_score"
     },
     "detection": {
-        "detection_threshold": 0.5,
+        "detection_threshold": 0.83,
         "iou_threshold": 0.3
     },
     "estimation": {
@@ -27,7 +27,8 @@
         "backup_epochs": false
     },
     "logging": {
-        "avg_window_size": 25
+        "avg_window_size": 25,
+        "save_kitti_format": true
     },
     "loading": {
         "train": {

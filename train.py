@@ -24,7 +24,7 @@ class Trainer():
         """Constructor."""
         self._configs = configs
         self._data_loader = Loader((TRAIN, VAL), self._configs)
-        self._result_saver = ResultSaver()
+        self._result_saver = ResultSaver(configs)
         self._loss_handler = LossHandler(configs, self.__class__.__name__)
         self._checkpoint_handler = CheckpointHandler(configs)
         self._model = self._checkpoint_handler.init(Model(configs))
