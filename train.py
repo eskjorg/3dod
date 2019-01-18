@@ -33,7 +33,7 @@ class Trainer():
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
         self._detector = Detector(self._configs)
         self._evaluator = Evaluator()
-        self._visualizer = Visualizer()
+        self._visualizer = Visualizer(configs)
 
     def train(self):
         """Main loop."""
@@ -56,12 +56,12 @@ class Trainer():
                 self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
             detections = self._detector.run_detection(batch, outputs_cnn)
-            self._visualizer.save_images(epoch, batch, detections, mode)
             self._result_saver.save(detections, mode)
 
-        self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
         score = self._evaluator.calculate_score(epoch, mode)
         self._visualizer.report_score(epoch, score, mode)
+        self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
+        self._visualizer.save_images(epoch, batch, detections, mode)
 
         self._loss_handler.finish_epoch(epoch, mode)
         return score
