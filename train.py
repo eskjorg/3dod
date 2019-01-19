@@ -79,7 +79,7 @@ def main(setup):
     setup.save_settings(args)
 
     configs = get_configs(args.config_load_path)
-    configs.update(vars(args))
+    configs += vars(args)
     trainer = Trainer(configs)
     trainer.train()
 

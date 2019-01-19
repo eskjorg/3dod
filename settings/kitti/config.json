@@ -1,4 +1,10 @@
 {
+    "logging": {
+        "save_kitti_format": true
+    },
+    "training": {
+        "neg_log_likelihood": false
+    },
     "data":{
         "dataset": "kitti",
         "path": "/datasets/kitti/object/training/",
