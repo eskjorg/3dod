@@ -29,6 +29,9 @@ SETTINGS_PATH = os.path.join(PROJECT_PATH, 'settings')
 TORCHVISION_MEAN = [0.485, 0.456, 0.406]
 TORCHVISION_STD = [0.229, 0.224, 0.225]
 
+# Matplotlib
+PYPLOT_DPI = 100
+
 # KITTI
 LEFT_COLOR = 'left_color'
 RIGHT_COLOR = 'right_color'

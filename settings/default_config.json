@@ -8,6 +8,10 @@
     "validation": {
         "score": "f1_score"
     },
+    "visualization": {
+        "plot_gt": true,
+        "plot_features": ["bbox2d"]
+    },
     "detection": {
         "detection_threshold": 0.55,
         "iou_threshold": 0.3
