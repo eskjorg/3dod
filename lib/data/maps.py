@@ -29,7 +29,7 @@ class GtMapsGenerator:
             generator = Generator(self._configs, calibration.P0)
             for object, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
                 if layer_name == "class":
-                    generator.add_obj(object, full)
+                    generator.add_obj(object, full, IGNORE_IDX_CLS)
                 if object.obj_class is not IGNORE_IDX_CLS:
                     generator.add_obj(object, supp)
             gt_maps[layer_name] = generator.get_map()
@@ -104,7 +104,7 @@ class ClassGenerator(GeneratorIf):
 
     def add_obj(self, obj_annotation, map_coords, obj_class=None):
         xmin, ymin, xmax, ymax = map_coords
-        self._map[ymin: ymax, xmin: xmax] = obj_class or obj_annotation.obj_class
+        self._map[0, ymin: ymax, xmin: xmax] = obj_class or obj_annotation.obj_class
 
     def get_map(self):
         return self._map.long()

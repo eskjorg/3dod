@@ -5,12 +5,13 @@
         "output_stride": 4,
         "support_region": 0.2
     },
-    "validation": {
-        "score": "f1_score"
+    "evaluation": {
+        "score": "ap.2d.car.easy",
+        "ap": ["2d"]
     },
     "visualization": {
-        "plot_gt": true,
-        "plot_features": ["bbox2d"]
+        "gt": ["bbox2d"],
+        "det": ["bbox2d", "corners", "zdepth"]
     },
     "detection": {
         "detection_threshold": 0.55,

@@ -9,7 +9,6 @@ class BoxEstimator:
 
     def __init__(self, data, calibration, weights):
         self.data = AttrDict(data)
-        self.data.corners = np.array(data['corners']).reshape(2, 8, order='F')
         self._calibration = calibration
 
         self._weights = self._set_weights(weights)

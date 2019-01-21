@@ -37,10 +37,9 @@ class Visualizer:
         fig, axes = pyplot.subplots(figsize=[dim / PYPLOT_DPI for dim in image_tensor.shape[2:0:-1]])
         axes.axis('off')
         _ = axes.imshow(image_tensor.permute(1, 2, 0))
-        if self._configs.visualization.plot_gt:
-            for feature in self._configs.visualization.plot_features:
-                getattr(self, "_plot_" + feature)(axes, annotations, calib=calib, is_gt=True)
-        for feature in self._configs.visualization.plot_features:
+        for feature in self._configs.visualization.gt:
+            getattr(self, "_plot_" + feature)(axes, annotations, calib=calib, is_gt=True)
+        for feature in self._configs.visualization.det:
             getattr(self, "_plot_" + feature)(axes, detections, calib=calib, is_gt=False)
         self._writer.add_figure(mode, fig, epoch)
 
@@ -54,3 +53,16 @@ class Visualizer:
             rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1,
                                      edgecolor=color, linewidth=2, alpha=alpha, fill=is_gt)
             axes.add_patch(rect)
+
+    def _plot_corners(self, axes, objects, **kwargs):
+        for obj in objects:
+            for corner_xy, color in zip(obj['corners'].T, self._color_corner):
+                axes.add_patch(patches.Circle(corner_xy, color=color))
+
+    def _plot_zdepth(self, axes, objects, **kwargs):
+        for obj in objects:
+            x, y, _, _ = obj['bbox2d']
+            text = 'zdepth={0:.2f}m'.format(obj['zdepth'])
+            self._plot_text(box[0], box[1], text, 'white', color, self._zorder + 1)
+
+            axes.text(x, y, s)

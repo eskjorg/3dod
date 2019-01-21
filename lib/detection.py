@@ -47,6 +47,7 @@ class Detector:
                                for key, mask in frame_outputs.items()}
                 result_dict['confidence'] = result_dict['class'][:, class_index]
                 result_dict['class'] = [class_index] * len(indices)
+                result_dict['corners'] = result_dict['corners'].reshape(-1, 2, 8, order='F')
                 frame_results += [dict(zip(result_dict, detection)) for detection in zip(*result_dict.values())]
         return frame_results
 
