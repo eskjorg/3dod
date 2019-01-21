@@ -34,7 +34,7 @@ class Detector:
             Generator = getattr(maps, key.capitalize() + 'Generator')
             data = Generator(self._configs, device=get_device()).decode(data)
             frame_outputs[key] = data.permute(1, 2, 0).reshape(-1, data.shape[0]).float()
-        frame_results = {}
+        frame_results = []
         for class_index in range(2, max(self._configs.data.class_map.values())):
             confidence_vector = frame_outputs['class'][:, class_index]
             indices = torch.arange(len(confidence_vector))
@@ -45,15 +45,16 @@ class Detector:
                               self._configs.detection.iou_threshold)
                 result_dict = {key: mask[confident][indices].to(torch.device('cpu')).numpy()
                                for key, mask in frame_outputs.items()}
-                frame_results[class_index] = [dict(zip(result_dict, detection)) for detection in zip(*result_dict.values())]
+                result_dict['confidence'] = result_dict['class'][:, class_index]
+                result_dict['class'] = [class_index] * len(indices)
+                frame_results += [dict(zip(result_dict, detection)) for detection in zip(*result_dict.values())]
         return frame_results
 
     def _3d_estimation(self, frame_detections, calibration):
-        for class_detections in frame_detections.values():
-            if len(class_detections) > 100:
-                print("More than 100 detections: Skipping 3D")
-                continue
-            for detection in class_detections:
+        if len(frame_detections) > 100:
+            print("More than 100 detections: Skipping 3D")
+        else:
+            for detection in frame_detections:
                 estimator = BoxEstimator(detection, calibration, self._configs.estimation.weights)
                 box_parameters = estimator.heuristic_3d()
                 if self._configs.estimation.local_optimization_3d:
