@@ -34,7 +34,7 @@ def read_json(path):
 
 def read_image_to_pt(path, load_type=cv.IMREAD_COLOR):
     """Read an image from path to pt tensor."""
-    image = cv.imread(path, load_type)
+    image = cv.imread(path, load_type)[..., ::-1]
     if image is None:
         raise Exception('Failed to read image: {}.'.format(path))
     image = image.astype(np.float32)
