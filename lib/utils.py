@@ -6,7 +6,7 @@ from attrdict import AttrDict
 import numpy as np
 import cv2 as cv
 import torch
-from torchvision.transforms import Normalize
+import torchvision.transforms as tr
 
 from lib.constants import SETTINGS_PATH
 from lib.constants import TORCHVISION_MEAN, TORCHVISION_STD
@@ -34,27 +34,21 @@ def read_json(path):
 
 def read_image_to_pt(path, load_type=cv.IMREAD_COLOR):
     """Read an image from path to pt tensor."""
-    image = cv.imread(path, load_type)[..., ::-1]
+    image = cv.imread(path, load_type)
     if image is None:
         raise Exception('Failed to read image: {}.'.format(path))
-    image = image.astype(np.float32)
+    norm = tr.Normalize(mean=TORCHVISION_MEAN, std=TORCHVISION_STD)
+    image = norm(tr.ToTensor()(image))
     if len(image.shape) == 2:
-        image = np.reshape(image, (image.shape[0], image.shape[1], 1))
-    return torch.from_numpy(image)
+        image._unsqueeze(0)
+    return image.flip(0)
+
 
 def read_velodyne_to_pt(path):
     """Read lidar data from path to pt tensor."""
     pointcloud = np.fromfile(path, dtype=np.float32)
     pointcloud = np.reshape(pointcloud, [-1, 4])
     return torch.from_numpy(pointcloud)
-
-# Image
-
-def preprocess_image(image_tensor, dims):
-    norm = Normalize(mean=TORCHVISION_MEAN, std=TORCHVISION_STD)
-    image_tensor = norm(image_tensor / 255)
-    image_tensor = image_tensor[:dims[0], :dims[1]]
-    return image_tensor.permute(2, 0, 1)
 
 # Load settings
 
