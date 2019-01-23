@@ -4,9 +4,12 @@ import shutil
 
 from matplotlib import pyplot, patches
 
+from torchvision.transforms.functional import normalize
 from tensorboardX import SummaryWriter
 
-from lib.constants import PYPLOT_DPI
+from lib.constants import PYPLOT_DPI, BOX_SKELETON
+from lib.constants import TV_MEAN, TV_STD
+from lib.utils import project_3d_box
 
 class Visualizer:
     """Visualizer."""
@@ -28,7 +31,7 @@ class Visualizer:
 
     def save_images(self, epoch, batch, output, mode, sample=-1):
         calib = batch.calibration[sample]
-        image_tensor = batch.input[sample]
+        image_tensor = normalize(batch.input[sample], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
         frame_id = batch.id[sample]
         annotations = batch.annotation[sample]
 
@@ -38,31 +41,41 @@ class Visualizer:
         axes.axis('off')
         _ = axes.imshow(image_tensor.permute(1, 2, 0))
         for feature in self._configs.visualization.gt:
-            getattr(self, "_plot_" + feature)(axes, annotations, calib=calib, is_gt=True)
+            for annotation in annotations:
+                getattr(self, "_plot_" + feature)(axes, annotation, calib=calib, is_gt=True)
         for feature in self._configs.visualization.det:
-            getattr(self, "_plot_" + feature)(axes, detections, calib=calib, is_gt=False)
+            for detection in detections:
+                getattr(self, "_plot_" + feature)(axes, detection, calib=calib, is_gt=False)
         self._writer.add_figure(mode, fig, epoch)
 
-    def _plot_bbox2d(self, axes, objects, **kwargs):
+    def _plot_bbox2d(self, axes, obj, **kwargs):
         is_gt = kwargs['is_gt']
-        for obj in objects:
-            class_id = obj[0] if is_gt else obj['class']
-            color = self._color_obj[class_id]
-            alpha = 0.2 if is_gt else 1.0
-            x1, y1, x2, y2 = obj[4] if is_gt else obj['bbox2d']
-            rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1,
-                                     edgecolor=color, linewidth=2, alpha=alpha, fill=is_gt)
-            axes.add_patch(rect)
+        class_id = obj[0] if is_gt else obj['class']
+        color = self._color_obj[class_id]
+        alpha = 0.2 if is_gt else 1.0
+        x1, y1, x2, y2 = obj[4] if is_gt else obj['bbox2d']
+        rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1,
+                                 edgecolor=color, linewidth=2, alpha=alpha, fill=is_gt)
+        axes.add_patch(rect)
 
-    def _plot_corners(self, axes, objects, **kwargs):
-        for obj in objects:
-            for corner_xy, color in zip(obj['corners'].T, self._color_corner):
-                axes.add_patch(patches.Circle(corner_xy, color=color))
+    def _plot_bbox3d(self, axes, obj, calib, **kwargs):
+        corners_2d = project_3d_box(obj['size'],
+                                    obj['location'],
+                                    obj['rotation'],
+                                    calib)
+        coordinates = [corners_2d[:, idx] for idx in BOX_SKELETON]
+        polygon = patches.Polygon(coordinates, fill=False, linewidth=2, color=self._color_obj[obj['class']])
+        axes.add_patch(polygon)
 
-    def _plot_zdepth(self, axes, objects, **kwargs):
-        for obj in objects:
-            x, y, _, _ = obj['bbox2d']
-            text = 'zdepth={0:.2f}m'.format(obj['zdepth'])
-            self._plot_text(box[0], box[1], text, 'white', color, self._zorder + 1)
+    def _plot_corners(self, axes, obj, **kwargs):
+        for corner_xy, color in zip(obj['corners'].T, self._color_corner):
+            axes.add_patch(patches.Circle(corner_xy, radius=3, color=color, edgecolor='black'))
 
-            axes.text(x, y, s)
+    def _plot_zdepth(self, axes, obj, **kwargs):
+        _, ymin, xmax, _ = obj['bbox2d']
+        axes.text(x=xmax, y=ymin,
+                  s='z={0:.2f}m'.format(obj['zdepth']),
+                  fontdict={'family': 'monospace',
+                            'color':  'white',
+                            'size': 'small'},
+                  bbox={'color': 'black'})

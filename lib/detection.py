@@ -33,7 +33,7 @@ class Detector:
             data = outputs[key][frame_index].detach()
             Generator = getattr(maps, key.capitalize() + 'Generator')
             data = Generator(self._configs, device=get_device()).decode(data)
-            frame_outputs[key] = data.permute(1, 2, 0).reshape(-1, data.shape[0]).float()
+            frame_outputs[key] = data.permute(1, 2, 0).reshape(-1, data.shape[0]).squeeze().float()
         frame_results = []
         for class_index in range(2, max(self._configs.data.class_map.values())):
             confidence_vector = frame_outputs['class'][:, class_index]

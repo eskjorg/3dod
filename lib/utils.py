@@ -6,10 +6,10 @@ from attrdict import AttrDict
 import numpy as np
 import cv2 as cv
 import torch
-import torchvision.transforms as tr
+from torchvision.transforms.functional import normalize, to_tensor
 
 from lib.constants import SETTINGS_PATH
-from lib.constants import TORCHVISION_MEAN, TORCHVISION_STD
+from lib.constants import TV_MEAN, TV_STD
 
 
 ## GPU ##
@@ -37,8 +37,7 @@ def read_image_to_pt(path, load_type=cv.IMREAD_COLOR):
     image = cv.imread(path, load_type)
     if image is None:
         raise Exception('Failed to read image: {}.'.format(path))
-    norm = tr.Normalize(mean=TORCHVISION_MEAN, std=TORCHVISION_STD)
-    image = norm(tr.ToTensor()(image))
+    image = normalize(to_tensor(image), TV_MEAN, TV_STD)
     if len(image.shape) == 2:
         image._unsqueeze(0)
     return image.flip(0)

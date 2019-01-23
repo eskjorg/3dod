@@ -1,6 +1,7 @@
 """Constants for 3DOD."""
 import os
 import math
+import numpy
 
 # Execution
 TRAIN = 'train'
@@ -26,8 +27,8 @@ PROJECT_PATH = os.path.dirname(os.path.dirname(__file__))
 SETTINGS_PATH = os.path.join(PROJECT_PATH, 'settings')
 
 # TorchVision
-TORCHVISION_MEAN = [0.485, 0.456, 0.406]
-TORCHVISION_STD = [0.229, 0.224, 0.225]
+TV_MEAN = numpy.array((0.485, 0.456, 0.406))
+TV_STD = numpy.array((0.229, 0.224, 0.225))
 
 # Matplotlib
 PYPLOT_DPI = 100
@@ -46,3 +47,4 @@ DONT_CARE = 'dont_care'
 
 # Geometry
 KEYPOINT_NAME_MAP = ("BLR", "BLF", "BRF", "BRR", "TLR", "TLF", "TRF", "TRR")
+BOX_SKELETON = (3, 7, 4, 0, 1, 2, 6, 5, 1, 6, 7, 4, 5, 2, 3, 0)
