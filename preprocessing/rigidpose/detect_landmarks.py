@@ -6,11 +6,17 @@ sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__f
 from lib.rigidpose.sixd_toolkit.pysixd import inout
 import numpy as np
 import cv2
+from matplotlib import pyplot as plt
+from pomegranate import GeneralMixtureModel, MultivariateGaussianDistribution
+from mpl_toolkits.mplot3d import Axes3D
 
 # Parameters
-MAX_NBR_KEYPOINTS = 10
-DIST_TH = 1e-2 # meters
-DEPTH_DIFF_TH = 3e-2 # meters
+DIFFERENTIATE_ON_KP_RESPONSE = False
+MAX_NBR_KEYPOINTS = 100
+# DIST_TH = 1e-2 # meters
+MIN_SCORE_SCATTERPLOT = -1
+NBR_FRAMES_SAMPLED_PER_SEQ = 100
+DEPTH_DIFF_TH = 1e-2 # meters
 DATA_PATH = '/home/lucas/datasets/pose-data/bop/datasets/hinterstoisser/train' # Path to a BOP-SIXD dataset
 MODEL_PATH = '/home/lucas/datasets/pose-data/bop/datasets/hinterstoisser/models'
 
@@ -37,7 +43,13 @@ for seq in os.listdir(DATA_PATH):
     nbr_frames = len(info)
 
     # Loop over all images
-    for frame_idx in list(range(nbr_frames)):
+    if NBR_FRAMES_SAMPLED_PER_SEQ is None:
+        frames = list(range(nbr_frames))
+    else:
+        frames = np.random.choice(nbr_frames, NBR_FRAMES_SAMPLED_PER_SEQ)
+        frames.sort()
+    for frame_idx in frames:
+        print("Frame: {}, objects: {}".format(frame_idx, list(map(lambda x: x['obj_id'], gt[frame_idx]))))
         K = info[frame_idx]['cam_K']
         # Unnecessary:
         # R_w2c = info['cam_R_w2c'] if 'cam_R_w2c' in info else np.eye(3)
@@ -57,6 +69,9 @@ for seq in os.listdir(DATA_PATH):
 
             img = cv2.imread(os.path.join(DATA_PATH, seq, 'rgb', '{:04}.png'.format(frame_idx)))
             keypoints = detector.detect(img)
+            if len(keypoints) == 0:
+                print("No keypoints found!")
+                continue
 
             sigma = np.array(list(map(lambda x: x.size, keypoints)))
             # Fairly confident order is correct - 1st row is horizontal coordinate, 2nd row is vertical
@@ -65,7 +80,7 @@ for seq in os.listdir(DATA_PATH):
 
             # Find top-k keypoints based on response
             score_sorted = np.sort(detection_score)
-            strong_kp_mask = detection_score >= score_sorted[-MAX_NBR_KEYPOINTS]
+            strong_kp_mask = detection_score >= score_sorted[max(0, len(score_sorted)-MAX_NBR_KEYPOINTS)]
 
             # Select only these top-k keypoints
             sigma = sigma[strong_kp_mask]
@@ -136,11 +151,14 @@ for seq in os.listdir(DATA_PATH):
             # TODO: Possible reason: Distance measured in meters at object, not as normalized image coordinates. Either project all vertices and measure distance in image plane, or scale sigma with f/z.
             # TODO: Possible reason: Distance measured in meters at object, not as normalized image coordinates. Either project all vertices and measure distance in image plane, or scale sigma with f/z.
             # TODO: Possible reason: Distance measured in meters at object, not as normalized image coordinates. Either project all vertices and measure distance in image plane, or scale sigma with f/z.
-            dist_weight = np.exp(-dists**2 / (2.0*(sigma[:,np.newaxis])**2))
+            dist_weight = np.exp(-dists**2 / (2.0*(sigma[:,np.newaxis]*1e-1)**2))
             # dist_weight = np.exp(-dists**2 / (2.0*(sigma[:,np.newaxis] / (0.5*(K[0,0]+K[1,1])))**2))
 
             # Shape: (nbr_vtx,)
-            scores = np.sum(small_depth_vtx_mask * detection_score[:,np.newaxis] * dist_weight, axis=0)
+            if DIFFERENTIATE_ON_KP_RESPONSE:
+                scores = np.sum(small_depth_vtx_mask * dist_weight * detection_score[:,np.newaxis], axis=0)
+            else:
+                scores = np.sum(small_depth_vtx_mask * dist_weight, axis=0)
 
             if instance['obj_id'] in vtx_scores:
                 k = instance_counts[instance['obj_id']]
@@ -149,17 +167,47 @@ for seq in os.listdir(DATA_PATH):
             else:
                 vtx_scores[instance['obj_id']] = scores
 
-            break #instance
-        break #frame
-    break #seq
+            # break #instance
+        # if frame_idx > 10:
+        #     break
+        # break #frame
+    # break #seq
 
-print(vtx_scores[6])
-print(np.min(vtx_scores[6]))
-print(np.max(vtx_scores[6]))
-print(np.sum(vtx_scores[6]))
-print(instance_counts[6])
-# TODO: Pick top-n vertices for instance
-# TODO: Pick top-n vertices for instance
-# TODO: Pick top-n vertices for instance
-# TODO: Pick top-n vertices for instance
-# TODO: Pick top-n vertices for instance
+for obj_id, scores in vtx_scores.items():
+    print("Plotting object {}".format(obj_id))
+
+    model = get_model(obj_id)
+
+    # plt.figure()
+    # plt.hist(scores, bins=100)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    # xs, ys, zs = model['pts'].T
+    xs, ys, zs = model['pts'][scores >= MIN_SCORE_SCATTERPLOT, :].T
+    cvals = scores[scores >= MIN_SCORE_SCATTERPLOT]
+    cvals -= np.min(cvals)
+    cvals /= np.max(cvals)
+    ax.scatter(xs, ys, zs, c=cvals, cmap=plt.get_cmap('Greens'))
+
+    # GMM
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    X = model['pts'][scores >= MIN_SCORE_SCATTERPLOT, :]
+    # X = X[np.random.choice(X.shape[0], 1000),:]
+    model = GeneralMixtureModel.from_samples(
+        MultivariateGaussianDistribution,
+        n_components=10,
+        X=X,
+        weights=scores[scores >= MIN_SCORE_SCATTERPLOT]**3,
+    )
+    xs, ys, zs = np.array([d.mu for d in model.distributions]).T
+    ax.plot(xs, ys, zs, 'r*', markersize=50)
+
+    plt.show()
+
+# print(vtx_scores[6])
+# print(np.min(vtx_scores[6]))
+# print(np.max(vtx_scores[6]))
+# print(np.sum(vtx_scores[6]))
+# print(instance_counts[6])
