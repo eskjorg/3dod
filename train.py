@@ -62,10 +62,11 @@ class Trainer():
         score = self._evaluator.summarize_epoch()
         self._visualizer.report_score(epoch, score, mode)
         self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
-        self._visualizer.save_images(epoch, batch, detections, mode)
+        self._visualizer.save_images(batch, detections, mode, index=epoch)
 
         self._loss_handler.finish_epoch(epoch, mode)
-        return score
+        # TODO: return score
+        return sum(self._loss_handler.get_averages().values())
 
     def _run_model(self, inputs, mode):
         inputs = inputs.to(get_device(), non_blocking=True)

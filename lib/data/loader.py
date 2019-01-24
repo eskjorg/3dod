@@ -58,7 +58,7 @@ def collate_batch(batch_list):
     """Collates for PT data loader."""
     annotations, in_data, gt_map, calib, img_id = zip(*batch_list)
     in_data = torch.stack([sample_data['image_2'] for sample_data in in_data])
-    gt_map = {task: torch.stack([sample[task] for sample in gt_map]) for task in gt_map[0]}
+    gt_map = gt_map[0] and {task: torch.stack([sample[task] for sample in gt_map]) for task in gt_map[0]}
     calib = [matrices.P0 for matrices in calib]
     return (annotations, in_data, gt_map, calib, img_id)
 

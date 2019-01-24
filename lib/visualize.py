@@ -29,7 +29,7 @@ class Visualizer:
     def report_score(self, epoch, score, mode):
         self._writer.add_scalar('score/{}'.format(mode), score, epoch)
 
-    def save_images(self, epoch, batch, output, mode, sample=-1):
+    def save_images(self, batch, output, mode, index, sample=-1):
         calib = batch.calibration[sample]
         image_tensor = normalize(batch.input[sample], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
         frame_id = batch.id[sample]
@@ -46,7 +46,7 @@ class Visualizer:
         for feature in self._configs.visualization.det:
             for detection in detections:
                 getattr(self, "_plot_" + feature)(axes, detection, calib=calib, is_gt=False)
-        self._writer.add_figure(mode, fig, epoch)
+        self._writer.add_figure(mode, fig, index)
 
     def _plot_bbox2d(self, axes, obj, **kwargs):
         is_gt = kwargs['is_gt']

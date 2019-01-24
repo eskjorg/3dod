@@ -6,6 +6,7 @@ import numpy
 # Execution
 TRAIN = 'train'
 VAL = 'val'
+TEST = 'test'
 
 # Training
 IGNORE_IDX_CLS = 1
