@@ -1,7 +1,7 @@
 """Loss handler."""
 import logging
 from collections import defaultdict
-from torch import nn
+from torch import nn, exp
 
 from lib.constants import TRAIN, VAL
 from lib.constants import LN_2, IGNORE_IDX_CLS, IGNORE_IDX_REG
@@ -19,21 +19,21 @@ class LossHandler:
         self._ce_loss = nn.CrossEntropyLoss(ignore_index=IGNORE_IDX_CLS).to(get_device())
         self._l1_loss = nn.L1Loss(reduction='none').to(get_device())
 
-    def calc_loss(self, gt_maps, outputs_cnn, outputs_ln_b=None):
+    def calc_loss(self, gt_maps, outputs_cnn):
         loss = 0
-        for layer, tensor in outputs_cnn.items():
+        outputs_task, outputs_ln_b = outputs_cnn
+        for layer, tensor in outputs_task.items():
             gt_map = gt_maps[layer].to(get_device(), non_blocking=True)
             if layer == 'class':
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
             else:
-                tensor = tensor * gt_map.ne(IGNORE_IDX_REG).float()
                 task_loss = self._l1_loss(tensor, gt_map)
-            if outputs_ln_b:
-                ln_b = outputs_ln_b[layer]
-                loss += LN_2 + ln_b.mean() + (task_loss * torch.exp(-ln_b)).mean()
-            else:
-                task_loss = task_loss.mean()
-                loss += task_loss
+                if outputs_ln_b:
+                    ln_b = outputs_ln_b[layer]
+                    task_loss = task_loss * exp(-ln_b) + LN_2 + ln_b
+                task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
+                task_loss = task_loss.sum() / gt_map.ne(IGNORE_IDX_REG).sum()
+            loss += task_loss
             self._losses[layer].append(task_loss.item())
         return loss
 

@@ -31,8 +31,8 @@ class Trainer():
         self._optimizer = torch.optim.Adam(self._model.parameters(),
                                            lr=configs.training.learning_rate)
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
-        self._detector = Detector(self._configs)
-        self._evaluator = Evaluator()
+        self._detector = Detector(configs)
+        self._evaluator = Evaluator(configs)
         self._visualizer = Visualizer(configs)
 
     def train(self):
@@ -55,10 +55,11 @@ class Trainer():
                     scaled_loss.backward()
                 self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
-            detections = self._detector.run_detection(batch, outputs_cnn)
+            detections = self._detector.run_detection(batch, outputs_cnn[0])
             self._result_saver.save(detections, mode)
+            self._evaluator.calc_batch(detections, batch.annotation)
 
-        score = self._evaluator.calculate_score(epoch, mode)
+        score = self._evaluator.summarize_epoch()
         self._visualizer.report_score(epoch, score, mode)
         self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
         self._visualizer.save_images(epoch, batch, detections, mode)

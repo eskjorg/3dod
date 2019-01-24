@@ -3,7 +3,8 @@
         "save_kitti_format": true
     },
     "training": {
-        "neg_log_likelihood": false
+        "learning_rate": 0.001,
+        "neg_log_likelihood": true
     },
     "data":{
         "dataset": "kitti",
