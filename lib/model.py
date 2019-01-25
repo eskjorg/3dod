@@ -12,7 +12,7 @@ class Model(nn.Module):
         self._configs = configs
         self._encoder, self._bottleneck_channels = self._create_encoder()
         self._decoder = self._create_decoder()
-        if self._configs.training.neg_log_likelihood:
+        if self._configs.training.nll_loss:
             self._decoder_ln_b = self._create_decoder()
         self._encoder_output_channels = None
 
@@ -29,7 +29,7 @@ class Model(nn.Module):
     def forward(self, input_data):
         features = self._encoder(input_data)
         outputs_task = self._decoder(features)
-        outputs_ln_b = self._configs.training.neg_log_likelihood and self._decoder_ln_b(features)
+        outputs_ln_b = self._decoder_ln_b(features) if self._configs.training.nll_loss else {}
         return outputs_task, outputs_ln_b
 
 

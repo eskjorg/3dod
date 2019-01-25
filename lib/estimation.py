@@ -44,7 +44,7 @@ class BoxEstimator:
 
         residuals = np.concatenate(((self.data.corners - corners).flatten(),
                                     self.data.size - size,
-                                    self.data.zdepth - location[2]))
+                                    (self.data.zdepth - location[2],)))
         return self._weights * residuals
 
     def solve(self):

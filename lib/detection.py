@@ -28,12 +28,16 @@ class Detector:
         return batch_detections
 
     def _2d_detection(self, frame_index, outputs):
+        outputs_task, outputs_ln_b = outputs
         frame_outputs = {}
-        for key in outputs:
-            data = outputs[key][frame_index].detach()
+        for key in outputs_task:
+            data = outputs_task[key][frame_index].detach()
             Generator = getattr(maps, key.capitalize() + 'Generator')
             data = Generator(self._configs, device=get_device()).decode(data)
             frame_outputs[key] = data.permute(1, 2, 0).reshape(-1, data.shape[0]).squeeze().float()
+        for key in outputs_ln_b:
+            data = outputs_ln_b[key][frame_index].detach()
+            frame_outputs[key + '_ln_b'] = data.permute(1, 2, 0).reshape(-1, data.shape[0]).squeeze().float()
         frame_results = []
         for class_index in range(2, max(self._configs.data.class_map.values())):
             confidence_vector = frame_outputs['class'][:, class_index]
@@ -56,7 +60,11 @@ class Detector:
             print("More than 100 detections: Skipping 3D")
         else:
             for detection in frame_detections:
-                estimator = BoxEstimator(detection, calibration, self._configs.estimation.weights)
+                if self._configs.training.nll_loss:
+                    weights = self._configs.estimation.weights  # TODO: Optimize with L1 loss
+                else:
+                    weights = self._configs.estimation.weights
+                estimator = BoxEstimator(detection, calibration, weights)
                 box_parameters = estimator.heuristic_3d()
                 if self._configs.estimation.local_optimization_3d:
                     box_parameters = estimator.solve()

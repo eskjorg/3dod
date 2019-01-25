@@ -4,7 +4,7 @@
     },
     "training": {
         "learning_rate": 0.001,
-        "neg_log_likelihood": true
+        "nll_loss": true
     },
     "data":{
         "dataset": "kitti",

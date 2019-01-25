@@ -55,7 +55,7 @@ class Trainer():
                     scaled_loss.backward()
                 self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
-            detections = self._detector.run_detection(batch, outputs_cnn[0])
+            detections = self._detector.run_detection(batch, outputs_cnn)
             self._result_saver.save(detections, mode)
             self._evaluator.calc_batch(detections, batch.annotation)
 

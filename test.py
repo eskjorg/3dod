@@ -33,7 +33,7 @@ class Tester():
         self._model.eval()
         for batch_id, batch in enumerate(self._data_loader.gen_batches(TEST)):
             outputs_cnn = self._run_model(batch.input)
-            detections = self._detector.run_detection(batch, outputs_cnn[0])
+            detections = self._detector.run_detection(batch, outputs_cnn)
             self._result_saver.save(detections, TEST)
             self._evaluator.calc_batch(detections, batch.annotation)
             self._visualizer.save_images(batch, detections, TEST, index=batch_id)
