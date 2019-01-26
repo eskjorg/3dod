@@ -45,8 +45,9 @@ vtx_scores = OrderedDict()
 instance_counts = OrderedDict()
 
 # Loop over all sequences
-# for seq in ['01']: # cat
+# for seq in ['01']: # ape
 # for seq in ['02']: # benchvise
+# for seq in ['06']: # cat?
 # for seq in ['09']: # duck
 # for seq in ['12']: # holepuncher
 # for seq in ['13']: # iron
@@ -69,6 +70,16 @@ for seq in sorted(os.listdir(DATA_PATH)):
         # t_w2c = info['cam_t_w2c'] if 'cam_t_w2c' in info else np.zeros((3,1))
         # info['depth_scale'] also unnecessary, no need to read/scale depth images
 
+        img = cv2.imread(os.path.join(DATA_PATH, seq, 'rgb', '{:04}.png'.format(frame_idx)))
+
+        # NOTE: Rendering segmentations requires either one of:
+        #           Modifying C++ renderer to read BOP annotations
+        #           Modify BOP python renderer's shaders to produce seg (hopefully not too hard to reuse shader code from C++ renderer)
+        # seg = cv2.imread(os.path.join(DATA_PATH, seq, 'seg', '{:04}.png'.format(frame_idx)))
+
+        # NOTE: Detector applied on RGB (or is it BGR?) image, i.e. not grayscale. Not sure what the implications of this are.
+        all_keypoints = detector.detect(img)
+
         # Loop over all object instances
         for instance in gt[frame_idx]:
             if instance['obj_id'] in instance_counts:
@@ -79,10 +90,31 @@ for seq in sorted(os.listdir(DATA_PATH)):
             model = get_model(instance['obj_id'])
             R_m2c = instance['cam_R_m2c']
             t_m2c = instance['cam_t_m2c']
+            bbox = instance['obj_bb'] # xmin, ymin, width, height
+            xmin, ymin, xmax, ymax = bbox[0], bbox[1], bbox[0]+bbox[2], bbox[1]+bbox[3]
+            print(xmin, xmax, ymin, ymax)
+            plt.figure()
+            plt.imshow(img)
+            plt.show()
 
-            # TODO: Run feature detection only once per frame!
-            img = cv2.imread(os.path.join(DATA_PATH, seq, 'rgb', '{:04}.png'.format(frame_idx)))
-            keypoints = detector.detect(img)
+            # Determine which keypoints belong to current object instance
+            # OpenCV coordinates correspond to pixel centers according to http://answers.opencv.org/question/35111/origin-pixel-in-the-image-coordinate-system-in-opencv/
+            keypoints = []
+            for kp in all_keypoints:
+                x = int(0.5+kp.pt[0])
+                y = int(0.5+kp.pt[1])
+
+                # If seg would be used:
+                # if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
+                #     continue
+                # if seg[y,x] != instance['obj_id']:
+                #     continue
+
+                # NOTE: Using bbox eliminates need for rendering segmentations. Some keypoints might be outside object, but hopefully these effects are negligible with statistics from enough frames.
+                if x < xmin or x > xmax or y < ymin or y > ymax:
+                    continue
+                keypoints.append(kp)
+
             if len(keypoints) == 0:
                 print("No keypoints found!")
                 continue
