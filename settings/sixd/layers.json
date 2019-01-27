@@ -1,0 +1,14 @@
+{
+    "class": {
+        "n_layers": 17,
+        "loss": "CE"
+    },
+    "bbox2d": {
+        "n_layers": 4,
+        "loss": "L1"
+    },
+    "zdepth": {
+        "n_layers": 1,
+        "loss": "L1"
+    }
+}

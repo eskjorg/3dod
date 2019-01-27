@@ -1,0 +1,15 @@
+{
+    "logging": {
+        "save_kitti_format": false
+    },
+    "training": {
+        "learning_rate": 0.0001,
+        "nll_loss": false
+    },
+    "data":{
+        "dataset": "sixd",
+        "path": "/workspace/datasets/sixd/hinterstoisser",
+        "img_dims": [480, 640],
+        "split_dir": "split_hinter"
+    }
+}
