@@ -2,6 +2,7 @@
 import os
 import json
 from attrdict import AttrDict
+from importlib import import_module
 
 import numpy as np
 import cv2 as cv
@@ -48,6 +49,13 @@ def read_velodyne_to_pt(path):
     pointcloud = np.fromfile(path, dtype=np.float32)
     pointcloud = np.reshape(pointcloud, [-1, 4])
     return torch.from_numpy(pointcloud)
+
+
+# Modules
+
+def get_class_map(configs):
+    return import_module('lib.data.readers.' + configs.data.dataset).ClassMap(configs)
+
 
 # Load settings
 

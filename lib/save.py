@@ -6,8 +6,6 @@ class ResultSaver:
     """ResultSaver."""
     def __init__(self, configs):
         self._configs = configs
-        self._class_map = {cls_id: cls_name for cls_name, cls_id in
-                           self._configs.data.class_map.items()}
 
     def save(self, detections, mode):
         if self._configs.logging.save_kitti_format:
@@ -20,7 +18,6 @@ class ResultSaver:
 
         lines_to_write = []
         for detection in frame_detections:
-            class_id = detection['class']
             bbox2d = self._clip_bbox(detection['bbox2d'])
             size = detection.get('size', [-1] * 3)
             location = detection.get('location', [-1000] * 3)
@@ -29,7 +26,7 @@ class ResultSaver:
                           '{height:=.3g} {width:=.3g} {length:=.3g} '
                           '{x:=.4g} {y:=.4g} {z:=.4g} {rotation_y:=.3g} '
                           '{score:=.6f}\n'.
-                          format(class_=self._class_map[class_id],
+                          format(class_=detection['class'],
                                  alpha=detection.get('alpha', -10),
                                  left=bbox2d[0],
                                  top=bbox2d[1],

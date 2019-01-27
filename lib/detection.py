@@ -9,7 +9,7 @@ from maskrcnn_benchmark.layers import nms
 
 from lib.data import maps
 from lib.estimation import BoxEstimator
-from lib.utils import get_device
+from lib.utils import get_device, get_class_map
 
 
 class Detector:
@@ -17,6 +17,7 @@ class Detector:
     def __init__(self, configs):
         super(Detector, self).__init__()
         self._configs = configs
+        self._class_map = get_class_map(configs)
 
     def run_detection(self, batch, outputs):
         """Run 2D and 3D detection."""
@@ -39,7 +40,7 @@ class Detector:
             data = outputs_ln_b[key][frame_index].detach()
             frame_outputs[key + '_ln_b'] = data.permute(1, 2, 0).reshape(-1, data.shape[0]).squeeze().float()
         frame_results = []
-        for class_index in range(2, max(self._configs.data.class_map.values())):
+        for class_index in self._class_map.get_ids():
             confidence_vector = frame_outputs['class'][:, class_index]
             indices = torch.arange(len(confidence_vector))
             confident = indices[confidence_vector >= self._configs.detection.detection_threshold]
@@ -50,8 +51,9 @@ class Detector:
                 result_dict = {key: mask[confident][indices].to(torch.device('cpu')).numpy()
                                for key, mask in frame_outputs.items()}
                 result_dict['confidence'] = result_dict['class'][:, class_index]
-                result_dict['class'] = [class_index] * len(indices)
-                result_dict['corners'] = result_dict['corners'].reshape(-1, 2, 8, order='F')
+                result_dict['class'] = [self._class_map.label_from_id(class_index)] * len(indices)
+                if 'corners' in result_dict:
+                    result_dict['corners'] = result_dict['corners'].reshape(-1, 2, 8, order='F')
                 frame_results += [dict(zip(result_dict, detection)) for detection in zip(*result_dict.values())]
         return frame_results
 
@@ -60,6 +62,9 @@ class Detector:
             print("More than 100 detections: Skipping 3D")
         else:
             for detection in frame_detections:
+                if not all(attr in detection for attr in ['corners', 'zdepth', 'size']):
+                    print("Estimation currently requires 'corners', 'zdepth' and 'size'")
+                    continue
                 if self._configs.training.nll_loss:
                     weights = self._configs.estimation.weights  # TODO: Optimize with L1 loss
                 else:

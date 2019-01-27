@@ -3,7 +3,6 @@ import os
 import logging
 import torch
 
-from lib.log import Logger
 from lib.utils import get_device
 
 class CheckpointHandler:

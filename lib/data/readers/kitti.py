@@ -5,12 +5,12 @@ import numpy as np
 import torch
 
 from lib.constants import VELODYNE, LABEL_2, CALIB, IGNORE_IDX_CLS
-from lib.utils import get_layers, read_image_to_pt, read_velodyne_to_pt
+from lib.utils import read_image_to_pt, read_velodyne_to_pt
 from lib.data.loader import Sample
 
 
 Annotation = namedtuple('Annotation', ['obj_class', 'truncation', 'occlusion', 'alpha',
-                                       'bounding_box', 'size', 'location', 'rotation'])
+                                       'bbox2d', 'size', 'location', 'rotation'])
 Calibration = namedtuple('Calibration',
                          ['P0', 'P1', 'P2', 'P3', 'R0_rect', 'Tr_velo_to_cam', 'Tr_imu_to_velo'])
 
@@ -18,17 +18,17 @@ Calibration = namedtuple('Calibration',
 class Reader:
     """docstring for Reader."""
     def __init__(self, configs):
-        super(Reader, self).__init__()
         self._configs = configs.data
+        self._class_map = ClassMap(configs)
 
     def __len__(self):
         calib_path = os.path.join(self._configs.path, CALIB)
         return len(os.listdir(calib_path))
 
     def __getitem__(self, index):
-        data = self._read_data(index)
+        data = self._read_data(index)['image_2']
         annotations = self._read_annotations(index)
-        calibration = self._read_calibration(index)
+        calibration = self._read_calibration(index).P2
         return Sample(annotations, data, None, calibration, index)
 
     def _get_path(self, modality, index):
@@ -39,9 +39,6 @@ class Reader:
                       LABEL_2: '.txt'}
         ext = extensions.get(modality, '.png')
         return os.path.join(root, modality, id_str + ext)
-
-    def _get_class(self, obj_class):
-        return self._configs.class_map.get(obj_class, IGNORE_IDX_CLS)
 
     def _read_data(self, index):
         data = {}
@@ -70,10 +67,10 @@ class Reader:
                    truncation > self._configs.threshold.truncation or \
                    occlusion > self._configs.threshold.occlusion:
                     object_class = IGNORE_IDX_CLS
-                annotations.append(Annotation(obj_class=self._get_class(object_class),
+                annotations.append(Annotation(obj_class=self._class_map.id_from_label(object_class),
                                               truncation=truncation, occlusion=occlusion,
                                               alpha=labels[3],
-                                              bounding_box=torch.Tensor(labels[4:8]),
+                                              bbox2d=torch.Tensor(labels[4:8]),
                                               size=torch.Tensor(labels[8:11]),
                                               location=torch.Tensor(labels[11:14]),
                                               rotation=rotation))
@@ -101,3 +98,24 @@ class Reader:
                                     np.array([0., 0., 0., 1.]))).astype(np.float32)
 
         return Calibration(P0, P1, P2, P3, R0_rect_4x4, Tr_velo_to_cam, Tr_imu_to_velo)
+
+
+class ClassMap:
+    """ClassMap."""
+    def __init__(self, configs):
+        self._cls_dict = configs.data.class_map
+        self._colors = ['black', 'gray', 'blue', 'red', 'green']
+
+    def id_from_label(self, label):
+        return self._cls_dict.get(label, IGNORE_IDX_CLS)
+
+    def label_from_id(self, class_id):
+        return next(label for label, id_ in self._cls_dict.items() if id_ is class_id)
+
+    def get_ids(self):
+        return set(self._cls_dict.values()) - {IGNORE_IDX_CLS}
+
+    def get_color(self, class_id):
+        if isinstance(class_id, str):
+            class_id = self.id_from_label(class_id)
+        return self._colors[class_id]

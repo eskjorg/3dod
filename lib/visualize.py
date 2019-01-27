@@ -9,12 +9,13 @@ from tensorboardX import SummaryWriter
 
 from lib.constants import PYPLOT_DPI, BOX_SKELETON
 from lib.constants import TV_MEAN, TV_STD
-from lib.utils import project_3d_box
+from lib.utils import project_3d_box, get_class_map
 
 class Visualizer:
     """Visualizer."""
     def __init__(self, configs):
         self._configs = configs
+        self._class_map = get_class_map(configs)
         vis_path = join(configs.experiment_path, 'visual')
         shutil.rmtree(vis_path, ignore_errors=True)
         self._writer = SummaryWriter(vis_path)
@@ -50,12 +51,11 @@ class Visualizer:
 
     def _plot_bbox2d(self, axes, obj, **kwargs):
         is_gt = kwargs['is_gt']
-        class_id = obj[0] if is_gt else obj['class']
-        color = self._color_obj[class_id]
+        class_id = obj[0 if is_gt else 'class']
         alpha = 0.2 if is_gt else 1.0
         x1, y1, x2, y2 = obj[4] if is_gt else obj['bbox2d']
-        rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1,
-                                 edgecolor=color, linewidth=2, alpha=alpha, fill=is_gt)
+        rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2, alpha=alpha,
+                                 edgecolor=self._class_map.get_color(class_id), fill=is_gt)
         axes.add_patch(rect)
 
     def _plot_bbox3d(self, axes, obj, calib, **kwargs):

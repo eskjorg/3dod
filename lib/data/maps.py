@@ -1,5 +1,4 @@
 """Generate GT maps for training."""
-
 import sys
 from abc import ABCMeta, abstractmethod
 
@@ -26,7 +25,7 @@ class GtMapsGenerator:
         obj_coords_supp = self._get_coordinates(annotations, self._configs.network.support_region)
         for layer_name in self._layers.keys():
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
-            generator = Generator(self._configs, calibration.P0)
+            generator = Generator(self._configs, calibration)
             for object, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
                 if layer_name == "class":
                     generator.add_obj(object, full, IGNORE_IDX_CLS)
@@ -43,7 +42,7 @@ class GtMapsGenerator:
                     coord2 * (1 - shrink_factor) / 2
             return  int(max(0, min(max_limit, coord)))
         for obj in objects:
-            xmin, ymin, xmax, ymax = obj.bounding_box / self._configs.network.output_stride
+            xmin, ymin, xmax, ymax = obj.bbox2d / self._configs.network.output_stride
             obj_coords.append((get_coord_convex(xmin, xmax, target_dims[1]),
                                get_coord_convex(ymin, ymax, target_dims[0]),
                                get_coord_convex(xmax, xmin, target_dims[1]),
@@ -117,7 +116,7 @@ class Bbox2dGenerator(GeneratorIndex):
 
     def add_obj(self, obj_annotation, map_coords):
         xmin, ymin, xmax, ymax = map_coords
-        bbox_coords = obj_annotation.bounding_box
+        bbox_coords = obj_annotation.bbox2d
         for index in range(self._get_num_maps()):
             self._map[index, ymin: ymax, xmin: xmax] = \
                 bbox_coords[index] - self._index_map[(index + 1) % 2, ymin: ymax, xmin: xmax]
