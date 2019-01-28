@@ -26,15 +26,15 @@ SCORE_EXP = 1.0
 LP_SIGMA_MM = 40.0
 LP_DISTMAT_SUBSET_SIZE = 1000
 DEPTH_DIFF_TH = 1e-2 # meters
-DATA_PATH = '/home/lucas/datasets/pose-data/bop/datasets/hinterstoisser/train' # Path to a BOP-SIXD dataset
-MODEL_PATH = '/home/lucas/datasets/pose-data/bop/datasets/hinterstoisser/models'
+DATA_PATH = '/home/lucas/datasets/pose-data/bop/datasets/hinterstoisser' # Path to a BOP-SIXD dataset
+TRAIN_SUBDIR = 'train'
 
 
 
 models = {}
 def get_model(obj):
     if obj not in models:
-        models[obj] = inout.load_ply(os.path.join(MODEL_PATH, 'obj_{:02}.ply'.format(obj)))
+        models[obj] = inout.load_ply(os.path.join(DATA_PATH, 'models', 'obj_{:02}.ply'.format(obj)))
     return models[obj]
 
 # detector = cv2.FeatureDetector_create("SIFT")
@@ -51,9 +51,9 @@ instance_counts = OrderedDict()
 # for seq in ['09']: # duck
 # for seq in ['12']: # holepuncher
 # for seq in ['13']: # iron
-for seq in sorted(os.listdir(DATA_PATH)):
-    info = inout.load_info(os.path.join(DATA_PATH, seq, 'info.yml'))
-    gt = inout.load_gt(os.path.join(DATA_PATH, seq, 'gt.yml'))
+for seq in sorted(os.listdir(os.path.join(DATA_PATH, TRAIN_SUBDIR))):
+    info = inout.load_info(os.path.join(DATA_PATH, TRAIN_SUBDIR, seq, 'info.yml'))
+    gt = inout.load_gt(os.path.join(DATA_PATH, TRAIN_SUBDIR, seq, 'gt.yml'))
     assert len(info) == len(gt)
     nbr_frames = len(info)
 
@@ -70,12 +70,12 @@ for seq in sorted(os.listdir(DATA_PATH)):
         # t_w2c = info['cam_t_w2c'] if 'cam_t_w2c' in info else np.zeros((3,1))
         # info['depth_scale'] also unnecessary, no need to read/scale depth images
 
-        img = cv2.imread(os.path.join(DATA_PATH, seq, 'rgb', '{:04}.png'.format(frame_idx)))
+        img = cv2.imread(os.path.join(DATA_PATH, TRAIN_SUBDIR, seq, 'rgb', '{:04}.png'.format(frame_idx)))
 
         # NOTE: Rendering segmentations requires either one of:
         #           Modifying C++ renderer to read BOP annotations
         #           Modify BOP python renderer's shaders to produce seg (hopefully not too hard to reuse shader code from C++ renderer)
-        # seg = cv2.imread(os.path.join(DATA_PATH, seq, 'seg', '{:04}.png'.format(frame_idx)))
+        # seg = cv2.imread(os.path.join(DATA_PATH, TRAIN_SUBDIR, seq, 'seg', '{:04}.png'.format(frame_idx)))
 
         # NOTE: Detector applied on RGB (or is it BGR?) image, i.e. not grayscale. Not sure what the implications of this are.
         all_keypoints = detector.detect(img)
