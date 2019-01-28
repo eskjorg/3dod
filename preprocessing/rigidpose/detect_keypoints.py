@@ -1,3 +1,8 @@
+"""
+Detects keypoints for objects, and writes them to <<DATA_PATH>>/models/models_info.yml
+Saves 3D plots to files in <<DATA_PATH>>/models/keypoint_3dplots
+"""
+
 import sys
 import os
 # Add parent directory to python path, to find libraries:
@@ -266,11 +271,14 @@ for obj_id, scores in vtx_scores_filtered.items():
     models_info[obj_id]['kp_z'] = list(map(float, zs))
 
 # Update YAML
-inout.save_yaml(os.path.join(DATA_PATH, 'models', 'models_info2.yml'), models_info)
+if not os.path.exists(os.path.join(DATA_PATH, 'models', 'models_info_backup.yml')):
+    shutil.copyfile(os.path.join(DATA_PATH, 'models', 'models_info.yml'), os.path.join(DATA_PATH, 'models', 'models_info_backup.yml'))
+inout.save_yaml(os.path.join(DATA_PATH, 'models', 'models_info.yml'), models_info)
 
 # TODO: Run on real images. (for instance, bowl object is probably very hard.)
 # NOTE: Alternative to LP filtering: #1 aggregate scores from all frames & run. #2 sample some frames and add KP if far from the rest.
 
+os.makedirs(os.path.join(DATA_PATH, 'models', 'keypoint_3dplots'), exist_ok=True)
 # for obj_id, all_scores in vtx_scores_filtered.items():
 #     # scores = np.random.choice(all_scores)
 #     # scores = all_scores[0]
@@ -305,4 +313,5 @@ for obj_id, scores in vtx_scores_filtered.items():
     # ax = fig.add_subplot(111, projection='3d')
     ax.plot(models_info[obj_id]['kp_x'], models_info[obj_id]['kp_y'], models_info[obj_id]['kp_z'], 'r*', markersize=50)
 
-    plt.show()
+    plt.savefig(os.path.join(DATA_PATH, 'models', 'keypoint_3dplots', 'obj_{:02}.png'.format(obj_id)))
+    # plt.show()
