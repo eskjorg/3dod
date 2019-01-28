@@ -10,7 +10,6 @@ from matplotlib.pyplot import cm
 
 from lib.constants import IGNORE_IDX_CLS
 from lib.data.loader import Sample
-from lib.rigidpose.sixd_toolkit.pysixd.inout import load_cam_params
 from lib.utils import read_image_to_pt
 
 
@@ -22,7 +21,6 @@ class Reader:
     def __init__(self, configs):
         self._configs = configs.data
         self._class_map = ClassMap(configs)
-        self._calibration = self._read_calibration()
         self._indices = self._init_indices()
         self._models = self._init_models()
 
@@ -43,27 +41,25 @@ class Reader:
 
     def __getitem__(self, index):
         index = int(index)
-        data = self._read_data(index)
-        annotations = self._read_annotations(index)
-        calibration = self._calibration
+        dir_ind, img_ind = self._get_indices(index)
+        dir_path = join(self._configs.path, 'train', str(dir_ind).zfill(2))
+        data = self._read_data(dir_path, img_ind)
+        annotations = self._read_annotations(dir_path, img_ind, dir_ind)
+        calibration = self._read_calibration(dir_path, img_ind)
         return Sample(annotations, data, None, calibration, index)
 
-    def _read_data(self, index):
-        dir_ind, img_ind = self._get_indices(index)
-        path = join(self._configs.path, 'train', str(dir_ind).zfill(2), 'rgb',
-                    str(img_ind).zfill(4) + '.png')
+    def _read_data(self, dir_path, img_ind):
+        path = join(dir_path, 'rgb', str(img_ind).zfill(4) + '.png')
         image = read_image_to_pt(path)
         max_h, max_w = self._configs.img_dims
         return image[:, :max_h, :max_w]
 
-    def _read_annotations(self, index):
+    def _read_annotations(self, dir_path, img_ind, dir_ind):
         annotations = []
-        dir_ind, img_ind = self._get_indices(index)
         model = self._models[dir_ind]
         size = (model['size_x'], model['size_y'], model['size_z'])
 
-        path = join(self._configs.path, 'train', str(dir_ind).zfill(2), 'gt.yml')
-        with open(path, 'r') as file:
+        with open(join(dir_path, 'gt.yml'), 'r') as file:
             gts = yaml.load(file, Loader=yaml.CLoader)
         for gt in gts[img_ind]:
             bbox2d = Tensor(gt['obj_bb'])
@@ -75,9 +71,11 @@ class Reader:
                                           rotation=np.array(gt['cam_R_m2c']).reshape((3, 3))))
         return annotations
 
-    def _read_calibration(self):
-        path = join(self._configs.path, 'camera.yml')
-        intrinsic = load_cam_params(path)['K']
+    def _read_calibration(self, dir_path, img_ind):
+        with open(join(dir_path, 'info.yml'), 'r') as file:
+            obj_info = yaml.load(file, Loader=yaml.CLoader)[img_ind]
+        intrinsic = np.reshape(obj_info['cam_K'], (3, 3))
+        intrinsic[2, 2] *= 1000  # Using mm scale
         return np.concatenate((intrinsic, np.zeros((3, 1))), axis=1)
 
     def _get_indices(self, index):

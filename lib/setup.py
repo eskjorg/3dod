@@ -52,7 +52,7 @@ def setup_logging(experiment_path, mode):
     logger.setLevel(logging.INFO)
     logger.handlers = []
 
-    fmt = logging.Formatter(fmt='%(asctime)-15s %(levelname)-5s %(name)-15s - %(message)s')
+    fmt = logging.Formatter(fmt='%(levelname)-5s %(name)-15s - %(message)s')
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(fmt)
     logger.addHandler(stream_handler)

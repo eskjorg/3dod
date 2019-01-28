@@ -50,7 +50,7 @@ def main(setup):
     setup.prepare_environment()
     setup.save_settings(args)
 
-    configs = get_configs(args.config_load_path)
+    configs = get_configs(args.config_name)
     configs += vars(args)
     tester = Tester(configs)
     tester.test()
