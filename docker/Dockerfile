@@ -6,4 +6,4 @@ RUN conda install -y -c conda-forge \
     opencv \
     tensorboardX
 
-RUN pip install git+https://github.com/facebookresearch/maskrcnn-benchmark.git@master
+RUN pip install git+https://github.com/eskjorg/maskrcnn-benchmark.git@master
