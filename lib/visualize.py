@@ -19,7 +19,6 @@ class Visualizer:
         vis_path = join(configs.experiment_path, 'visual')
         shutil.rmtree(vis_path, ignore_errors=True)
         self._writer = SummaryWriter(vis_path)
-        self._color_obj = ['black', 'gray', 'blue', 'red', 'green']
         self._color_corner = ['magenta', 'cyan', 'yellow', 'green',
                               'lime', 'blue', 'purple', 'orange']
 
@@ -43,38 +42,33 @@ class Visualizer:
         _ = axes.imshow(image_tensor.permute(1, 2, 0))
         for feature in self._configs.visualization.gt:
             for annotation in annotations:
-                getattr(self, "_plot_" + feature)(axes, annotation, calib=calib, is_gt=True)
+                getattr(self, "_plot_" + feature)(axes, annotation, calib=calib, fill=True, alpha=0.2)
         for feature in self._configs.visualization.det:
             for detection in detections:
-                getattr(self, "_plot_" + feature)(axes, detection, calib=calib, is_gt=False)
+                getattr(self, "_plot_" + feature)(axes, detection, calib=calib, fill=False)
         self._writer.add_figure(mode, fig, index)
 
-    def _plot_bbox2d(self, axes, obj, **kwargs):
-        is_gt = kwargs['is_gt']
-        class_id = obj[0 if is_gt else 'class']
-        alpha = 0.2 if is_gt else 1.0
-        x1, y1, x2, y2 = obj[4] if is_gt else obj['bbox2d']
-        rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2, alpha=alpha,
-                                 edgecolor=self._class_map.get_color(class_id), fill=is_gt)
+    def _plot_bbox2d(self, axes, obj, calib, **kwargs):
+        x1, y1, x2, y2 = obj.bbox2d
+        color = self._class_map.get_color(obj.cls)
+        rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2, edgecolor=color, **kwargs)
         axes.add_patch(rect)
 
     def _plot_bbox3d(self, axes, obj, calib, **kwargs):
-        corners_2d = project_3d_box(obj['size'],
-                                    obj['location'],
-                                    obj['rotation'],
-                                    calib)
+        corners_2d = project_3d_box(obj.size, obj.location, obj.rotation, calib)
         coordinates = [corners_2d[:, idx] for idx in BOX_SKELETON]
-        polygon = patches.Polygon(coordinates, fill=False, linewidth=2, color=self._color_obj[obj['class']])
+        color = self._class_map.get_color(obj.cls)
+        polygon = patches.Polygon(coordinates, linewidth=2, color=color)
         axes.add_patch(polygon)
 
     def _plot_corners(self, axes, obj, **kwargs):
-        for corner_xy, color in zip(obj['corners'].T, self._color_corner):
+        for corner_xy, color in zip(obj.corners.T, self._color_corner):
             axes.add_patch(patches.Circle(corner_xy, radius=3, color=color, edgecolor='black'))
 
     def _plot_zdepth(self, axes, obj, **kwargs):
-        _, ymin, xmax, _ = obj['bbox2d']
+        _, ymin, xmax, _ = obj.bbox2d
         axes.text(x=xmax, y=ymin,
-                  s='z={0:.2f}m'.format(obj['zdepth']),
+                  s='z={0:.2f}m'.format(obj.zdepth),
                   fontdict={'family': 'monospace',
                             'color':  'white',
                             'size': 'small'},

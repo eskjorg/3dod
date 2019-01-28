@@ -20,13 +20,14 @@ class Loader:
     """docstring for Loader."""
     def __init__(self, modes, configs):
         self._configs = configs
+        self._reader_module = import_module('lib.data.readers.{}'.format(configs.data.dataset))
         for mode in modes:
             loader_configs = self._get_loader_config(mode)
             loader = ptdata.DataLoader(**loader_configs)
             setattr(self, mode, loader)
 
     def _get_loader_config(self, mode):
-        dataset = ptdata.Subset(dataset=Dataset(self._configs, mode),
+        dataset = ptdata.Subset(dataset=Dataset(self._configs, mode, self._reader_module),
                                 indices=self._get_indices(mode))
         data_configs = getattr(self._configs.loading, mode)
         return {
@@ -50,8 +51,13 @@ class Loader:
 
     def gen_batches(self, mode):
         """Return an iterator over batches."""
+        # TODO: This is needed until pytorch pin_memory is fixed. Currently casts namedtuple to list
         for batch in getattr(self, mode):
-            yield Batch(*batch)
+            batch = Batch(*batch)
+            for annotations in batch.annotation:
+                for index, annotation in enumerate(annotations):
+                    annotations[index] = self._reader_module.Annotation(*annotation)
+            yield batch
 
 
 def collate_batch(batch_list):
@@ -64,10 +70,10 @@ def collate_batch(batch_list):
 
 class Dataset(ptdata.Dataset):
     """docstring for Dataset."""
-    def __init__(self, configs, mode):
+    def __init__(self, configs, mode, reader_module):
         self._configs = configs
         self._mode = mode
-        self._reader = self._get_reader()
+        self._reader = self._get_reader(reader_module)
         self._augmenter = None  # TODO: or not ?
         self._gt_map_generator = GtMapsGenerator(self._configs)
         super(Dataset, self).__init__()
@@ -84,6 +90,5 @@ class Dataset(ptdata.Dataset):
             None
         return Sample(annotations, data, gt_maps, calibration, index)
 
-    def _get_reader(self):
-        reader_module = import_module('lib.data.readers.{}'.format(self._configs.data.dataset))
+    def _get_reader(self, reader_module):
         return reader_module.Reader(self._configs)

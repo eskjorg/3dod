@@ -13,7 +13,7 @@ from lib.rigidpose.sixd_toolkit.pysixd.inout import load_cam_params, load_gt
 from lib.utils import read_image_to_pt
 
 
-Annotation = namedtuple('Annotation', ['obj_class', 'bbox2d', 'location', 'rotation'])
+Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'location', 'rotation'])
 
 
 class Reader:
@@ -56,7 +56,7 @@ class Reader:
         for gt in gts[img_ind]:
             bbox2d = Tensor(gt['obj_bb'])
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
-            annotations.append(Annotation(obj_class=self._class_map.id_from_label(gt['obj_id']),
+            annotations.append(Annotation(cls=self._class_map.id_from_label(gt['obj_id']),
                                           bbox2d=bbox2d,
                                           location=Tensor(gt['cam_t_m2c']),
                                           rotation=Tensor(gt['cam_R_m2c'])))
@@ -92,4 +92,6 @@ class ClassMap:
             yield self.id_from_label(label)
 
     def get_color(self, class_id):
+        if isinstance(class_id, str):
+            class_id = self.id_from_label(class_id)
         return cm.Set3(class_id % 12)

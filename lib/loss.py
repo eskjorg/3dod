@@ -24,7 +24,7 @@ class LossHandler:
         outputs_task, outputs_ln_b = outputs_cnn
         for layer, tensor in outputs_task.items():
             gt_map = gt_maps[layer].to(get_device(), non_blocking=True)
-            if layer == 'class':
+            if layer == 'cls':
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
             else:
                 task_loss = self._l1_loss(tensor, gt_map)

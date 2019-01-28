@@ -9,7 +9,7 @@ from lib.utils import read_image_to_pt, read_velodyne_to_pt
 from lib.data.loader import Sample
 
 
-Annotation = namedtuple('Annotation', ['obj_class', 'truncation', 'occlusion', 'alpha',
+Annotation = namedtuple('Annotation', ['cls', 'truncation', 'occlusion', 'alpha',
                                        'bbox2d', 'size', 'location', 'rotation'])
 Calibration = namedtuple('Calibration',
                          ['P0', 'P1', 'P2', 'P3', 'R0_rect', 'Tr_velo_to_cam', 'Tr_imu_to_velo'])
@@ -67,7 +67,7 @@ class Reader:
                    truncation > self._configs.threshold.truncation or \
                    occlusion > self._configs.threshold.occlusion:
                     object_class = IGNORE_IDX_CLS
-                annotations.append(Annotation(obj_class=self._class_map.id_from_label(object_class),
+                annotations.append(Annotation(cls=self._class_map.id_from_label(object_class),
                                               truncation=truncation, occlusion=occlusion,
                                               alpha=labels[3],
                                               bbox2d=torch.Tensor(labels[4:8]),

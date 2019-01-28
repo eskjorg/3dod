@@ -1,5 +1,4 @@
 """Estimate 3D bounding boxes for detected objects."""
-from attrdict import AttrDict
 import numpy as np
 from scipy.optimize import least_squares
 from lib.utils import project_3d_box
@@ -8,7 +7,7 @@ from lib.utils import project_3d_box
 class BoxEstimator:
 
     def __init__(self, data, calibration, weights):
-        self.data = AttrDict(data)
+        self.data = data
         self._calibration = calibration
 
         self._weights = self._set_weights(weights)

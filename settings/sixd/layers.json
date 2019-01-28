@@ -1,5 +1,5 @@
 {
-    "class": {
+    "cls": {
         "n_layers": 17,
         "loss": "CE"
     },

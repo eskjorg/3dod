@@ -26,11 +26,11 @@ class GtMapsGenerator:
         for layer_name in self._layers.keys():
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
             generator = Generator(self._configs, calibration)
-            for object, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
+            for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
                 if layer_name == "class":
-                    generator.add_obj(object, full, IGNORE_IDX_CLS)
-                if object.obj_class is not IGNORE_IDX_CLS:
-                    generator.add_obj(object, supp)
+                    generator.add_obj(obj, full, IGNORE_IDX_CLS)
+                if obj.cls is not IGNORE_IDX_CLS:
+                    generator.add_obj(obj, supp)
             gt_maps[layer_name] = generator.get_map()
         return gt_maps
 
@@ -96,14 +96,14 @@ class GeneratorIndex(GeneratorIf):
         return tensor
 
 
-class ClassGenerator(GeneratorIf):
-    """GT map ClassGenerator."""
+class ClsGenerator(GeneratorIf):
+    """GT map class generator."""
     def _get_num_maps(self):
         return 1
 
     def add_obj(self, obj_annotation, map_coords, obj_class=None):
         xmin, ymin, xmax, ymax = map_coords
-        self._map[0, ymin: ymax, xmin: xmax] = obj_class or obj_annotation.obj_class
+        self._map[0, ymin: ymax, xmin: xmax] = obj_class or obj_annotation.cls
 
     def get_map(self):
         return self._map.long()

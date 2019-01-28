@@ -18,15 +18,15 @@ class ResultSaver:
 
         lines_to_write = []
         for detection in frame_detections:
-            bbox2d = self._clip_bbox(detection['bbox2d'])
+            bbox2d = self._clip_bbox(detection.bbox2d)
             size = detection.get('size', [-1] * 3)
             location = detection.get('location', [-1000] * 3)
-            write_line = ('{class_:} -1 -1 {alpha:=.5g} '
+            write_line = ('{cls:} -1 -1 {alpha:=.5g} '
                           '{left:=.2f} {top:=.2f} {right:=.2f} {bottom:=.2f} '
                           '{height:=.3g} {width:=.3g} {length:=.3g} '
                           '{x:=.4g} {y:=.4g} {z:=.4g} {rotation_y:=.3g} '
                           '{score:=.6f}\n'.
-                          format(class_=detection['class'],
+                          format(cls=detection.cls,
                                  alpha=detection.get('alpha', -10),
                                  left=bbox2d[0],
                                  top=bbox2d[1],
@@ -39,7 +39,7 @@ class ResultSaver:
                                  y=location[1],
                                  z=location[2],
                                  rotation_y=detection.get('rotation', -10),
-                                 score=detection['confidence']))
+                                 score=detection.confidence))
             if (np.array(size) > np.array([0.5, 0.2, 0.1])).all():
                 lines_to_write.append(write_line)
             else:

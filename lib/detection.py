@@ -2,6 +2,8 @@
 from collections import defaultdict
 from multiprocessing import Pool
 
+from attrdict import AttrDict
+
 import numpy as np
 import torch
 
@@ -41,7 +43,7 @@ class Detector:
             frame_outputs[key + '_ln_b'] = data.permute(1, 2, 0).reshape(-1, data.shape[0]).squeeze().float()
         frame_results = []
         for class_index in self._class_map.get_ids():
-            confidence_vector = frame_outputs['class'][:, class_index]
+            confidence_vector = frame_outputs['cls'][:, class_index]
             indices = torch.arange(len(confidence_vector))
             confident = indices[confidence_vector >= self._configs.detection.detection_threshold]
             if len(confident):
@@ -50,11 +52,12 @@ class Detector:
                               self._configs.detection.iou_threshold)
                 result_dict = {key: mask[confident][indices].to(torch.device('cpu')).numpy()
                                for key, mask in frame_outputs.items()}
-                result_dict['confidence'] = result_dict['class'][:, class_index]
-                result_dict['class'] = [self._class_map.label_from_id(class_index)] * len(indices)
+                result_dict['confidence'] = result_dict['cls'][:, class_index]
+                result_dict['cls'] = [self._class_map.label_from_id(class_index)] * len(indices)
                 if 'corners' in result_dict:
                     result_dict['corners'] = result_dict['corners'].reshape(-1, 2, 8, order='F')
-                frame_results += [dict(zip(result_dict, detection)) for detection in zip(*result_dict.values())]
+                frame_results += [AttrDict(zip(result_dict, detection))
+                                  for detection in zip(*result_dict.values())]
         return frame_results
 
     def _3d_estimation(self, frame_detections, calibration):
