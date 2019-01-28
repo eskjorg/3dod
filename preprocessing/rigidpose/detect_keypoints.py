@@ -92,10 +92,10 @@ for seq in sorted(os.listdir(os.path.join(DATA_PATH, TRAIN_SUBDIR))):
             t_m2c = instance['cam_t_m2c']
             bbox = instance['obj_bb'] # xmin, ymin, width, height
             xmin, ymin, xmax, ymax = bbox[0], bbox[1], bbox[0]+bbox[2], bbox[1]+bbox[3]
-            print(xmin, xmax, ymin, ymax)
-            plt.figure()
-            plt.imshow(img)
-            plt.show()
+            # print(xmin, xmax, ymin, ymax)
+            # plt.figure()
+            # plt.imshow(img)
+            # plt.show()
 
             # Determine which keypoints belong to current object instance
             # OpenCV coordinates correspond to pixel centers according to http://answers.opencv.org/question/35111/origin-pixel-in-the-image-coordinate-system-in-opencv/
@@ -212,7 +212,7 @@ for seq in sorted(os.listdir(os.path.join(DATA_PATH, TRAIN_SUBDIR))):
         # if frame_idx > 10:
         #     break
         # break #frame
-    # break #seq
+    break #seq
 
 from scipy.spatial.distance import cdist, pdist, squareform
 vtx_scores_filtered = OrderedDict()
@@ -234,18 +234,48 @@ for obj_id, all_scores in vtx_scores.items():
     print(np.min(scores))
     print(np.max(scores))
 
-    vtx_scores_filtered[obj_id] = [scores]
+    vtx_scores_filtered[obj_id] = scores
+    # vtx_scores_filtered[obj_id] = [scores]
 
-# TODO: Save keypoints to YAML
+# Run GMM and update models_info.yml
+models_info = inout.load_yaml(os.path.join(DATA_PATH, 'models', 'models_info.yml'))
+
+# for obj_id, all_scores in vtx_scores_filtered.items():
+#     # scores = np.random.choice(all_scores)
+#     # scores = all_scores[0]
+#     scores = sum(all_scores) / float(len(all_scores))
+for obj_id, scores in vtx_scores_filtered.items():
+    print("Inferring GMM for object {}".format(obj_id))
+
+    model = get_model(obj_id)
+    X = model['pts'][scores >= MIN_SCORE_SCATTERPLOT, :]
+    # X = X[np.random.choice(X.shape[0], 1000),:]
+    model = GeneralMixtureModel.from_samples(
+        MultivariateGaussianDistribution,
+        n_components=NBR_GMM_COMPONENTS,
+        init='kmeans++',
+        # init='random',
+        X=X,
+        weights=scores[scores >= MIN_SCORE_SCATTERPLOT]**SCORE_EXP,
+    )
+
+    xs, ys, zs = np.array([d.mu for d in model.distributions]).T
+
+    models_info[obj_id]['kp_x'] = list(map(float, xs))
+    models_info[obj_id]['kp_y'] = list(map(float, ys))
+    models_info[obj_id]['kp_z'] = list(map(float, zs))
+
+# Update YAML
+inout.save_yaml(os.path.join(DATA_PATH, 'models', 'models_info2.yml'), models_info)
+
 # TODO: Run on real images. (for instance, bowl object is probably very hard.)
 # NOTE: Alternative to LP filtering: #1 aggregate scores from all frames & run. #2 sample some frames and add KP if far from the rest.
 
-# for obj_id, all_scores in vtx_scores.items():
-for obj_id, all_scores in vtx_scores_filtered.items():
-    # scores = np.random.choice(all_scores)
-    # scores = all_scores[0]
-    scores = sum(all_scores) / float(len(all_scores))
-
+# for obj_id, all_scores in vtx_scores_filtered.items():
+#     # scores = np.random.choice(all_scores)
+#     # scores = all_scores[0]
+#     scores = sum(all_scores) / float(len(all_scores))
+for obj_id, scores in vtx_scores_filtered.items():
     print("Plotting object {}".format(obj_id))
 
     model = get_model(obj_id)
@@ -271,20 +301,8 @@ for obj_id, all_scores in vtx_scores_filtered.items():
         # norm=colors.LogNorm(),
     )
 
-    # GMM
     # fig = plt.figure()
     # ax = fig.add_subplot(111, projection='3d')
-    X = model['pts'][scores >= MIN_SCORE_SCATTERPLOT, :]
-    # X = X[np.random.choice(X.shape[0], 1000),:]
-    model = GeneralMixtureModel.from_samples(
-        MultivariateGaussianDistribution,
-        n_components=NBR_GMM_COMPONENTS,
-        init='kmeans++',
-        # init='random',
-        X=X,
-        weights=scores[scores >= MIN_SCORE_SCATTERPLOT]**SCORE_EXP,
-    )
-    xs, ys, zs = np.array([d.mu for d in model.distributions]).T
-    ax.plot(xs, ys, zs, 'r*', markersize=50)
+    ax.plot(models_info[obj_id]['kp_x'], models_info[obj_id]['kp_y'], models_info[obj_id]['kp_z'], 'r*', markersize=50)
 
     plt.show()
