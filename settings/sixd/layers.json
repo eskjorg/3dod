@@ -14,5 +14,9 @@
     "size": {
         "n_layers": 3,
         "loss": "L1"
+    },
+    "corners": {
+        "n_layers": 16,
+        "loss": "L1"
     }
 }

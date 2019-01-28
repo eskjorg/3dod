@@ -38,7 +38,7 @@ class ResultSaver:
                                  x=location[0],
                                  y=location[1],
                                  z=location[2],
-                                 rotation_y=detection.get('rotation', -10),
+                                 rotation_y=detection.get('rotation_y', -10),
                                  score=detection.confidence))
             if (np.array(size) > np.array([0.5, 0.2, 0.1])).all():
                 lines_to_write.append(write_line)

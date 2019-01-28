@@ -10,7 +10,7 @@ from matplotlib.pyplot import cm
 
 from lib.constants import IGNORE_IDX_CLS
 from lib.data.loader import Sample
-from lib.rigidpose.sixd_toolkit.pysixd.inout import load_cam_params, load_gt
+from lib.rigidpose.sixd_toolkit.pysixd.inout import load_cam_params
 from lib.utils import read_image_to_pt
 
 
@@ -59,9 +59,12 @@ class Reader:
     def _read_annotations(self, index):
         annotations = []
         dir_ind, img_ind = self._get_indices(index)
-        gts = load_gt(join(self._configs.path, 'train', str(dir_ind).zfill(2), 'gt.yml'))
         model = self._models[dir_ind]
         size = (model['size_x'], model['size_y'], model['size_z'])
+
+        path = join(self._configs.path, 'train', str(dir_ind).zfill(2), 'gt.yml')
+        with open(path, 'r') as file:
+            gts = yaml.load(file, Loader=yaml.CLoader)
         for gt in gts[img_ind]:
             bbox2d = Tensor(gt['obj_bb'])
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
@@ -69,7 +72,7 @@ class Reader:
                                           bbox2d=bbox2d,
                                           size=Tensor(size),
                                           location=Tensor(gt['cam_t_m2c']),
-                                          rotation=Tensor(gt['cam_R_m2c'])))
+                                          rotation=np.array(gt['cam_R_m2c']).reshape((3, 3))))
         return annotations
 
     def _read_calibration(self):

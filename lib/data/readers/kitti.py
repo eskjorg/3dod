@@ -10,7 +10,7 @@ from lib.data.loader import Sample
 
 
 Annotation = namedtuple('Annotation', ['cls', 'truncation', 'occlusion', 'alpha',
-                                       'bbox2d', 'size', 'location', 'rotation'])
+                                       'bbox2d', 'size', 'location', 'rot_y'])
 Calibration = namedtuple('Calibration',
                          ['P0', 'P1', 'P2', 'P3', 'R0_rect', 'Tr_velo_to_cam', 'Tr_imu_to_velo'])
 
@@ -73,7 +73,7 @@ class Reader:
                                               bbox2d=torch.Tensor(labels[4:8]),
                                               size=torch.Tensor(labels[8:11]),
                                               location=torch.Tensor(labels[11:14]),
-                                              rotation=rotation))
+                                              rot_y=rotation))
         return annotations
 
     def _read_calibration(self, index):

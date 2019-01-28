@@ -43,7 +43,7 @@ class Loader:
     def _get_indices(self, mode):
         """Load indices for train/val/test split."""
         path = os.path.join(SETTINGS_PATH,
-                            self._configs.config_load_path,
+                            self._configs.config_name,
                             self._configs.data.split_dir,
                             '{}.txt'.format(mode))
         with open(path) as file:

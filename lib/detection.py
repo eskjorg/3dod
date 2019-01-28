@@ -11,7 +11,7 @@ from maskrcnn_benchmark.layers import nms
 
 from lib.data import maps
 from lib.estimation import BoxEstimator
-from lib.utils import get_device, get_class_map
+from lib.utils import get_device, get_class_map, matrix_from_yaw
 
 
 class Detector:
@@ -78,6 +78,7 @@ class Detector:
                     box_parameters = estimator.solve()
                 detection['size'] = box_parameters[:3]
                 detection['location'] = box_parameters[3:6]
-                detection['rotation'] = box_parameters[6]
+                detection['rotation_y'] = box_parameters[6]
+                detection['rotation'] = matrix_from_yaw(box_parameters[6])
                 detection['alpha'] = box_parameters[6] - np.arctan2(box_parameters[3], box_parameters[5])
         return frame_detections

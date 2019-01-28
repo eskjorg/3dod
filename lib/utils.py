@@ -74,12 +74,13 @@ def get_layers(config_name):
 
 # Geometry
 
-def project_3d_box(size, loc, rot, p_matrix):
+def matrix_from_yaw(yaw):
+    return np.array([[np.cos(yaw), 0, np.sin(yaw)], [0, 1, 0], [-np.sin(yaw), 0, np.cos(yaw)]])
+
+def project_3d_box(p_matrix, size, loc, rot_y=None, rot_matrix=None):
     h, _, _ = size
     _, w2, l2 = size / 2
-    rot_matrix = np.array([[np.cos(rot), 0, np.sin(rot)],
-                           [0, 1, 0],
-                           [-np.sin(rot), 0, np.cos(rot)]])
+    rot_matrix = matrix_from_yaw(rot_y) if rot_y else rot_matrix
     points_3d = np.ones((4,8))
                                                                 #    BLR  BLF BRF BRR  TLR  TLF TRF TRR
     points_3d[:3] = np.tile(loc, (8, 1)).T + rot_matrix @ np.array([[-l2, l2, l2, -l2, -l2, l2, l2, -l2],

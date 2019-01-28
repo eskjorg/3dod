@@ -15,7 +15,7 @@ def parse_arguments():
     """Parse input arguments."""
     parser = argparse.ArgumentParser(description='3D object detection',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--config-load-path', default='3dod_demo',
+    parser.add_argument('--config-name', default='3dod_demo',
                         help='name of the config dir that is going to be used')
     parser.add_argument('--checkpoint-load-path', default='',
                         help='path of the model to load')
@@ -80,7 +80,7 @@ def save_settings(args):
     logging.info('Save settings to %s', experiment_settings_path)
 
     shutil.rmtree(experiment_settings_path, ignore_errors=True)
-    shutil.copytree(join(repo_settings_path, args.config_load_path), experiment_settings_path)
+    shutil.copytree(join(repo_settings_path, args.config_name), experiment_settings_path)
     shutil.copyfile(join(repo_settings_path, 'default_config.json'),
                     join(experiment_settings_path, 'default_config.json'))
 

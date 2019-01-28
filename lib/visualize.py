@@ -55,7 +55,7 @@ class Visualizer:
         axes.add_patch(rect)
 
     def _plot_bbox3d(self, axes, obj, calib, **kwargs):
-        corners_2d = project_3d_box(obj.size, obj.location, obj.rotation, calib)
+        corners_2d = project_3d_box(calib, obj.size, obj.location, rot_y=obj.rotation_y)
         coordinates = [corners_2d[:, idx] for idx in BOX_SKELETON]
         color = self._class_map.get_color(obj.cls)
         polygon = patches.Polygon(coordinates, linewidth=2, color=color)

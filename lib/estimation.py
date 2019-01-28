@@ -39,7 +39,7 @@ class BoxEstimator:
         size = box_parameters[:3]
         location = box_parameters[3:6]
         rot_y = box_parameters[6]
-        corners = project_3d_box(size, location, rot_y, self._calibration)
+        corners = project_3d_box(self._calibration, size, location, rot_y=rot_y)
 
         residuals = np.concatenate(((self.data.corners - corners).flatten(),
                                     self.data.size - size,

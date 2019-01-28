@@ -22,7 +22,7 @@ class Model(nn.Module):
         return module.get_encoder()
 
     def _create_decoder(self):
-        return MultiTaskNet(get_layers(self._configs.config_load_path),
+        return MultiTaskNet(get_layers(self._configs.config_name),
                             in_channels=self._bottleneck_channels,
                             upsampling_factor=self._configs.network.tiling_upsampling)
 
