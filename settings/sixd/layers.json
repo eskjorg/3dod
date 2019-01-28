@@ -10,5 +10,9 @@
     "zdepth": {
         "n_layers": 1,
         "loss": "L1"
+    },
+    "size": {
+        "n_layers": 3,
+        "loss": "L1"
     }
 }

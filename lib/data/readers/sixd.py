@@ -2,6 +2,7 @@
 from os import listdir
 from os.path import join
 from collections import namedtuple
+import yaml
 
 import numpy as np
 from torch import Tensor
@@ -13,7 +14,7 @@ from lib.rigidpose.sixd_toolkit.pysixd.inout import load_cam_params, load_gt
 from lib.utils import read_image_to_pt
 
 
-Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'location', 'rotation'])
+Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'size', 'location', 'rotation'])
 
 
 class Reader:
@@ -22,14 +23,20 @@ class Reader:
         self._configs = configs.data
         self._class_map = ClassMap(configs)
         self._calibration = self._read_calibration()
-        self._indices = self._gen_indices()
+        self._indices = self._init_indices()
+        self._models = self._init_models()
 
-    def _gen_indices(self):
+    def _init_indices(self):
         indices = []
         train_path = join(self._configs.path, 'train')
         for subdir in listdir(train_path):
             indices.append(len(listdir(join(train_path, subdir, 'rgb'))))
         return indices
+
+    def _init_models(self):
+        path = join(self._configs.path, 'models', 'models_info.yml')
+        with open(path, 'r') as file:
+            return yaml.load(file)
 
     def __len__(self):
         return sum(self._indices)
@@ -53,11 +60,14 @@ class Reader:
         annotations = []
         dir_ind, img_ind = self._get_indices(index)
         gts = load_gt(join(self._configs.path, 'train', str(dir_ind).zfill(2), 'gt.yml'))
+        model = self._models[dir_ind]
+        size = (model['size_x'], model['size_y'], model['size_z'])
         for gt in gts[img_ind]:
             bbox2d = Tensor(gt['obj_bb'])
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
             annotations.append(Annotation(cls=self._class_map.id_from_label(gt['obj_id']),
                                           bbox2d=bbox2d,
+                                          size=Tensor(size),
                                           location=Tensor(gt['cam_t_m2c']),
                                           rotation=Tensor(gt['cam_R_m2c'])))
         return annotations
