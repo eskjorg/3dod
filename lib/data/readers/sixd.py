@@ -75,7 +75,6 @@ class Reader:
         with open(join(dir_path, 'info.yml'), 'r') as file:
             obj_info = yaml.load(file, Loader=yaml.CLoader)[img_ind]
         intrinsic = np.reshape(obj_info['cam_K'], (3, 3))
-        intrinsic[2, 2] *= 1000  # Using mm scale
         return np.concatenate((intrinsic, np.zeros((3, 1))), axis=1)
 
     def _get_indices(self, index):
