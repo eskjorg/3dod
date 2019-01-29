@@ -87,11 +87,11 @@ class Reader:
 class ClassMap:
     """ClassMap."""
     def __init__(self, configs):
-        self._class_labels = listdir(join(configs.data.path, 'train'))
+        self._class_labels = sorted(listdir(join(configs.data.path, 'train')))
 
     def id_from_label(self, label):
         try:
-            return 2 + list(map(int, self._class_labels)).index(label)
+            return 2 + list(map(int, self._class_labels)).index(int(label))
         except ValueError:
             return IGNORE_IDX_CLS
 
