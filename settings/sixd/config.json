@@ -7,7 +7,7 @@
         "nll_loss": false
     },
     "visualization": {
-        "det": ["bbox2d", "zdepth"]
+        "det": ["bbox2d", "zdepth", "corners"]
     },
     "data":{
         "dataset": "sixd",

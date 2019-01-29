@@ -20,7 +20,7 @@ class Loader:
     """docstring for Loader."""
     def __init__(self, modes, configs):
         self._configs = configs
-        self._reader_module = import_module('lib.data.readers.{}'.format(configs.data.dataset))
+        self._reader_module = import_module('lib.data.readers.%s' % configs.data.dataset)
         for mode in modes:
             loader_configs = self._get_loader_config(mode)
             loader = ptdata.DataLoader(**loader_configs)

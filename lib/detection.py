@@ -26,7 +26,10 @@ class Detector:
         batch_detections = defaultdict(dict)
         for frame_index, frame_id in enumerate(batch.id):
             result = self._2d_detection(frame_index, outputs)
-            result = self._3d_estimation(result, batch.calibration[frame_index])
+            if len(result) > 100:
+                print('Frame %02d:' % frame_index, "More than 100 detections, skipping 3D")
+            else:
+                result = self._3d_estimation(result, batch.calibration[frame_index])
             batch_detections.update({frame_id: result})
         return batch_detections
 
@@ -61,24 +64,21 @@ class Detector:
         return frame_results
 
     def _3d_estimation(self, frame_detections, calibration):
-        if len(frame_detections) > 100:
-            print("More than 100 detections: Skipping 3D")
-        else:
-            for detection in frame_detections:
-                if not all(attr in detection for attr in ['corners', 'zdepth', 'size']):
-                    print("Estimation currently requires 'corners', 'zdepth' and 'size'")
-                    continue
-                if self._configs.training.nll_loss:
-                    weights = self._configs.estimation.weights  # TODO: Optimize with L1 loss
-                else:
-                    weights = self._configs.estimation.weights
-                estimator = BoxEstimator(detection, calibration, weights)
-                box_parameters = estimator.heuristic_3d()
-                if self._configs.estimation.local_optimization_3d:
-                    box_parameters = estimator.solve()
-                detection['size'] = box_parameters[:3]
-                detection['location'] = box_parameters[3:6]
-                detection['rotation_y'] = box_parameters[6]
-                detection['rotation'] = matrix_from_yaw(box_parameters[6])
-                detection['alpha'] = box_parameters[6] - np.arctan2(box_parameters[3], box_parameters[5])
+        for detection in frame_detections:
+            if not all(attr in detection for attr in ['corners', 'zdepth', 'size']):
+                print("Estimation currently requires 'corners', 'zdepth' and 'size'")
+                continue
+            if self._configs.training.nll_loss:
+                weights = self._configs.estimation.weights  # TODO: Optimize with L1 loss
+            else:
+                weights = self._configs.estimation.weights
+            estimator = BoxEstimator(detection, calibration, weights)
+            box_parameters = estimator.heuristic_3d()
+            if self._configs.estimation.local_optimization_3d:
+                box_parameters = estimator.solve()
+            detection['size'] = box_parameters[:3]
+            detection['location'] = box_parameters[3:6]
+            detection['rotation_y'] = box_parameters[6]
+            detection['rotation'] = matrix_from_yaw(box_parameters[6])
+            detection['alpha'] = box_parameters[6] - np.arctan2(box_parameters[3], box_parameters[5])
         return frame_detections
