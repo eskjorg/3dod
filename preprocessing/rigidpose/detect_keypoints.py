@@ -8,6 +8,8 @@ import os
 # Add parent directory to python path, to find libraries:
 # sys.path.append('../..') # Relative to CWD
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))) # Relative to module, but cannot be used in notebooks
+
+import shutil
 from lib.rigidpose.sixd_toolkit.pysixd import inout
 from collections import OrderedDict
 import numpy as np
@@ -31,8 +33,10 @@ SCORE_EXP = 1.0
 LP_SIGMA_MM = 40.0
 LP_DISTMAT_SUBSET_SIZE = 1000
 DEPTH_DIFF_TH = 1e-2 # meters
-DATA_PATH = '/home/lucas/datasets/pose-data/bop/datasets/hinterstoisser' # Path to a BOP-SIXD dataset
-TRAIN_SUBDIR = 'train'
+# DATA_PATH = '/home/lucas/datasets/pose-data/sixd/bop-unzipped/hinterstoisser' # Path to a BOP-SIXD dataset
+# TRAIN_SUBDIR = 'train' # Images in this subdir will be used to collect keypoint statistics
+DATA_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented' # Path to a BOP-SIXD dataset
+TRAIN_SUBDIR = 'train_occl' # Images in this subdir will be used to collect keypoint statistics
 
 
 
@@ -44,7 +48,7 @@ def get_model(obj):
 
 # detector = cv2.FeatureDetector_create("SIFT")
 # detector = cv2.xfeatures2d_SIFT()
-detector = cv2.ORB_create()
+detector = cv2.ORB_create(nfeatures=20000)
 
 vtx_scores = OrderedDict()
 instance_counts = OrderedDict()
@@ -85,6 +89,8 @@ for seq in sorted(os.listdir(os.path.join(DATA_PATH, TRAIN_SUBDIR))):
         # NOTE: Detector applied on RGB (or is it BGR?) image, i.e. not grayscale. Not sure what the implications of this are.
         all_keypoints = detector.detect(img)
 
+        # print("Total #keypoints: {}".format(len(all_keypoints)))
+
         # Loop over all object instances
         for instance in gt[frame_idx]:
             if instance['obj_id'] in instance_counts:
@@ -97,6 +103,7 @@ for seq in sorted(os.listdir(os.path.join(DATA_PATH, TRAIN_SUBDIR))):
             t_m2c = instance['cam_t_m2c']
             bbox = instance['obj_bb'] # xmin, ymin, width, height
             xmin, ymin, xmax, ymax = bbox[0], bbox[1], bbox[0]+bbox[2], bbox[1]+bbox[3]
+            # print("Object: {}".format(instance['obj_id']))
             # print(xmin, xmax, ymin, ymax)
             # plt.figure()
             # plt.imshow(img)
@@ -121,7 +128,7 @@ for seq in sorted(os.listdir(os.path.join(DATA_PATH, TRAIN_SUBDIR))):
                 keypoints.append(kp)
 
             if len(keypoints) == 0:
-                print("No keypoints found!")
+                print("No keypoints found for object {}!".format(instance['obj_id']))
                 continue
 
             sigma = np.array(list(map(lambda x: x.size, keypoints)))
@@ -216,8 +223,8 @@ for seq in sorted(os.listdir(os.path.join(DATA_PATH, TRAIN_SUBDIR))):
             # break #instance
         # if frame_idx > 10:
         #     break
-        # break #frame
-    break #seq
+    #     break #frame
+    # break #seq
 
 from scipy.spatial.distance import cdist, pdist, squareform
 vtx_scores_filtered = OrderedDict()
@@ -243,7 +250,9 @@ for obj_id, all_scores in vtx_scores.items():
     # vtx_scores_filtered[obj_id] = [scores]
 
 # Run GMM and update models_info.yml
-models_info = inout.load_yaml(os.path.join(DATA_PATH, 'models', 'models_info.yml'))
+if not os.path.exists(os.path.join(DATA_PATH, 'models', 'models_info_backup.yml')):
+    shutil.copyfile(os.path.join(DATA_PATH, 'models', 'models_info.yml'), os.path.join(DATA_PATH, 'models', 'models_info_backup.yml'))
+models_info = inout.load_yaml(os.path.join(DATA_PATH, 'models', 'models_info_backup.yml'))
 
 # for obj_id, all_scores in vtx_scores_filtered.items():
 #     # scores = np.random.choice(all_scores)
@@ -271,8 +280,6 @@ for obj_id, scores in vtx_scores_filtered.items():
     models_info[obj_id]['kp_z'] = list(map(float, zs))
 
 # Update YAML
-if not os.path.exists(os.path.join(DATA_PATH, 'models', 'models_info_backup.yml')):
-    shutil.copyfile(os.path.join(DATA_PATH, 'models', 'models_info.yml'), os.path.join(DATA_PATH, 'models', 'models_info_backup.yml'))
 inout.save_yaml(os.path.join(DATA_PATH, 'models', 'models_info.yml'), models_info)
 
 # TODO: Run on real images. (for instance, bowl object is probably very hard.)
