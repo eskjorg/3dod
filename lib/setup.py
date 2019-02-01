@@ -18,16 +18,17 @@ def parse_arguments():
     parser.add_argument('--config-name', default='3dod_demo',
                         help='name of the config dir that is going to be used')
     parser.add_argument('--checkpoint-load-path', default='',
-                        help='path of the model to load')
-    parser.add_argument('--name', default='3dod_demo',
+                        help='path of the model weights to load')
+    parser.add_argument('--experiment-root-path', default=get_default_root(),
+                        help='the root directory to hold experiments')
+    parser.add_argument('--experiment-name', default='3dod_demo',
                         help='name of the execution, will be '
                              'the name of the experiment\'s directory')
-    parser.add_argument('--root-path', default=get_default_root(),
-                        help='the root directory to hold experiments')
+
 
     args = parser.parse_args()
 
-    experiment_path = join(args.root_path, args.name)
+    experiment_path = join(args.experiment_root_path, args.experiment_name)
     args.experiment_path = experiment_path
     args.checkpoint_root_dir = join(experiment_path, 'checkpoints')
     os.makedirs(args.checkpoint_root_dir, exist_ok=True)

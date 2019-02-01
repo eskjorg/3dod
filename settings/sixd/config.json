@@ -11,7 +11,7 @@
     },
     "data":{
         "dataset": "sixd",
-        "path": "/workspace/datasets/sixd/hinterstoisser",
+        "path": "/datasets/sixd/hinterstoisser",
         "img_dims": [480, 640],
         "split_dir": "split_hinter"
     }
