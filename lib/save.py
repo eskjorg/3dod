@@ -44,7 +44,7 @@ class ResultSaver:
                 lines_to_write.append(write_line)
             else:
                 print('Warning, negative size: Skipping writing')
-        with open(os.path.join(save_dir, '%6d.txt' % frame_id), 'w') as file:
+        with open(os.path.join(save_dir, '%6d.txt' % int(frame_id)), 'w') as file:
             file.writelines(lines_to_write)
 
     def _clip_bbox(self, bbox):
