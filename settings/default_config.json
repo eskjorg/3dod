@@ -1,7 +1,6 @@
 {
     "network": {
         "encoder": "resnet34",
-        "tiling_upsampling": 8,
         "output_stride": 4,
         "support_region": 0.2
     },

@@ -10,10 +10,10 @@ class Model(nn.Module):
     def __init__(self, configs):
         super().__init__()
         self._configs = configs
-        self._encoder, self._bottleneck_channels = self._create_encoder()
-        self._decoder = self._create_decoder()
+        self._encoder, self._bottleneck_channels, downsampling = self._create_encoder()
+        self._decoder = self._create_decoder(downsampling)
         if self._configs.training.nll_loss:
-            self._decoder_ln_b = self._create_decoder()
+            self._decoder_ln_b = self._create_decoder(downsampling)
         self._encoder_output_channels = None
 
     def _create_encoder(self):
@@ -21,10 +21,10 @@ class Model(nn.Module):
         module = import_module('lib.models.{}'.format(encoder_name))
         return module.get_encoder()
 
-    def _create_decoder(self):
+    def _create_decoder(self, downsampling):
         return MultiTaskNet(get_layers(self._configs.config_name),
                             in_channels=self._bottleneck_channels,
-                            upsampling_factor=self._configs.network.tiling_upsampling)
+                            upsampling_factor=int(downsampling / self._configs.network.output_stride))
 
     def forward(self, input_data):
         features = self._encoder(input_data)

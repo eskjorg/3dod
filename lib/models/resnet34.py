@@ -7,4 +7,5 @@ def get_encoder():
     # Remove fc-layers
     network = nn.Sequential(*list(network.children())[:-2])
     bottleneck_channels = list(network.children())[-1][-1].bn2.num_features
-    return network, bottleneck_channels
+    downsampling_factor = 32
+    return network, bottleneck_channels, downsampling_factor
