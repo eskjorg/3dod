@@ -16,12 +16,15 @@
         "detection_threshold": 0.55,
         "iou_threshold": 0.3
     },
-    "estimation": {
-        "local_optimization_3d": false,
-        "weights": {
-            "corners": 1,
-            "size": 500,
-            "zdepth": 30
+    "postprocessing": {
+        "method": "bbox_estimation_3d",
+        "bbox_estimation_3d": {
+            "local_optimization_3d": false,
+            "weights": {
+                "corners": 1,
+                "size": 500,
+                "zdepth": 30
+            }
         }
     },
     "training": {

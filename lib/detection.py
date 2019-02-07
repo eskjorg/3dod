@@ -10,7 +10,7 @@ import torch
 from maskrcnn_benchmark.layers import nms
 
 from lib.data import maps
-from lib.estimation import BoxEstimator
+from lib.postprocessing import BoxEstimator
 from lib.utils import get_device, get_class_map, matrix_from_yaw
 
 
@@ -26,10 +26,13 @@ class Detector:
         batch_detections = defaultdict(dict)
         for frame_index, frame_id in enumerate(batch.id):
             result = self._2d_detection(frame_index, outputs)
-            if len(result) > 100:
-                print('Frame %02d:' % frame_index, "More than 100 detections, skipping 3D")
-            else:
-                result = self._3d_estimation(result, batch.calibration[frame_index])
+            if self._configs.postprocessing.method == 'bbox_estimation_3d':
+                if len(result) > 100:
+                    print('Frame %02d:' % frame_index, "More than 100 detections, skipping 3D")
+                else:
+                    result = self._3d_bbox_estimation(result, batch.calibration[frame_index])
+            elif self._configs.postprocessing.method == 'rigid_6d_pose_estimation':
+                result = self._rigid_6d_pose_estimation(result, batch.calibration[frame_index])
             batch_detections.update({frame_id: result})
         return batch_detections
 
@@ -63,18 +66,18 @@ class Detector:
                                   for detection in zip(*result_dict.values())]
         return frame_results
 
-    def _3d_estimation(self, frame_detections, calibration):
+    def _3d_bbox_estimation(self, frame_detections, calibration, local_optimization_3d=False):
         for detection in frame_detections:
             if not all(attr in detection for attr in ['corners', 'zdepth', 'size']):
                 print("Estimation currently requires 'corners', 'zdepth' and 'size'")
                 continue
             if self._configs.training.nll_loss:
-                weights = self._configs.estimation.weights  # TODO: Optimize with L1 loss
+                weights = self._configs.postprocessing.bbox_estimation_3d.weights  # TODO: Optimize with L1 loss
             else:
-                weights = self._configs.estimation.weights
+                weights = self._configs.postprocessing.bbox_estimation_3d.weights
             estimator = BoxEstimator(detection, calibration, weights)
             box_parameters = estimator.heuristic_3d()
-            if self._configs.estimation.local_optimization_3d:
+            if self._configs.postprocessing.bbox_estimation_3d.local_optimization_3d:
                 box_parameters = estimator.solve()
             detection['size'] = box_parameters[:3]
             detection['location'] = box_parameters[3:6]
@@ -82,3 +85,23 @@ class Detector:
             detection['rotation'] = matrix_from_yaw(box_parameters[6])
             detection['alpha'] = box_parameters[6] - np.arctan2(box_parameters[3], box_parameters[5])
         return frame_detections
+
+    def _rigid_6d_pose_estimation(self, frame_detections, calibration):
+        for detection in frame_detections:
+            if not all(attr in detection for attr in ['keypoints', 'zdepth', 'size']):
+                print("Estimation currently requires 'keypoints', 'zdepth' and 'size'")
+                continue
+        #     if self._configs.training.nll_loss:
+        #         weights = self._configs.postprocessing.bbox_estimation_3d.weights  # TODO: Optimize with L1 loss
+        #     else:
+        #         weights = self._configs.postprocessing.bbox_estimation_3d.weights
+        #     estimator = BoxEstimator(detection, calibration, weights)
+        #     box_parameters = estimator.heuristic_3d()
+        #     if self._configs.postprocessing.bbox_estimation_3d.local_optimization_3d:
+        #         box_parameters = estimator.solve()
+        #     detection['size'] = box_parameters[:3]
+        #     detection['location'] = box_parameters[3:6]
+        #     detection['rotation_y'] = box_parameters[6]
+        #     detection['rotation'] = matrix_from_yaw(box_parameters[6])
+        #     detection['alpha'] = box_parameters[6] - np.arctan2(box_parameters[3], box_parameters[5])
+        # return frame_detections
