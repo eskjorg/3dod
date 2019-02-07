@@ -77,14 +77,26 @@ def get_layers(config_name):
 def matrix_from_yaw(yaw):
     return np.array([[np.cos(yaw), 0, np.sin(yaw)], [0, 1, 0], [-np.sin(yaw), 0, np.cos(yaw)]])
 
-def project_3d_box(p_matrix, size, loc, rot_y=None, rot_matrix=None):
-    h, _, _ = size
-    _, w2, l2 = size / 2
+def project_3d_pts(pts_3d_objframe, p_matrix, loc, rot_y=None, rot_matrix=None):
     rot_matrix = matrix_from_yaw(rot_y) if rot_y else rot_matrix
-    points_3d = np.ones((4,8))
-                                                                #    BLR  BLF BRF BRR  TLR  TLF TRF TRR
-    points_3d[:3] = np.tile(loc, (8, 1)).T + rot_matrix @ np.array([[-l2, l2, l2, -l2, -l2, l2, l2, -l2],
-                                                                    [0, 0, 0, 0, -h, -h, -h, -h],
-                                                                    [w2, w2, -w2, -w2, w2, w2, -w2, -w2]])
-    points_2d = p_matrix @ points_3d
-    return points_2d[:2] / points_2d[2]
+
+    # Euclidean transformation to global frame. Store as homogeneous coordinates.
+    pts_3d_global = np.ones((4,8))
+    pts_3d_global[:3] = np.tile(loc, (8, 1)).T + rot_matrix @ np.array(pts_3d_objframe)
+
+    # Projection
+    pts_2d = p_matrix @ pts_3d_global
+    return pts_2d[:2] / pts_2d[2]
+
+def construct_3d_box(height, width, length):
+    """
+    Returns 3D points of bounding box corners, given parameters.
+    """
+    h = height
+    w2 = 0.5*width
+    l2 = 0.5*length
+                            #    BLR  BLF BRF BRR  TLR  TLF TRF TRR
+    pts_3d_objframe = np.array([[-l2, l2, l2, -l2, -l2, l2, l2, -l2],
+                                [0, 0, 0, 0, -h, -h, -h, -h],
+                                [w2, w2, -w2, -w2, w2, w2, -w2, -w2]])
+    return pts_3d_objframe

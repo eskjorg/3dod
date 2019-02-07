@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from lib.constants import IGNORE_IDX_CLS, KEYPOINT_NAME_MAP
-from lib.utils import get_layers, project_3d_box, matrix_from_yaw
+from lib.utils import get_layers, project_3d_pts, construct_3d_box, matrix_from_yaw
 
 
 class GtMapsGenerator:
@@ -157,10 +157,12 @@ class CornersGenerator(GeneratorIndex):
         xmin, ymin, xmax, ymax = map_coords
         rotation = matrix_from_yaw(obj_annotation.rot_y) if hasattr(obj_annotation, 'rot_y') \
                    else obj_annotation.rotation
-        corner_coords = project_3d_box(self._calib,
-                                       obj_annotation.size,
-                                       obj_annotation.location,
-                                       rot_matrix=rotation)
+        corner_coords = project_3d_pts(
+            construct_3d_box(*obj_annotation.size),
+            self._calib,
+            obj_annotation.location,
+            rot_matrix=rotation,
+        )
         for index in range(8):
             x, y = corner_coords[:, index]
             # Quite arbitrary threshold: 10

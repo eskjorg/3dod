@@ -1,7 +1,7 @@
 """Estimate 3D bounding boxes for detected objects."""
 import numpy as np
 from scipy.optimize import least_squares
-from lib.utils import project_3d_box
+from lib.utils import project_3d_pts, construct_3d_box
 
 
 class BoxEstimator:
@@ -39,7 +39,12 @@ class BoxEstimator:
         size = box_parameters[:3]
         location = box_parameters[3:6]
         rot_y = box_parameters[6]
-        corners = project_3d_box(self._calibration, size, location, rot_y=rot_y)
+        corners = project_3d_pts(
+            construct_3d_box(*size),
+            self._calibration,
+            location,
+            rot_y=rot_y,
+        )
 
         residuals = np.concatenate(((self.data.corners - corners).flatten(),
                                     self.data.size - size,

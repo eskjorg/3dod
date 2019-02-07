@@ -9,7 +9,7 @@ from tensorboardX import SummaryWriter
 
 from lib.constants import PYPLOT_DPI, BOX_SKELETON
 from lib.constants import TV_MEAN, TV_STD
-from lib.utils import project_3d_box, get_class_map
+from lib.utils import project_3d_pts, construct_3d_box, get_class_map
 
 class Visualizer:
     """Visualizer."""
@@ -55,7 +55,12 @@ class Visualizer:
         axes.add_patch(rect)
 
     def _plot_bbox3d(self, axes, obj, calib, **kwargs):
-        corners_2d = project_3d_box(calib, obj.size, obj.location, rot_y=obj.rotation_y)
+        corners_2d = project_3d_pts(
+            construct_3d_box(*obj.size),
+            calib,
+            obj.location,
+            rot_y=obj.rotation_y,
+        )
         coordinates = [corners_2d[:, idx] for idx in BOX_SKELETON]
         color = self._class_map.get_color(obj.cls)
         polygon = patches.Polygon(coordinates, linewidth=2, color=color)
