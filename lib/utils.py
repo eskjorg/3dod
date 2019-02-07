@@ -26,6 +26,13 @@ def get_device():
 
 ## File ops ##
 
+def listdir_nohidden(path):
+    fnames = []
+    for f in os.listdir(path):
+        if not f.startswith('.'):
+            fnames.append(f)
+    return fnames
+
 def read_json(path):
     """Read json file to AttrDict."""
     with open(path) as file:

@@ -1,5 +1,4 @@
 """Reading input data in the SIXD common format."""
-from os import listdir
 from os.path import join
 from collections import namedtuple
 import yaml
@@ -11,6 +10,7 @@ from matplotlib.pyplot import cm
 from lib.constants import IGNORE_IDX_CLS
 from lib.data.loader import Sample
 from lib.utils import read_image_to_pt
+from lib.utils import listdir_nohidden
 
 
 Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'size', 'location', 'rotation'])
@@ -27,8 +27,8 @@ class Reader:
     def _init_indices(self):
         indices = []
         train_path = join(self._configs.path, 'train')
-        for subdir in listdir(train_path):
-            indices.append(len(listdir(join(train_path, subdir, 'rgb'))))
+        for subdir in listdir_nohidden(train_path):
+            indices.append(len(listdir_nohidden(join(train_path, subdir, 'rgb'))))
         return indices
 
     def _init_models(self):
@@ -86,7 +86,7 @@ class Reader:
 class ClassMap:
     """ClassMap."""
     def __init__(self, configs):
-        self._class_labels = sorted(listdir(join(configs.data.path, 'train')))
+        self._class_labels = sorted(listdir_nohidden(join(configs.data.path, 'train')))
 
     def id_from_label(self, label):
         try:
