@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from lib.constants import IGNORE_IDX_CLS, KEYPOINT_NAME_MAP
-from lib.utils import get_layers, project_3d_pts, construct_3d_box, matrix_from_yaw
+from lib.utils import get_layers, get_metadata, project_3d_pts, construct_3d_box, matrix_from_yaw
 
 
 class GtMapsGenerator:
@@ -15,6 +15,7 @@ class GtMapsGenerator:
     def __init__(self, configs):
         super(GtMapsGenerator, self).__init__()
         self._configs = configs
+        self._metadata = get_metadata(self._configs)
         self._configs.target_dims = [ceil(dim / self._configs.network.output_stride)
                                      for dim in self._configs.data.img_dims]
         self._layers = get_layers(self._configs.config_name)
@@ -25,7 +26,7 @@ class GtMapsGenerator:
         obj_coords_supp = self._get_coordinates(annotations, self._configs.network.support_region)
         for layer_name in self._layers.keys():
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
-            generator = Generator(self._configs, calibration)
+            generator = Generator(self._configs, calibration, self._metadata)
             for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
                 if layer_name == "class":
                     generator.add_obj(obj, full, IGNORE_IDX_CLS)
@@ -52,10 +53,11 @@ class GtMapsGenerator:
 
 class GeneratorIf(metaclass=ABCMeta):
     """Abstract class for target gt generation."""
-    def __init__(self, configs, *args, **kwargs):
+    def __init__(self, configs, metadata, *args, **kwargs):
         """Constructor."""
         super().__init__()
         self._configs = configs
+        self._metadata = metadata
         self._map = torch.zeros(self._get_num_maps(), *self._configs.target_dims)
 
     @abstractmethod
@@ -77,9 +79,9 @@ class GeneratorIf(metaclass=ABCMeta):
 
 class GeneratorIndex(GeneratorIf):
     """GeneratorIndex."""
-    def __init__(self, configs, calib=None, device='cpu'):
+    def __init__(self, configs, metadata, calib=None, device='cpu'):
         """Constructor."""
-        super().__init__(configs)
+        super().__init__(configs, metadata)
         self._calib = calib
         self._index_map = self._gen_index_map().to(torch.device(device))
 

@@ -9,6 +9,9 @@ from lib.utils import read_image_to_pt, read_velodyne_to_pt
 from lib.data.loader import Sample
 
 
+def get_metadata(configs):
+    return {}
+
 Annotation = namedtuple('Annotation', ['cls', 'truncation', 'occlusion', 'alpha',
                                        'bbox2d', 'size', 'location', 'rot_y'])
 Calibration = namedtuple('Calibration',

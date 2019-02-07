@@ -13,6 +13,24 @@ from lib.utils import read_image_to_pt
 from lib.utils import listdir_nohidden
 
 
+def get_metadata(configs):
+    path = join(configs.data.path, 'models', 'models_info.yml')
+    with open(path, 'r') as file:
+        models_info = yaml.load(file)
+    def build_kp_array(obj_anno):
+        return np.array([
+            obj_anno['kp_x'],
+            obj_anno['kp_y'],
+            obj_anno['kp_z'],
+        ])
+    return {
+        'objects': {obj_label: {
+            # NOTE: ClassMap.id_from_label could be called when needed instead of storing ids. Unless performance issue..?
+            # 'obj_id': ClassMap.id_from_label(obj_label),
+            'keypoints': build_kp_array(obj_anno),
+        } for obj_label, obj_anno in models_info.items()},
+    }
+
 Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'size', 'location', 'rotation'])
 
 
