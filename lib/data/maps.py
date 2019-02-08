@@ -28,7 +28,7 @@ class GtMapsGenerator:
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
             generator = Generator(self._configs, calibration, self._metadata)
             for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
-                if layer_name == "class":
+                if layer_name == "cls":
                     generator.add_obj(obj, full, IGNORE_IDX_CLS)
                 if obj.cls is not IGNORE_IDX_CLS:
                     generator.add_obj(obj, supp)
