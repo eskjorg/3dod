@@ -62,7 +62,7 @@ class Reader:
         dir_ind, img_ind = self._get_indices(index)
         dir_path = join(self._configs.path, self._configs.subdir, self._class_map[dir_ind])
         data = self._read_data(dir_path, img_ind)
-        annotations = self._read_annotations(dir_path, img_ind, self._models[dir_ind + 1])
+        annotations = self._read_annotations(dir_path, img_ind)
         calibration = self._read_calibration(dir_path, img_ind)
         return Sample(annotations, data, None, calibration, index)
 
@@ -72,18 +72,17 @@ class Reader:
         max_h, max_w = self._configs.img_dims
         return image[:, :max_h, :max_w]
 
-    def _read_annotations(self, dir_path, img_ind, model):
+    def _read_annotations(self, dir_path, img_ind):
         annotations = []
-        size = (model['size_x'], model['size_y'], model['size_z'])
-
         with open(join(dir_path, 'gt.yml'), 'r') as file:
             gts = yaml.load(file, Loader=yaml.CLoader)
         for gt in gts[img_ind]:
+            model = self._models[gt['obj_id']]
             bbox2d = Tensor(gt['obj_bb'])
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
             annotations.append(Annotation(cls=self._class_map.id_from_label(gt['obj_id']),
                                           bbox2d=bbox2d,
-                                          size=Tensor(size),
+                                          size=Tensor((model['size_x'], model['size_y'], model['size_z'])),
                                           location=Tensor(gt['cam_t_m2c']),
                                           rotation=np.array(gt['cam_R_m2c']).reshape((3, 3))))
         return annotations

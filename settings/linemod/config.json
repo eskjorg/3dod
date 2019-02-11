@@ -1,0 +1,19 @@
+{
+    "logging": {
+        "save_kitti_format": false
+    },
+    "training": {
+        "learning_rate": 0.0001,
+        "nll_loss": false
+    },
+    "visualization": {
+        "det": ["bbox2d", "zdepth", "corners"]
+    },
+    "data":{
+        "dataformat": "sixd",
+        "path": "/datasets/occluded-linemod-augmented",
+        "subdir": "train_aug",
+        "img_dims": [480, 640],
+        "split_dir": "split_ape"
+    }
+}
