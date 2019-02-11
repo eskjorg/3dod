@@ -7,7 +7,7 @@
         "nll_loss": true
     },
     "data":{
-        "dataset": "kitti",
+        "dataformat": "kitti_object",
         "path": "/datasets/kitti/object/training/",
         "modalities": {
             "cam": [

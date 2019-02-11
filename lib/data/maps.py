@@ -26,7 +26,7 @@ class GtMapsGenerator:
         obj_coords_supp = self._get_coordinates(annotations, self._configs.network.support_region)
         for layer_name in self._layers.keys():
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
-            generator = Generator(self._configs, calibration, self._metadata)
+            generator = Generator(self._configs, self._metadata, calibration)
             for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
                 if layer_name == "cls":
                     generator.add_obj(obj, full, IGNORE_IDX_CLS)

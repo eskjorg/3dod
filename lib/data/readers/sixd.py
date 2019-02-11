@@ -39,12 +39,12 @@ class Reader:
     def __init__(self, configs):
         self._configs = configs.data
         self._class_map = ClassMap(configs)
-        self._indices = self._init_indices()
+        self._n_class_instances = self._init_class_instances()
         self._models = self._init_models()
 
-    def _init_indices(self):
+    def _init_class_instances(self):
         indices = []
-        train_path = join(self._configs.path, 'train')
+        train_path = join(self._configs.path, self._configs.subdir)
         for subdir in listdir_nohidden(train_path):
             indices.append(len(listdir_nohidden(join(train_path, subdir, 'rgb'))))
         return indices
@@ -55,14 +55,14 @@ class Reader:
             return yaml.load(file)
 
     def __len__(self):
-        return sum(self._indices)
+        return sum(self._n_class_instances)
 
     def __getitem__(self, index):
         index = int(index)
         dir_ind, img_ind = self._get_indices(index)
-        dir_path = join(self._configs.path, 'train', str(dir_ind).zfill(2))
+        dir_path = join(self._configs.path, self._configs.subdir, self._class_map[dir_ind])
         data = self._read_data(dir_path, img_ind)
-        annotations = self._read_annotations(dir_path, img_ind, dir_ind)
+        annotations = self._read_annotations(dir_path, img_ind, self._models[dir_ind + 1])
         calibration = self._read_calibration(dir_path, img_ind)
         return Sample(annotations, data, None, calibration, index)
 
@@ -72,9 +72,8 @@ class Reader:
         max_h, max_w = self._configs.img_dims
         return image[:, :max_h, :max_w]
 
-    def _read_annotations(self, dir_path, img_ind, dir_ind):
+    def _read_annotations(self, dir_path, img_ind, model):
         annotations = []
-        model = self._models[dir_ind]
         size = (model['size_x'], model['size_y'], model['size_z'])
 
         with open(join(dir_path, 'gt.yml'), 'r') as file:
@@ -96,28 +95,28 @@ class Reader:
         return np.concatenate((intrinsic, np.zeros((3, 1))), axis=1)
 
     def _get_indices(self, index):
-        dir_ind = np.cumsum(self._indices).searchsorted(index + 1)
-        img_ind = index - sum(self._indices[:dir_ind])
-        return dir_ind + 1, img_ind
+        dir_ind = np.cumsum(self._n_class_instances).searchsorted(index + 1)
+        img_ind = index - sum(self._n_class_instances[:dir_ind])
+        return dir_ind, img_ind
 
 
 class ClassMap:
     """ClassMap."""
     def __init__(self, configs):
-        self._class_labels = sorted(listdir_nohidden(join(configs.data.path, 'train')))
+        self.class_labels = sorted(listdir_nohidden(join(configs.data.path, configs.data.subdir)))
+
+    def __getitem__(self, idx):
+        return self.class_labels[idx]
 
     def id_from_label(self, label):
-        try:
-            return 2 + list(map(int, self._class_labels)).index(int(label))
-        except ValueError:
-            return IGNORE_IDX_CLS
+        """In network, 0 and 1 are reserved for background and don't_care"""
+        return 1 + label
 
     def label_from_id(self, class_id):
-        return self._class_labels[class_id - 2]
+        return self.class_labels[class_id - 2]
 
     def get_ids(self):
-        for label in self._class_labels:
-            yield self.id_from_label(label)
+        return range(2, 2 + len(self.class_labels))
 
     def get_color(self, class_id):
         if isinstance(class_id, str):

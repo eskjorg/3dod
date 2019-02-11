@@ -61,10 +61,10 @@ def read_velodyne_to_pt(path):
 # Modules
 
 def get_class_map(configs):
-    return import_module('lib.data.readers.' + configs.data.dataset).ClassMap(configs)
+    return import_module('lib.data.readers.' + configs.data.dataformat).ClassMap(configs)
 
 def get_metadata(configs):
-    return import_module('lib.data.readers.' + configs.data.dataset).get_metadata(configs)
+    return import_module('lib.data.readers.' + configs.data.dataformat).get_metadata(configs)
 
 
 # Load settings

@@ -10,8 +10,9 @@
         "det": ["bbox2d", "zdepth", "corners"]
     },
     "data":{
-        "dataset": "sixd",
+        "dataformat": "sixd",
         "path": "/datasets/sixd/hinterstoisser",
+        "subdir": "train",
         "img_dims": [480, 640],
         "split_dir": "split_hinter"
     }

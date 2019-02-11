@@ -42,7 +42,7 @@ class Detector:
         for key in outputs_task:
             data = outputs_task[key][frame_index].detach()
             Generator = getattr(maps, key.capitalize() + 'Generator')
-            data = Generator(self._configs, device=get_device()).decode(data)
+            data = Generator(self._configs, metadata=None, device=get_device()).decode(data)
             frame_outputs[key] = data.permute(1, 2, 0).reshape(-1, data.shape[0]).squeeze().float()
         for key in outputs_ln_b:
             data = outputs_ln_b[key][frame_index].detach()
