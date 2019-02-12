@@ -91,7 +91,7 @@ class SixdDataset(Dataset):
             model = self._models[gt['obj_id']]
             bbox2d = Tensor(gt['obj_bb'])
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
-            annotations.append(Annotation(cls=self._class_map.id_from_label(str(gt['obj_id'])),
+            annotations.append(Annotation(cls=self._class_map.id_from_label(self._class_map.format_label(gt['obj_id'])),
                                           bbox2d=bbox2d,
                                           size=Tensor((model['size_x'], model['size_y'], model['size_z'])),
                                           location=Tensor(gt['cam_t_m2c']),
@@ -120,17 +120,25 @@ class ClassMap:
     """
     def __init__(self, configs):
         with open(join(configs.data.path, 'models', 'models_info.yml'), 'r') as model_file:
-            self._class_labels = yaml.load(model_file).keys()
+            class_labels_int = sorted(yaml.load(model_file).keys())
+        class_labels_str = list(map(self.format_label, class_labels_int))
+        # In network, 0 and 1 are reserved for background and don't_care
+        class_ids = list(range(2, len(class_labels_str)+2))
+        self._label2id_dict = dict(list(zip(class_labels_str, class_ids)))
+        self._id2label_dict = dict(list(zip(class_ids, class_labels_str)))
+
+    def format_label(self, class_label_int):
+        class_label_str = "{:02d}".format(class_label_int)
+        return class_label_str
 
     def id_from_label(self, class_label):
-        """In network, 0 and 1 are reserved for background and don't_care"""
-        return 1 + int(class_label)
+        return self._label2id_dict[class_label]
 
     def label_from_id(self, class_id):
-        return str(class_id - 1)
+        return self._id2label_dict[class_id]
 
     def get_ids(self):
-        return range(2, self.id_from_label(max(self._class_labels)))
+        return sorted(self._id2label_dict.keys())
 
     def get_color(self, class_id):
         if isinstance(class_id, str):
