@@ -12,7 +12,20 @@
     "data":{
         "dataformat": "sixd",
         "path": "/datasets/sixd/hinterstoisser",
-        "subdir": "train",
+        "sequences": {
+            "train": [
+                "train/01",
+                "train/05",
+                "train/07"
+            ],
+            "val": [
+                "train/08"
+            ],
+            "test": [
+                "test/01",
+                "test/05"
+            ]
+        },
         "img_dims": [480, 640],
         "split_dir": "split_hinter"
     }

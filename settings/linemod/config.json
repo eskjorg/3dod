@@ -12,7 +12,20 @@
     "data":{
         "dataformat": "sixd",
         "path": "/datasets/occluded-linemod-augmented",
-        "subdir": "train_aug",
+        "sequences": {
+            "train": [
+                "train_occl/ape",
+                "train_aug/ape",
+                "train_aug/can"
+            ],
+            "val": [
+                "train_aug/can",
+                "train_aug/driller"
+            ],
+            "test": [
+                "test_occl/benchviseblue"
+            ]
+        },
         "img_dims": [480, 640],
         "split_dir": "split_ape"
     }

@@ -5,10 +5,12 @@ import yaml
 
 import numpy as np
 from torch import Tensor
+from torch.utils.data import Dataset
 from matplotlib.pyplot import cm
 
-from lib.constants import IGNORE_IDX_CLS
+from lib.constants import IGNORE_IDX_CLS, TRAIN, VAL
 from lib.data.loader import Sample
+from lib.data.maps import GtMapsGenerator
 from lib.utils import read_image_to_pt
 from lib.utils import listdir_nohidden
 
@@ -27,27 +29,34 @@ def get_metadata(configs):
         'objects': {obj_label: {
             # NOTE: ClassMap.id_from_label could be called when needed instead of storing ids. Unless performance issue..?
             # 'obj_id': ClassMap.id_from_label(obj_label),
-            'keypoints': build_kp_array(obj_anno),
+            'keypoints': build_kp_array(obj_anno) if obj_label is not 6 else np.zeros([3,3]),
         } for obj_label, obj_anno in models_info.items()},
     }
+
+
+def get_dataset(configs, mode):
+    return SixdDataset(configs, mode)
+
 
 Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'size', 'location', 'rotation'])
 
 
-class Reader:
-    """docstring for Reader."""
-    def __init__(self, configs):
+class SixdDataset(Dataset):
+    def __init__(self, configs, mode):
         self._configs = configs.data
+        self._mode = mode
         self._class_map = ClassMap(configs)
-        self._n_class_instances = self._init_class_instances()
+        self._gt_map_generator = GtMapsGenerator(configs)
+        self._sequence_lengths = self._init_sequence_lengths()
         self._models = self._init_models()
 
-    def _init_class_instances(self):
-        indices = []
-        train_path = join(self._configs.path, self._configs.subdir)
-        for subdir in listdir_nohidden(train_path):
-            indices.append(len(listdir_nohidden(join(train_path, subdir, 'rgb'))))
-        return indices
+    def _init_sequence_lengths(self):
+        sequences = {}
+        root_path = self._configs.path
+        for sequence in self._configs.sequences[self._mode]:
+            num_images = len(listdir_nohidden(join(root_path, sequence, 'rgb')))
+            sequences[sequence] = num_images
+        return sequences
 
     def _init_models(self):
         path = join(self._configs.path, 'models', 'models_info.yml')
@@ -55,16 +64,18 @@ class Reader:
             return yaml.load(file)
 
     def __len__(self):
-        return sum(self._n_class_instances)
+        return sum(self._sequence_lengths.values())
 
     def __getitem__(self, index):
-        index = int(index)
-        dir_ind, img_ind = self._get_indices(index)
-        dir_path = join(self._configs.path, self._configs.subdir, self._class_map[dir_ind])
+        #index = int(index)
+        seq_name, img_ind = self._get_data_pointers(index)
+        dir_path = join(self._configs.path, seq_name)
         data = self._read_data(dir_path, img_ind)
         annotations = self._read_annotations(dir_path, img_ind)
         calibration = self._read_calibration(dir_path, img_ind)
-        return Sample(annotations, data, None, calibration, index)
+        gt_maps = self._mode in (TRAIN, VAL) and \
+                  self._gt_map_generator.generate(annotations, calibration)
+        return Sample(annotations, data, gt_maps, calibration, index)
 
     def _read_data(self, dir_path, img_ind):
         path = join(dir_path, 'rgb', str(img_ind).zfill(4) + '.png')
@@ -80,7 +91,7 @@ class Reader:
             model = self._models[gt['obj_id']]
             bbox2d = Tensor(gt['obj_bb'])
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
-            annotations.append(Annotation(cls=self._class_map.id_from_label(gt['obj_id']),
+            annotations.append(Annotation(cls=self._class_map.id_from_label(str(gt['obj_id'])),
                                           bbox2d=bbox2d,
                                           size=Tensor((model['size_x'], model['size_y'], model['size_z'])),
                                           location=Tensor(gt['cam_t_m2c']),
@@ -93,29 +104,33 @@ class Reader:
         intrinsic = np.reshape(obj_info['cam_K'], (3, 3))
         return np.concatenate((intrinsic, np.zeros((3, 1))), axis=1)
 
-    def _get_indices(self, index):
-        dir_ind = np.cumsum(self._n_class_instances).searchsorted(index + 1)
-        img_ind = index - sum(self._n_class_instances[:dir_ind])
-        return dir_ind, img_ind
-
+    def _get_data_pointers(self, index):
+        for seq_name, seq_length in self._sequence_lengths.items():
+            if seq_length > index:
+                break
+            index -= seq_length
+        return seq_name, index
 
 class ClassMap:
-    """ClassMap."""
+    """Mapping between class label and class id.
+
+    id (int): the class index in the network layer.
+    label (str): the name of the class
+
+    """
     def __init__(self, configs):
-        self.class_labels = sorted(listdir_nohidden(join(configs.data.path, configs.data.subdir)))
+        with open(join(configs.data.path, 'models', 'models_info.yml'), 'r') as model_file:
+            self._class_labels = yaml.load(model_file).keys()
 
-    def __getitem__(self, idx):
-        return self.class_labels[idx]
-
-    def id_from_label(self, label):
+    def id_from_label(self, class_label):
         """In network, 0 and 1 are reserved for background and don't_care"""
-        return 1 + label
+        return 1 + int(class_label)
 
     def label_from_id(self, class_id):
-        return self.class_labels[class_id - 2]
+        return str(class_id - 1)
 
     def get_ids(self):
-        return range(2, 2 + len(self.class_labels))
+        return range(2, self.id_from_label(max(self._class_labels)))
 
     def get_color(self, class_id):
         if isinstance(class_id, str):

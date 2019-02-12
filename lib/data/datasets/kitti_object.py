@@ -3,14 +3,26 @@ import os
 from collections import namedtuple
 import numpy as np
 import torch
+from torch.utils.data import Dataset, Subset
 
 from lib.constants import VELODYNE, LABEL_2, CALIB, IGNORE_IDX_CLS
+from lib.constants import SETTINGS_PATH, TRAIN, VAL
 from lib.utils import read_image_to_pt, read_velodyne_to_pt
 from lib.data.loader import Sample
+from lib.data.maps import GtMapsGenerator
 
 
 def get_metadata(configs):
     return {}
+
+def get_dataset(configs, mode):
+    index_path = os.path.join(SETTINGS_PATH,
+                              configs.config_name,
+                              configs.data.split_dir,
+                              '{}.txt'.format(mode))
+    with open(index_path) as index_file:
+        return Subset(dataset=KittiObjectDataset(configs, mode), indices=index_file.read().splitlines())
+
 
 Annotation = namedtuple('Annotation', ['cls', 'truncation', 'occlusion', 'alpha',
                                        'bbox2d', 'size', 'location', 'rot_y'])
@@ -18,11 +30,13 @@ Calibration = namedtuple('Calibration',
                          ['P0', 'P1', 'P2', 'P3', 'R0_rect', 'Tr_velo_to_cam', 'Tr_imu_to_velo'])
 
 
-class Reader:
-    """docstring for Reader."""
-    def __init__(self, configs):
+class KittiObjectDataset(Dataset):
+    def __init__(self, configs, mode):
         self._configs = configs.data
+        self._mode = mode
         self._class_map = ClassMap(configs)
+        self._gt_map_generator = GtMapsGenerator(configs)
+        super(KittiObjectDataset, self).__init__()
 
     def __len__(self):
         calib_path = os.path.join(self._configs.path, CALIB)
@@ -32,7 +46,9 @@ class Reader:
         data = self._read_data(index)['image_2']
         annotations = self._read_annotations(index)
         calibration = self._read_calibration(index).P2
-        return Sample(annotations, data, None, calibration, index)
+        gt_maps = self._mode in (TRAIN, VAL) and \
+                  self._gt_map_generator.generate(annotations, calibration)
+        return Sample(annotations, data, gt_maps, calibration, index)
 
     def _get_path(self, modality, index):
         root = self._configs.path
