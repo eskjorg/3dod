@@ -26,7 +26,6 @@
                 "test_occl/benchviseblue"
             ]
         },
-        "img_dims": [480, 640],
-        "split_dir": "split_ape"
+        "img_dims": [480, 640]
     }
 }

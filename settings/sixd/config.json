@@ -26,7 +26,6 @@
                 "test/05"
             ]
         },
-        "img_dims": [480, 640],
-        "split_dir": "split_hinter"
+        "img_dims": [480, 640]
     }
 }
