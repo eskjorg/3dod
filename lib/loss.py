@@ -20,10 +20,7 @@ class LossHandler:
         self._l1_loss = nn.L1Loss(reduction='none').to(get_device())
 
     def calc_loss(self, gt_maps, outputs_cnn):
-        loss = 0
-        outputs_task, outputs_ln_b = outputs_cnn
-        for layer, tensor in outputs_task.items():
-            gt_map = gt_maps[layer].to(get_device(), non_blocking=True)
+        def calc_task_loss(tensor, gt_map):
             if layer == 'cls':
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
             else:
@@ -33,6 +30,12 @@ class LossHandler:
                     task_loss = task_loss * exp(-ln_b) + LN_2 + ln_b
                 task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
                 task_loss = task_loss.sum() / gt_map.ne(IGNORE_IDX_REG).sum()
+            return task_loss
+        loss = 0
+        outputs_task, outputs_ln_b = outputs_cnn
+        for layer, tensor in outputs_task.items():
+            gt_map = gt_maps[layer].to(get_device(), non_blocking=True)
+            task_loss = calc_task_loss(tensor, gt_map)
             loss += task_loss
             self._losses[layer].append(task_loss.item())
         return loss
