@@ -21,10 +21,7 @@ class GtMapsGenerator:
         self._layers = get_layers(self._configs.config_name)
 
     def generate(self, annotations, calibration):
-        gt_maps = {}
-        obj_coords_full = self._get_coordinates(annotations)
-        obj_coords_supp = self._get_coordinates(annotations, self._configs.network.support_region)
-        for layer_name in self._layers.keys():
+        def generate_map_for_head(layer_name):
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
             generator = Generator(self._configs, self._metadata, calibration)
             for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
@@ -32,7 +29,13 @@ class GtMapsGenerator:
                     generator.add_obj(obj, full, IGNORE_IDX_CLS)
                 if obj.cls is not IGNORE_IDX_CLS:
                     generator.add_obj(obj, supp)
-            gt_maps[layer_name] = generator.get_map()
+            return generator.get_map()
+
+        gt_maps = {}
+        obj_coords_full = self._get_coordinates(annotations)
+        obj_coords_supp = self._get_coordinates(annotations, self._configs.network.support_region)
+        for layer_name in self._layers.keys():
+            gt_maps[layer_name] = generate_map_for_head(layer_name)
         return gt_maps
 
     def _get_coordinates(self, objects, shrink_factor=1):
