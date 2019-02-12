@@ -5,7 +5,7 @@ from torch import nn, exp
 
 from lib.constants import TRAIN, VAL
 from lib.constants import LN_2, IGNORE_IDX_CLS, IGNORE_IDX_REG
-from lib.utils import get_device
+from lib.utils import get_device, get_layers, get_class_map
 
 
 class LossHandler:
@@ -13,31 +13,45 @@ class LossHandler:
     def __init__(self, configs, name):
         self._configs = configs
         self._logger = logging.getLogger(name)
+        self._class_map = get_class_map(self._configs)
 
+        self._layers = get_layers(self._configs.config_name)
         self._losses = defaultdict(list)
 
         self._ce_loss = nn.CrossEntropyLoss(ignore_index=IGNORE_IDX_CLS).to(get_device())
         self._l1_loss = nn.L1Loss(reduction='none').to(get_device())
 
     def calc_loss(self, gt_maps, outputs_cnn):
-        def calc_task_loss(tensor, gt_map):
-            if layer == 'cls':
+        def calc_task_loss(layer_name, tensor, gt_map):
+            if layer_name == 'cls':
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
             else:
                 task_loss = self._l1_loss(tensor, gt_map)
                 if outputs_ln_b:
-                    ln_b = outputs_ln_b[layer]
+                    ln_b = outputs_ln_b[layer_name]
                     task_loss = task_loss * exp(-ln_b) + LN_2 + ln_b
                 task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
                 task_loss = task_loss.sum() / gt_map.ne(IGNORE_IDX_REG).sum()
             return task_loss
         loss = 0
         outputs_task, outputs_ln_b = outputs_cnn
-        for layer, tensor in outputs_task.items():
-            gt_map = gt_maps[layer].to(get_device(), non_blocking=True)
-            task_loss = calc_task_loss(tensor, gt_map)
-            loss += task_loss
-            self._losses[layer].append(task_loss.item())
+        for layer_name, tensor in outputs_task.items():
+            if self._layers[layer_name]['cls_specific_heads']:
+                # Separate GT map for every class
+                nbr_classes = len(self._class_map.get_ids())
+                for cls_id in self._class_map.get_ids():
+                    class_label = self._class_map.label_from_id(cls_id)
+                    head_name = '{}_{}'.format(layer_name, class_label)
+                    gt_map = gt_maps[head_name].to(get_device(), non_blocking=True)
+                    task_loss = calc_task_loss(layer_name, tensor, gt_map)
+                    loss += task_loss / float(nbr_classes)
+                    self._losses[head_name].append(task_loss.item())
+            else:
+                # Single GT map - shared among all classes
+                gt_map = gt_maps[layer_name].to(get_device(), non_blocking=True)
+                task_loss = calc_task_loss(layer_name, tensor, gt_map)
+                loss += task_loss
+                self._losses[layer_name].append(task_loss.item())
         return loss
 
     def get_averages(self, num_batches=0):

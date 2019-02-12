@@ -80,7 +80,15 @@ def get_configs(config_name):
 
 def get_layers(config_name):
     path = os.path.join(SETTINGS_PATH, config_name, 'layers.json')
-    return read_json(path)
+    layer_spec = read_json(path)
+    for layer_name in layer_spec:
+        if 'cls_specific_heads' not in layer_spec[layer_name]:
+            # Default value: False
+            layer_spec[layer_name]['cls_specific_heads'] = False
+    if 'cls' in layer_spec:
+        # For cls head, cls_specific_heads must be True
+        assert not layer_spec['cls']['cls_specific_heads']
+    return layer_spec
 
 # Geometry
 

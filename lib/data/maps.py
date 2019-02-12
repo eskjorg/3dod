@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from lib.constants import IGNORE_IDX_CLS, KEYPOINT_NAME_MAP
-from lib.utils import get_layers, get_metadata, project_3d_pts, construct_3d_box, matrix_from_yaw
+from lib.utils import get_layers, get_metadata, get_class_map, project_3d_pts, construct_3d_box, matrix_from_yaw
 
 
 class GtMapsGenerator:
@@ -16,15 +16,21 @@ class GtMapsGenerator:
         super(GtMapsGenerator, self).__init__()
         self._configs = configs
         self._metadata = get_metadata(self._configs)
+        self._class_map = get_class_map(self._configs)
         self._configs.target_dims = [ceil(dim / self._configs.network.output_stride)
                                      for dim in self._configs.data.img_dims]
         self._layers = get_layers(self._configs.config_name)
 
     def generate(self, annotations, calibration):
-        def generate_map_for_head(layer_name):
+        def generate_map_for_head(layer_name, cls_id_filter=None):
+            if cls_id_filter is not None:
+                assert layer_name != "cls"
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
             generator = Generator(self._configs, self._metadata, calibration)
             for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
+                if cls_id_filter is not None and obj.cls not in cls_id_filter:
+                    # Discard instance if head is dedicated only to other class labels
+                    continue
                 if layer_name == "cls":
                     generator.add_obj(obj, full, IGNORE_IDX_CLS)
                 if obj.cls is not IGNORE_IDX_CLS:
@@ -35,7 +41,14 @@ class GtMapsGenerator:
         obj_coords_full = self._get_coordinates(annotations)
         obj_coords_supp = self._get_coordinates(annotations, self._configs.network.support_region)
         for layer_name in self._layers.keys():
-            gt_maps[layer_name] = generate_map_for_head(layer_name)
+            if self._layers[layer_name]['cls_specific_heads']:
+                # Separate GT map for every class
+                for cls_id in self._class_map.get_ids():
+                    class_label = self._class_map.label_from_id(cls_id)
+                    gt_maps['{}_{}'.format(layer_name, class_label)] = generate_map_for_head(layer_name, cls_id_filter=[cls_id])
+            else:
+                # Single GT map - shared among all classes
+                gt_maps[layer_name] = generate_map_for_head(layer_name, cls_id_filter=None)
         return gt_maps
 
     def _get_coordinates(self, objects, shrink_factor=1):
