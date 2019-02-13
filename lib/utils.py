@@ -86,7 +86,7 @@ def get_layers(config_name):
             # Default value: False
             layer_spec[layer_name]['cls_specific_heads'] = False
     if 'cls' in layer_spec:
-        # For cls head, cls_specific_heads must be True
+        # For cls head, cls_specific_heads must be False
         assert not layer_spec['cls']['cls_specific_heads']
     return layer_spec
 
