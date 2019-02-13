@@ -2,6 +2,8 @@
 from os.path import join
 import shutil
 
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot, patches
 
 from torchvision.transforms.functional import normalize
