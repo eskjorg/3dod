@@ -1,0 +1,43 @@
+{
+    "training": {
+        "learning_rate": 0.001,
+        "nll_loss": true
+    },
+    "data":{
+        "dataformat": "nuscenes",
+        "path": "/datasets/nuscenes/teaser",
+        "channels": [
+            "CAM_FRONT"
+        ],
+        "class_map": {
+            "vehicle.car": 2,
+            "human.pedestrian.adult": 3,
+            "movable_object.barrier": 4
+        },
+        "scenes": {
+            "train": [
+                "scene-0001",
+                "scene-0002",
+                "scene-0004",
+                "scene-0005",
+                "scene-0006",
+                "scene-0007",
+                "scene-0008",
+                "scene-0009",
+                "scene-0010",
+                "scene-0011"
+            ],
+            "val": [
+                "scene-0013",
+                "scene-0014",
+                "scene-0015",
+                "scene-0016"
+            ],
+            "test": [
+                "scene-0018",
+                "scene-0163"
+            ]
+        },
+        "img_dims": [896, 1600]
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "cls": {
+        "n_layers": 5,
+        "loss": "CE"
+    },
+    "bbox2d": {
+        "n_layers": 4,
+        "cls_specific_heads": false,
+        "loss": "L1"
+    },
+    "zdepth": {
+        "n_layers": 1,
+        "loss": "L1"
+    },
+    "size": {
+        "n_layers": 3,
+        "loss": "L1"
+    },
+    "corners": {
+        "n_layers": 16,
+        "loss": "L1"
+    }
+}
