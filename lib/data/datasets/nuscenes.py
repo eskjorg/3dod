@@ -14,7 +14,7 @@ from lib.data.maps import GtMapsGenerator
 from lib.utils import read_image_to_pt
 
 
-Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'size', 'location', 'rotation'])
+Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'size', 'location', 'rotation', 'corners'])
 
 
 def get_metadata(configs):
@@ -57,20 +57,25 @@ class NuscenesDataset(torch.utils.data.Dataset):
         max_h, max_w = self._configs.img_dims
         data = data[:, :max_h, :max_w]
 
-        annotations = [Annotation(cls=self._class_map.id_from_label(box.name),
-                                  bbox2d=self._get_bbox2d(box, calib),
-                                  size=box.wlh[[1, 2, 0]],  # WLH -> HWL
-                                  location=box.center,
-                                  rotation=box.orientation.rotation_matrix) for box in boxes]
+        to_kitti_rot = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]])
+        annotations = []
+        for box in boxes:
+            corners = view_points(box.corners(), calib, normalize=True)[:2]
+            annotations.append(Annotation(cls=self._class_map.id_from_label(box.name),
+                                          bbox2d=self._get_bbox2d(corners),
+                                          size=box.wlh[[2, 0, 1]],  # WLH -> HWL
+                                          location=box.center,
+                                          rotation=box.orientation.rotation_matrix @ to_kitti_rot,
+                                          corners=corners))
 
         calibration = np.concatenate((calib, np.zeros((3, 1))), axis=1)
 
         gt_maps = self._mode in (TRAIN, VAL) and \
                   self._gt_map_generator.generate(annotations, calibration)
+
         return Sample(annotations, data, gt_maps, calibration, index)
 
-    def _get_bbox2d(self, box, calib):
-        corners = view_points(box.corners(), calib, normalize=True)
+    def _get_bbox2d(self, corners):
         xmin = max(min(corners[0, :]), 0)
         ymin = max(min(corners[1, :]), 0)
         xmax = min(max(corners[0, :]), self._configs.img_dims[1])

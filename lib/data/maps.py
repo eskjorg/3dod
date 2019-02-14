@@ -6,7 +6,7 @@ from math import ceil
 import numpy as np
 import torch
 
-from lib.constants import IGNORE_IDX_CLS, KEYPOINT_NAME_MAP
+from lib.constants import IGNORE_IDX_CLS
 from lib.utils import get_layers, get_metadata, get_class_map, project_3d_pts, construct_3d_box, matrix_from_yaw
 
 
@@ -173,14 +173,15 @@ class CornersGenerator(GeneratorIndex):
 
     def add_obj(self, obj_annotation, map_coords):
         xmin, ymin, xmax, ymax = map_coords
-        rotation = matrix_from_yaw(obj_annotation.rot_y) if hasattr(obj_annotation, 'rot_y') \
-                   else obj_annotation.rotation
-        corner_coords = project_3d_pts(
-            construct_3d_box(*obj_annotation.size),
-            self._calib,
-            obj_annotation.location,
-            rot_matrix=rotation,
-        )
+        if hasattr(obj_annotation, 'corners'):
+            corner_coords = obj_annotation.corners
+        else:
+            rotation = matrix_from_yaw(obj_annotation.rot_y) if hasattr(obj_annotation, 'rot_y') \
+                       else obj_annotation.rotation
+            corner_coords = project_3d_pts(construct_3d_box(obj_annotation.size),
+                                           self._calib,
+                                           obj_annotation.location,
+                                           rot_matrix=rotation)
         for index in range(8):
             x, y = corner_coords[:, index]
             # Quite arbitrary threshold: 10

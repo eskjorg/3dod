@@ -93,7 +93,7 @@ class SixdDataset(Dataset):
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
             annotations.append(Annotation(cls=self._class_map.id_from_label(self._class_map.format_label(gt['obj_id'])),
                                           bbox2d=bbox2d,
-                                          size=Tensor((model['size_x'], model['size_y'], model['size_z'])),
+                                          size=Tensor((model['size_y'], model['size_z'], model['size_x'])),
                                           location=Tensor(gt['cam_t_m2c']),
                                           rotation=np.array(gt['cam_R_m2c']).reshape((3, 3))))
         return annotations
