@@ -1,7 +1,7 @@
 """Loss handler."""
 import logging
 from collections import defaultdict
-from torch import nn, exp
+from torch import nn, exp, clamp
 
 from lib.constants import TRAIN, VAL
 from lib.constants import LN_2, IGNORE_IDX_CLS, IGNORE_IDX_REG
@@ -31,7 +31,8 @@ class LossHandler:
                     ln_b = outputs_ln_b[layer_name]
                     task_loss = task_loss * exp(-ln_b) + LN_2 + ln_b
                 task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
-                task_loss = task_loss.sum() / gt_map.ne(IGNORE_IDX_REG).sum()
+                # clamp below is a trick to avoid 0 / 0 = NaN, and instead perform 0 / 1 = 0. Works because denominator will be either 0 or >= 1 (sum of boolean -> non-negative int).
+                task_loss = task_loss.sum() / clamp(gt_map.ne(IGNORE_IDX_REG).sum(), min=1)
             return task_loss
         loss = 0
         outputs_task, outputs_ln_b = outputs_cnn
