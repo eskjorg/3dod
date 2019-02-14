@@ -9,7 +9,7 @@ from matplotlib import pyplot, patches
 from torchvision.transforms.functional import normalize
 from tensorboardX import SummaryWriter
 
-from lib.constants import PYPLOT_DPI, BOX_SKELETON
+from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS
 from lib.constants import TV_MEAN, TV_STD
 from lib.utils import project_3d_pts, construct_3d_box, get_class_map
 
@@ -21,8 +21,7 @@ class Visualizer:
         vis_path = join(configs.experiment_path, 'visual')
         shutil.rmtree(vis_path, ignore_errors=True)
         self._writer = SummaryWriter(vis_path)
-        self._color_corner = ['magenta', 'cyan', 'yellow', 'green',
-                              'lime', 'blue', 'purple', 'orange']
+        self._corner_colors = CORNER_COLORS
 
     def report_loss(self, epoch, losses, mode):
         self._writer.add_scalar('loss/{}'.format(mode), sum(losses.values()), epoch)
@@ -58,7 +57,7 @@ class Visualizer:
 
     def _plot_bbox3d(self, axes, obj, calib, **kwargs):
         corners_2d = project_3d_pts(
-            construct_3d_box(*obj.size),
+            construct_3d_box(obj.size),
             calib,
             obj.location,
             rot_y=obj.rotation_y,
@@ -69,7 +68,7 @@ class Visualizer:
         axes.add_patch(polygon)
 
     def _plot_corners(self, axes, obj, **kwargs):
-        for corner_xy, color in zip(obj.corners.T, self._color_corner):
+        for corner_xy, color in zip(obj.corners.T, self._corner_colors):
             axes.add_patch(patches.Circle(corner_xy, radius=3, color=color, edgecolor='black'))
 
     def _plot_zdepth(self, axes, obj, **kwargs):

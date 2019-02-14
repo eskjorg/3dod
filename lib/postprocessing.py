@@ -25,7 +25,6 @@ class BoxEstimator:
         obj_center = np.append(obj_center, 1)
         unprojection = np.linalg.pinv(self._calibration) @ obj_center
         location = unprojection[:3] * self.data.zdepth
-        location[1] += self.data.size[0] / 2
 
         # Rotation
         corners_x = self.data.corners[0]
@@ -40,7 +39,7 @@ class BoxEstimator:
         location = box_parameters[3:6]
         rot_y = box_parameters[6]
         corners = project_3d_pts(
-            construct_3d_box(*size),
+            construct_3d_box(size),
             self._calibration,
             location,
             rot_y=rot_y,

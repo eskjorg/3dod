@@ -36,7 +36,7 @@ class ResultSaver:
                                  width=size[1],
                                  length=size[2],
                                  x=location[0],
-                                 y=location[1],
+                                 y=location[1] + size[0] / 2,  # Kitti format
                                  z=location[2],
                                  rotation_y=detection.get('rotation_y', -10),
                                  score=detection.confidence))

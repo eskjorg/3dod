@@ -106,15 +106,14 @@ def project_3d_pts(pts_3d_objframe, p_matrix, loc, rot_y=None, rot_matrix=None):
     pts_2d = p_matrix @ pts_3d_global
     return pts_2d[:2] / pts_2d[2]
 
-def construct_3d_box(height, width, length):
+def construct_3d_box(size_hwl):
     """
     Returns 3D points of bounding box corners, given parameters.
     """
-    h = height
-    w2 = 0.5*width
-    l2 = 0.5*length
-                            #    BLR  BLF BRF BRR  TLR  TLF TRF TRR
-    pts_3d_objframe = np.array([[-l2, l2, l2, -l2, -l2, l2, l2, -l2],
-                                [0, 0, 0, 0, -h, -h, -h, -h],
-                                [w2, w2, -w2, -w2, w2, w2, -w2, -w2]])
+    h2, w2, l2 = 0.5 * size_hwl
+                                # BLF  BRF  TRF  TLF  BLR  BRR  TRR  TLR
+    pts_3d_objframe = np.array([[ l2,  l2,  l2,  l2, -l2, -l2, -l2, -l2],
+                                [ h2,  h2, -h2, -h2,  h2,  h2, -h2, -h2],
+                                [ w2, -w2, -w2,  w2,  w2, -w2, -w2,  w2]])
+
     return pts_3d_objframe

@@ -46,6 +46,7 @@ CALIB = 'calib'
 # Classes
 DONT_CARE = 'dont_care'
 
-# Geometry
-KEYPOINT_NAME_MAP = ("BLR", "BLF", "BRF", "BRR", "TLR", "TLF", "TRF", "TRR")
-BOX_SKELETON = (3, 7, 4, 0, 1, 2, 6, 5, 1, 6, 7, 4, 5, 2, 3, 0)
+# 3D Boxes
+CORNER_COLORS = ['magenta', 'cyan', 'yellow', 'green', 'lime', 'blue', 'purple', 'orange']
+#CORNER_NAMES = ("BLF",     "BRF",  "TRF",    "TLF",   "BLR",  "BRR",  "TRR",    "TLR")  # KITTI
+BOX_SKELETON = (5, 6, 7, 4, 0, 1, 2, 3, 0, 2, 6, 7, 3, 1, 5, 4)  # With cross on front

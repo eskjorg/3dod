@@ -81,6 +81,9 @@ class KittiObjectDataset(Dataset):
                 labels[1:] = map(float, labels[1:])
                 truncation = labels[1]
                 occlusion = labels[2]
+                size=torch.Tensor(labels[8:11])
+                location=torch.Tensor(labels[11:14])
+                location[1] -= size[0] / 2
                 rotation = labels[14]
                 if rotation == -10 or \
                    truncation > self._configs.threshold.truncation or \
@@ -90,8 +93,7 @@ class KittiObjectDataset(Dataset):
                                               truncation=truncation, occlusion=occlusion,
                                               alpha=labels[3],
                                               bbox2d=torch.Tensor(labels[4:8]),
-                                              size=torch.Tensor(labels[8:11]),
-                                              location=torch.Tensor(labels[11:14]),
+                                              size=size, location=location,
                                               rot_y=rotation))
         return annotations
 
