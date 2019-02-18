@@ -10,7 +10,7 @@ TEST = 'test'
 
 # Training
 IGNORE_IDX_CLS = 1
-IGNORE_IDX_REG = 0
+IGNORE_IDX_REG = 97986 # Nonsense number - expected never to interfere with actual GT annotations
 
 # Math
 LN_SQRT_2_PI = math.log(math.sqrt(2*math.pi))
