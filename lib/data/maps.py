@@ -6,7 +6,7 @@ from math import ceil
 import numpy as np
 import torch
 
-from lib.constants import IGNORE_IDX_CLS
+from lib.constants import IGNORE_IDX_CLS, IGNORE_IDX_REG
 from lib.utils import get_layers, get_metadata, get_class_map, project_3d_pts, construct_3d_box, matrix_from_yaw
 
 
@@ -74,7 +74,12 @@ class GeneratorIf(metaclass=ABCMeta):
         super().__init__()
         self._configs = configs
         self._metadata = metadata
-        self._map = torch.zeros(self._get_num_maps(), *self._configs.target_dims)
+        self._map = torch.empty(self._get_num_maps(), *configs.target_dims).fill_(self.fill_value)
+
+    @property
+    def fill_value(self):
+        # Fill map with IGNORE_IDX_REG by default. Can be overridden
+        return IGNORE_IDX_REG
 
     @abstractmethod
     def _get_num_maps(self):
@@ -116,6 +121,10 @@ class GeneratorIndex(GeneratorIf):
 
 class ClsGenerator(GeneratorIf):
     """GT map class generator."""
+    @property
+    def fill_value(self):
+        return 0  # Background class
+
     def _get_num_maps(self):
         return 1
 
