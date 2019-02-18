@@ -91,9 +91,11 @@ class SixdDataset(Dataset):
             model = self._models[gt['obj_id']]
             bbox2d = Tensor(gt['obj_bb'])
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
+            # Size uses KITTI convention - when rot=0 we have that: h, w, l  <-->  y, z, x
+            size = Tensor((model['size_y'], model['size_z'], model['size_x']))
             annotations.append(Annotation(cls=self._class_map.id_from_label(self._class_map.format_label(gt['obj_id'])),
                                           bbox2d=bbox2d,
-                                          size=Tensor((model['size_y'], model['size_z'], model['size_x'])),
+                                          size=size,
                                           location=Tensor(gt['cam_t_m2c']),
                                           rotation=np.array(gt['cam_R_m2c']).reshape((3, 3))))
         return annotations
