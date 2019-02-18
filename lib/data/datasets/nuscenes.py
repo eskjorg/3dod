@@ -50,8 +50,8 @@ class NuscenesDataset(torch.utils.data.Dataset):
         return len(self._data_tokens)
 
     def __getitem__(self, index):
-        path, boxes, calib = self._nusc.get_sample_data(self._data_tokens[index],
-                                                        box_vis_level=BoxVisibility.ANY)
+        data_token = self._data_tokens[index]
+        path, boxes, calib = self._nusc.get_sample_data(data_token, box_vis_level=BoxVisibility.ANY)
 
         data = read_image_to_pt(path)
         max_h, max_w = self._configs.img_dims
@@ -73,7 +73,7 @@ class NuscenesDataset(torch.utils.data.Dataset):
         gt_maps = self._mode in (TRAIN, VAL) and \
                   self._gt_map_generator.generate(annotations, calibration)
 
-        return Sample(annotations, data, gt_maps, calibration, index)
+        return Sample(annotations, data, gt_maps, calibration, id=data_token)
 
     def _get_bbox2d(self, corners):
         xmin = max(min(corners[0, :]), 0)
