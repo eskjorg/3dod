@@ -1,16 +1,70 @@
 """Save results to disk."""
 import os
+import json
 import numpy as np
+
+from pyquaternion import Quaternion
+
+import matplotlib
+matplotlib.use('Agg')  # Overriding nuscenes backend
+from nuscenes.nuscenes import NuScenes
+from nuscenes.eval.eval_utils import category_to_detection_name
+from nuscenes.utils.data_classes import Box
 
 class ResultSaver:
     """ResultSaver."""
     def __init__(self, configs):
         self._configs = configs
+        self._epoch_results = dict()
+        if configs.data.dataformat == 'nuscenes':
+            self._nusc = NuScenes(version='v0.1', dataroot=configs.data.path, verbose=True)
 
     def save(self, detections, mode):
+        if self._configs.logging.save_nuscenes_format:
+            for data_token, frame_detections in detections.items():
+                self.save_nuscenes_format(data_token, frame_detections)
         if self._configs.logging.save_kitti_format:
             for frame_id, frame_detections in detections.items():
                 self.save_frame_kitti(frame_id, frame_detections, mode)
+
+    def save_nuscenes_format(self, data_token, frame_detections):
+        # TODO: Make sure that not multiple sample_datas write to the same sample.
+        sample_results = []
+        sample_data = self._nusc.get('sample_data', data_token)
+        sample_token = sample_data['sample_token']
+
+        for detection in frame_detections:
+            location, rotation = self.get_nusc_global_pose(detection, sample_data)
+            sample_result = {
+                "sample_token": sample_token,
+                "translation": location,
+                "size": detection['size'],
+                "rotation": rotation,
+                "velocity": 3 * [np.nan],
+                "detection_name": category_to_detection_name(detection['cls']),
+                "detection_score": detection['confidence'],
+                "attribute_scores": 8 * [-1]
+            }
+            sample_results.append(sample_result)
+        self._epoch_results[sample_token] = sample_results
+
+    def get_nusc_global_pose(self, box, sample_data):
+        box = Box(center=box['location'],
+                  size=box['size'][[1, 2, 0]],  # HWL to WLH
+                  orientation=Quaternion(axis=(0, 0, 1), angle=box['rotation_y']))
+
+        pose_record = self._nusc.get('ego_pose', sample_data['ego_pose_token'])
+        cs_record = self._nusc.get('calibrated_sensor', sample_data['calibrated_sensor_token'])
+
+        # Move box to ego vehicle coord system.
+        box.rotate(Quaternion(cs_record['rotation']))
+        box.translate(np.array(cs_record['translation']))
+
+        # Move box to global coord system.
+        box.rotate(Quaternion(pose_record['rotation']))
+        box.translate(np.array(pose_record['translation']))
+
+        return box.center, box.orientation
 
     def save_frame_kitti(self, frame_id, frame_detections, mode):
         save_dir = os.path.join(self._configs.experiment_path, 'detections', mode, 'kitti_format')
