@@ -64,7 +64,7 @@ class Visualizer:
         )
         coordinates = [corners_2d[:, idx] for idx in BOX_SKELETON]
         color = self._class_map.get_color(obj.cls)
-        polygon = patches.Polygon(coordinates, linewidth=2, color=color)
+        polygon = patches.Polygon(coordinates, linewidth=2, edgecolor=color, **kwargs)
         axes.add_patch(polygon)
 
     def _plot_corners(self, axes, obj, **kwargs):
