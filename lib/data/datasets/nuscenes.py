@@ -38,12 +38,16 @@ class NuscenesDataset(torch.utils.data.Dataset):
         tokens = []
         scenes = self._configs.scenes[self._mode]
         channels = self._configs.channels
+        def is_keyframe(sample_data, sample):
+            channel = sample_data['channel']
+            return sample['data'][channel] == sample_data['token']
         for sample_data in self._nusc.sample_data:
             sample = self._nusc.get('sample', sample_data['sample_token'])
-            scene = self._nusc.get('scene', sample['scene_token'])['name']
-            channel = sample_data['channel']
-            if scene in scenes and channel in channels:
-                tokens.append(sample_data['token'])
+            if not self._configs.keyframes_only or is_keyframe(sample_data, sample):
+                scene = self._nusc.get('scene', sample['scene_token'])['name']
+                channel = sample_data['channel']
+                if scene in scenes and channel in channels:
+                    tokens.append(sample_data['token'])
         return tokens
 
     def __len__(self):

@@ -5,6 +5,7 @@
         "channels": [
             "CAM_FRONT"
         ],
+        "keyframes_only": false,
         "class_map": {
             "vehicle.car": 2,
             "human.pedestrian.adult": 3,
