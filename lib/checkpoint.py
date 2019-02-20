@@ -10,7 +10,7 @@ class CheckpointHandler:
     def __init__(self, configs):
         self._configs = configs
         self._logger = logging.getLogger(self.__class__.__name__)
-        self._best_score = 0
+        self._best_score = -float('Inf')
         self._checkpoint_dir = os.path.join(configs.experiment_path, 'checkpoints')
         os.makedirs(self._checkpoint_dir, exist_ok=True)
 
