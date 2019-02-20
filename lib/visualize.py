@@ -31,6 +31,8 @@ class Visualizer:
         self._writer.add_scalar('score/{}'.format(mode), score, epoch)
 
     def save_images(self, batch, output, mode, index, sample=-1):
+        if not any(self._configs.visualization.values()):
+            return
         calib = batch.calibration[sample]
         image_tensor = normalize(batch.input[sample], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
         frame_id = batch.id[sample]

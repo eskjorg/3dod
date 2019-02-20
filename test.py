@@ -1,4 +1,5 @@
 """Main testing script."""
+import logging
 import torch
 
 from apex import amp
@@ -28,6 +29,7 @@ class Tester():
         self._detector = Detector(configs)
         self._evaluator = Evaluator(configs)
         self._visualizer = Visualizer(configs)
+        self._logger = logging.getLogger(self.__class__.__name__)
 
     def test(self):
         self._model.eval()
@@ -37,6 +39,7 @@ class Tester():
             self._result_saver.save(detections, TEST)
             self._evaluator.calc_batch(detections, batch.annotation)
             self._visualizer.save_images(batch, detections, TEST, index=batch_id)
+            self._logger.info('Inference done for Batch {id:<5d}'.format(id=batch_id))
         self._result_saver.write_to_file()
         score = self._evaluator.summarize_epoch()
 
