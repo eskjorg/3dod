@@ -48,5 +48,5 @@ DONT_CARE = 'dont_care'
 
 # 3D Boxes
 CORNER_COLORS = ['magenta', 'cyan', 'yellow', 'green', 'lime', 'blue', 'purple', 'orange']
-#CORNER_NAMES = ("BLF",     "BRF",  "TRF",    "TLF",   "BLR",  "BRR",  "TRR",    "TLR")  # KITTI
+#CORNER_NAMES = ("TLF",     "TRF",  "BRF",    "BLF",   "TLR",  "TRR",  "BRR",    "BLR")  # KITTI
 BOX_SKELETON = (5, 6, 7, 4, 0, 1, 2, 3, 0, 2, 6, 7, 3, 1, 5, 4)  # With cross on front

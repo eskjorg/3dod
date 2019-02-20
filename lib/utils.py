@@ -111,9 +111,9 @@ def construct_3d_box(size_hwl):
     Returns 3D points of bounding box corners, given parameters.
     """
     h2, w2, l2 = 0.5 * size_hwl
-                                # BLF  BRF  TRF  TLF  BLR  BRR  TRR  TLR
+    # Using nuScenes ordering  # TLF  TRF  BRF  BLF  TLR  TRR  BRR  BLR
     pts_3d_objframe = np.array([[ l2,  l2,  l2,  l2, -l2, -l2, -l2, -l2],
-                                [ h2,  h2, -h2, -h2,  h2,  h2, -h2, -h2],
+                                [-h2, -h2,  h2,  h2, -h2, -h2,  h2,  h2],
                                 [ w2, -w2, -w2,  w2,  w2, -w2, -w2,  w2]])
 
     return pts_3d_objframe
