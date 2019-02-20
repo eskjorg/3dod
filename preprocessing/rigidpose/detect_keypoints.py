@@ -20,10 +20,16 @@ from pomegranate import GeneralMixtureModel, MultivariateGaussianDistribution
 from mpl_toolkits.mplot3d import Axes3D
 
 # Parameters
+DRY_RUN = True
 DIFFERENTIATE_ON_KP_RESPONSE = False
 MAX_NBR_KEYPOINTS = 100
 # DIST_TH = 1e-2 # meters
+MAX_DIST_MM_FROM_KP_TO_SURFACE = 3.0
 FEATURE_SCALE_FACTOR = 1e-1
+MARKERSIZE = 10
+# MARKERSIZE = 50
+MAX_NBR_VTX_SCATTERPLOT = 500
+SCORES_COLORED_SCATTERPLOT = False
 MIN_SCORE_SCATTERPLOT = -1
 NBR_FRAMES_SAMPLED_PER_SEQ = 100
 NBR_GMM_COMPONENTS = 20
@@ -36,7 +42,11 @@ DEPTH_DIFF_TH = 1e-2 # meters
 # DATA_PATH = '/home/lucas/datasets/pose-data/sixd/bop-unzipped/hinterstoisser' # Path to a BOP-SIXD dataset
 # TRAIN_SUBDIR = 'train' # Images in this subdir will be used to collect keypoint statistics
 DATA_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented' # Path to a BOP-SIXD dataset
-TRAIN_SUBDIR = 'train_occl' # Images in this subdir will be used to collect keypoint statistics
+# TRAIN_SUBDIR = 'train_occl' # Images in this subdir will be used to collect keypoint statistics
+# MODEL_FILTER = None
+TRAIN_SUBDIR = 'train_aug' # Images in this subdir will be used to collect keypoint statistics
+MODEL_FILTER = [1,4,5,6,7,8,9,10]
+# MODEL_FILTER = [6]
 
 
 
@@ -93,6 +103,9 @@ for seq in sorted(os.listdir(os.path.join(DATA_PATH, TRAIN_SUBDIR))):
 
         # Loop over all object instances
         for instance in gt[frame_idx]:
+            if MODEL_FILTER is not None and instance['obj_id'] not in MODEL_FILTER:
+                continue
+
             if instance['obj_id'] in instance_counts:
                 instance_counts[instance['obj_id']] += 1
             else:
@@ -264,7 +277,7 @@ for obj_id, scores in vtx_scores_filtered.items():
     model = get_model(obj_id)
     X = model['pts'][scores >= MIN_SCORE_SCATTERPLOT, :]
     # X = X[np.random.choice(X.shape[0], 1000),:]
-    model = GeneralMixtureModel.from_samples(
+    gmm_model = GeneralMixtureModel.from_samples(
         MultivariateGaussianDistribution,
         n_components=NBR_GMM_COMPONENTS,
         init='kmeans++',
@@ -273,19 +286,31 @@ for obj_id, scores in vtx_scores_filtered.items():
         weights=scores[scores >= MIN_SCORE_SCATTERPLOT]**SCORE_EXP,
     )
 
-    xs, ys, zs = np.array([d.mu for d in model.distributions]).T
+    keypoints = np.array([d.mu for d in gmm_model.distributions])
+
+    if MAX_DIST_MM_FROM_KP_TO_SURFACE is not None:
+        distance_matrix_kp_to_vtx = cdist(keypoints, model['pts'], metric='euclidean')
+        kp_distances_to_surface = np.min(distance_matrix_kp_to_vtx, axis=1)
+        mask = kp_distances_to_surface <= MAX_DIST_MM_FROM_KP_TO_SURFACE**2
+        keypoints = keypoints[mask, :]
+
+    xs, ys, zs = keypoints.T
+
+    print("Found {} keypoints for object {}".format(len(keypoints), obj_id))
 
     models_info[obj_id]['kp_x'] = list(map(float, xs))
     models_info[obj_id]['kp_y'] = list(map(float, ys))
     models_info[obj_id]['kp_z'] = list(map(float, zs))
 
 # Update YAML
-inout.save_yaml(os.path.join(DATA_PATH, 'models', 'models_info.yml'), models_info)
+if not DRY_RUN:
+    inout.save_yaml(os.path.join(DATA_PATH, 'models', 'models_info.yml'), models_info)
 
 # TODO: Run on real images. (for instance, bowl object is probably very hard.)
 # NOTE: Alternative to LP filtering: #1 aggregate scores from all frames & run. #2 sample some frames and add KP if far from the rest.
 
-os.makedirs(os.path.join(DATA_PATH, 'models', 'keypoint_3dplots'), exist_ok=True)
+if not DRY_RUN:
+    os.makedirs(os.path.join(DATA_PATH, 'models', 'keypoint_3dplots'), exist_ok=True)
 # for obj_id, all_scores in vtx_scores_filtered.items():
 #     # scores = np.random.choice(all_scores)
 #     # scores = all_scores[0]
@@ -305,12 +330,15 @@ for obj_id, scores in vtx_scores_filtered.items():
     cvals = scores[scores >= MIN_SCORE_SCATTERPLOT]**SCORE_EXP
     # cvals -= np.min(cvals)
     # cvals /= np.max(cvals)
+    if MAX_NBR_VTX_SCATTERPLOT is None:
+        MAX_NBR_VTX_SCATTERPLOT = len(xs)
+    choice = np.random.choice(len(xs), MAX_NBR_VTX_SCATTERPLOT)
     ax.scatter(
-        xs,
-        ys,
-        zs,
-        c=cvals,
-        cmap=plt.get_cmap('Greens'),
+        xs[choice],
+        ys[choice],
+        zs[choice],
+        c=cvals[choice] if SCORES_COLORED_SCATTERPLOT else None,
+        cmap=plt.get_cmap('Greens') if SCORES_COLORED_SCATTERPLOT else None,
         norm=colors.Normalize(vmin=SCATTER_VMIN**SCORE_EXP, vmax=SCATTER_VMAX**SCORE_EXP, clip=False),
         # norm=colors.Normalize(),
         # norm=colors.LogNorm(),
@@ -318,7 +346,9 @@ for obj_id, scores in vtx_scores_filtered.items():
 
     # fig = plt.figure()
     # ax = fig.add_subplot(111, projection='3d')
-    ax.plot(models_info[obj_id]['kp_x'], models_info[obj_id]['kp_y'], models_info[obj_id]['kp_z'], 'r*', markersize=50)
+    ax.plot(models_info[obj_id]['kp_x'], models_info[obj_id]['kp_y'], models_info[obj_id]['kp_z'], 'r*', markersize=MARKERSIZE)
 
-    plt.savefig(os.path.join(DATA_PATH, 'models', 'keypoint_3dplots', 'obj_{:02}.png'.format(obj_id)))
-    # plt.show()
+    if not DRY_RUN:
+        plt.savefig(os.path.join(DATA_PATH, 'models', 'keypoint_3dplots', 'obj_{:02}.png'.format(obj_id)))
+    else:
+        plt.show()
