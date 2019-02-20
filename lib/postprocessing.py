@@ -28,8 +28,8 @@ class BoxEstimator:
 
         # Rotation
         corners_x = self.data.corners[0]
-        south = sum(corners_x[[0, 1, 4, 5]] - corners_x[[2, 3, 6, 7]])  # left - right
-        east = sum(corners_x[[1, 2, 5, 6]] - corners_x[[0, 3, 4, 7]])  # front - rear
+        south = sum(corners_x[[0, 3, 4, 7]] - corners_x[[1, 2, 5, 6]])  # left - right
+        east = sum(corners_x[[0, 1, 2, 3]] - corners_x[[4, 5, 6, 7]])  # front - rear
         rotation = np.arctan2(south, east) + np.arctan2(location[0], location[2])
 
         return np.concatenate((self.data.size, location, [rotation]))
