@@ -37,6 +37,7 @@ class Tester():
             self._result_saver.save(detections, TEST)
             self._evaluator.calc_batch(detections, batch.annotation)
             self._visualizer.save_images(batch, detections, TEST, index=batch_id)
+        self._result_saver.write_to_file()
         score = self._evaluator.summarize_epoch()
 
     def _run_model(self, inputs):

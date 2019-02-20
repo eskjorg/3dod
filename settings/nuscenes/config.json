@@ -1,4 +1,7 @@
 {
+    "logging": {
+        "save_nuscenes_format": true
+    },
     "data":{
         "dataformat": "nuscenes",
         "path": "/datasets/nuscenes/teaser",

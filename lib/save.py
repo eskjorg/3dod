@@ -15,9 +15,13 @@ class ResultSaver:
     """ResultSaver."""
     def __init__(self, configs):
         self._configs = configs
-        self._epoch_results = dict()
+
+        self._result_dir = os.path.join(configs.experiment_path, 'detections')
+        os.makedirs(self._result_dir, exist_ok=True)
+
         if configs.data.dataformat == 'nuscenes':
             self._nusc = NuScenes(version='v0.1', dataroot=configs.data.path, verbose=True)
+            self._epoch_results = {sample['token']: [] for sample in self._nusc.sample}
 
     def save(self, detections, mode):
         if self._configs.logging.save_nuscenes_format:
@@ -26,6 +30,10 @@ class ResultSaver:
         if self._configs.logging.save_kitti_format:
             for frame_id, frame_detections in detections.items():
                 self.save_frame_kitti(frame_id, frame_detections, mode)
+
+    def write_to_file(self):
+        with open(os.path.join(self._result_dir, 'nuscenes_results.json'), 'w') as file:
+            json.dump(self._epoch_results, file, indent=4)
 
     def save_nuscenes_format(self, data_token, frame_detections):
         # TODO: Make sure that not multiple sample_datas write to the same sample.
@@ -37,12 +45,12 @@ class ResultSaver:
             location, rotation = self.get_nusc_global_pose(detection, sample_data)
             sample_result = {
                 "sample_token": sample_token,
-                "translation": location,
-                "size": detection['size'],
-                "rotation": rotation,
-                "velocity": 3 * [np.nan],
+                "translation": location.tolist(),
+                "size": detection['size'].tolist(),
+                "rotation": rotation.normalised.elements.tolist(),
+                "velocity": 3 * [float('nan')],
                 "detection_name": category_to_detection_name(detection['cls']),
-                "detection_score": detection['confidence'],
+                "detection_score": float(detection['confidence']),
                 "attribute_scores": 8 * [-1]
             }
             sample_results.append(sample_result)
@@ -67,7 +75,7 @@ class ResultSaver:
         return box.center, box.orientation
 
     def save_frame_kitti(self, frame_id, frame_detections, mode):
-        save_dir = os.path.join(self._configs.experiment_path, 'detections', mode, 'kitti_format')
+        save_dir = os.path.join(self._result_dir, mode, 'kitti_format')
         os.makedirs(save_dir, exist_ok=True)
 
         lines_to_write = []
