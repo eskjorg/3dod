@@ -3,6 +3,7 @@ from collections import namedtuple
 from importlib import import_module
 import torch
 from torch.utils.data import DataLoader
+from nuscenes.nuscenes import NuScenes
 from lib.constants import ANNOTATION, INPUT, GT_MAP, CALIBRATION, ID
 
 Sample = namedtuple('Sample', [ANNOTATION, INPUT, GT_MAP, CALIBRATION, ID])
@@ -13,6 +14,8 @@ class Loader:
     """docstring for Loader."""
     def __init__(self, modes, configs):
         self._configs = configs
+        if configs.data.dataformat == 'nuscenes':
+            configs['nusc'] = NuScenes(version='v0.1', dataroot=configs.data.path, verbose=True)
         self._dataset_module = import_module('lib.data.datasets.%s' % configs.data.dataformat)
         for mode in modes:
             loader_configs = self._get_loader_config(mode)

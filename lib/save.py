@@ -7,7 +7,7 @@ from pyquaternion import Quaternion
 
 import matplotlib
 matplotlib.use('Agg')  # Overriding nuscenes backend
-from nuscenes.nuscenes import NuScenes
+
 from nuscenes.eval.eval_utils import category_to_detection_name
 from nuscenes.utils.data_classes import Box
 
@@ -20,7 +20,7 @@ class ResultSaver:
         os.makedirs(self._result_dir, exist_ok=True)
 
         if configs.data.dataformat == 'nuscenes':
-            self._nusc = NuScenes(version='v0.1', dataroot=configs.data.path, verbose=True)
+            self._nusc = configs.nusc
             self._epoch_results = {sample['token']: [] for sample in self._nusc.sample}
 
     def save(self, detections, mode):

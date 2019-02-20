@@ -5,7 +5,6 @@ import numpy as np
 from matplotlib.pyplot import cm
 import torch
 
-from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.geometry_utils import BoxVisibility, view_points
 
 from lib.constants import TRAIN, VAL, IGNORE_IDX_CLS
@@ -29,7 +28,7 @@ class NuscenesDataset(torch.utils.data.Dataset):
     def __init__(self, configs, mode):
         self._configs = configs.data
         self._mode = mode
-        self._nusc = NuScenes(version='v0.1', dataroot=self._configs.path, verbose=True)
+        self._nusc = configs.nusc
         self._data_tokens = self._init_data_tokens()
         self._class_map = ClassMap(configs)
         self._gt_map_generator = GtMapsGenerator(configs)
