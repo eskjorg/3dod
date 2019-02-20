@@ -224,7 +224,7 @@ class DetectorKeypointSelector(KeypointSelector):
 
                     # Find top-k keypoints based on response
                     score_sorted = np.sort(detection_score)
-                    strong_kp_mask = detection_score >= score_sorted[max(0, len(score_sorted)-self.opts['MAX_NBR_KEYPOINTS'])]
+                    strong_kp_mask = detection_score >= score_sorted[max(0, len(score_sorted)-self.opts['MAX_NBR_FEATURES_DETECTED'])]
 
                     # Select only these top-k keypoints
                     sigma = sigma[strong_kp_mask]
@@ -351,7 +351,7 @@ class DetectorKeypointSelector(KeypointSelector):
             # X = X[np.random.choice(X.shape[0], 1000),:]
             gmm_model = GeneralMixtureModel.from_samples(
                 MultivariateGaussianDistribution,
-                n_components=self.opts['NBR_GMM_COMPONENTS'],
+                n_components=self.opts['NBR_KEYPOINTS'],
                 init='kmeans++',
                 # init='random',
                 X=X,
@@ -376,49 +376,82 @@ class DetectorKeypointSelector(KeypointSelector):
         kp_dict = self._get_keypoints_from_vtx_scores_via_gmm_fitting(vtx_scores_filtered)
         return kp_dict
 
+
+class FarthestPointSamplingKeypointSelector(KeypointSelector):
+
+    def __init__(self, opts):
+        super().__init__(opts)
+
+    def _get_farthest_point(self, curr_pts, all_pts):
+        distance_matrix = cdist(curr_pts, all_pts, metric='euclidean')
+
+        # Distance from each vertex to its closest point among curr_pts
+        all_pts_dist_to_closest = np.min(distance_matrix, axis=0)
+
+        return all_pts[np.argmax(all_pts_dist_to_closest), :]
+
+    def select_keypoints(self):
+        kp_dict = {}
+        for obj_id in self.models_info_backup.keys():
+            model = self.get_model(obj_id)
+            keypoints = np.empty((0,3))
+            origin = np.zeros((3,)) # Model center
+            initial_kp = self._get_farthest_point(origin[np.newaxis,:], model['pts'])
+            keypoints = np.concatenate((keypoints, initial_kp[np.newaxis,:]), axis=0)
+            for _ in range(self.opts['NBR_KEYPOINTS'] - 1):
+                new_kp = self._get_farthest_point(keypoints, model['pts'])
+                keypoints = np.concatenate((keypoints, new_kp[np.newaxis,:]), axis=0)
+            kp_dict[obj_id] = keypoints
+        return kp_dict
+
+
+STORE_KEYPOINTS = True
+STORE_PLOTS = True
+
 opts = {
-    'DIFFERENTIATE_ON_KP_RESPONSE': False,
-    'MAX_NBR_KEYPOINTS': 100,
-    # 'DIST_TH': 1e-2, # meters
-    'MAX_DIST_MM_FROM_KP_TO_SURFACE': 3.0,
-    'FEATURE_SCALE_FACTOR': 1e-1,
     'MARKERSIZE': 10,
     # 'MARKERSIZE': 50,
     'MAX_NBR_VTX_SCATTERPLOT': 500,
-    'NBR_FRAMES_SAMPLED_PER_SEQ': 100,
-    'NBR_GMM_COMPONENTS': 20,
+    'NBR_KEYPOINTS': 20,
     'SCORES_COLORED_IN_SCATTERPLOT': False,
-    'MIN_VTX_SCORE_GMM': None,
     'MIN_VTX_SCORE_SCATTERPLOT': None,
     # 'MIN_VTX_SCORE_SCATTERPLOT': -1,
     'SCATTER_VMIN': 0.0,
     'SCATTER_VMAX': 10.0,
     'SCORE_EXP': 1.0,
-    'LP_SIGMA_MM': 40.0,
-    'LP_DISTMAT_SUBSET_SIZE': 1000,
-    'DEPTH_DIFF_TH': 1e-2, # meters
     # 'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/bop-unzipped/hinterstoisser', # Path to a BOP-SIXD dataset
-    # 'TRAIN_SUBDIR': 'train', # Images in this subdir will be used to collect keypoint statistics
     'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented', # Path to a BOP-SIXD dataset
-    # 'TRAIN_SUBDIR': 'train_occl', # Images in this subdir will be used to collect keypoint statistics
-    # 'MODEL_FILTER': None,
-    'TRAIN_SUBDIR': 'train_aug', # Images in this subdir will be used to collect keypoint statistics
-    'MODEL_FILTER': [1,4,5,6,7,8,9,10],
-    # 'MODEL_FILTER': [6],
 }
-STORE_KEYPOINTS = False
-STORE_PLOTS = False
 
 
-kp_selector = DetectorKeypointSelector(opts)
+kp_selector = FarthestPointSamplingKeypointSelector(opts)
+
+# opts.update({
+#     'DIFFERENTIATE_ON_KP_RESPONSE': False,
+#     'MAX_NBR_FEATURES_DETECTED': 100,
+#     # 'DIST_TH': 1e-2, # meters
+#     'MAX_DIST_MM_FROM_KP_TO_SURFACE': 3.0,
+#     'FEATURE_SCALE_FACTOR': 1e-1,
+#     'NBR_FRAMES_SAMPLED_PER_SEQ': 100,
+#     'LP_SIGMA_MM': 40.0,
+#     'LP_DISTMAT_SUBSET_SIZE': 1000,
+#     'DEPTH_DIFF_TH': 1e-2, # meters
+#     # 'TRAIN_SUBDIR': 'train', # Images in this subdir will be used to collect keypoint statistics
+#     # 'TRAIN_SUBDIR': 'train_occl', # Images in this subdir will be used to collect keypoint statistics
+#     # 'MODEL_FILTER': None,
+#     'TRAIN_SUBDIR': 'train_aug', # Images in this subdir will be used to collect keypoint statistics
+#     'MODEL_FILTER': [1,4,5,6,7,8,9,10],
+#     # 'MODEL_FILTER': [6],
+# })
+# kp_selector = DetectorKeypointSelector(opts)
 
 # Select features
-# kp_dict = kp_selector.select_keypoints()
-# if STORE_KEYPOINTS:
-#     kp_selector.store_keypoints(kp_dict)
+kp_dict = kp_selector.select_keypoints()
+if STORE_KEYPOINTS:
+    kp_selector.store_keypoints(kp_dict)
 
-# Read features from file
-kp_dict = kp_selector.load_keypoints(kp_selector.read_models_info(from_backup=False))
+# Or read features from file
+# kp_dict = kp_selector.load_keypoints(kp_selector.read_models_info(from_backup=False))
 
 # Plot selected features
 for obj_id, keypoints in kp_dict.items():
