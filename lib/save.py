@@ -42,11 +42,13 @@ class ResultSaver:
         sample_token = sample_data['sample_token']
 
         for detection in frame_detections:
+            if min(detection['size']) < 0:
+                print('Negative size. Applying `abs()`')
             location, rotation = self.get_nusc_global_pose(detection, sample_data)
             sample_result = {
                 "sample_token": sample_token,
                 "translation": location.tolist(),
-                "size": detection['size'].tolist(),
+                "size": abs(detection['size']).tolist(),
                 "rotation": rotation.normalised.elements.tolist(),
                 "velocity": 3 * [float('nan')],
                 "detection_name": category_to_detection_name(detection['cls']),
