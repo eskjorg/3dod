@@ -18,6 +18,7 @@ from matplotlib import pyplot as plt
 import matplotlib.colors as colors
 from pomegranate import GeneralMixtureModel, MultivariateGaussianDistribution
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.spatial.distance import cdist, pdist, squareform
 
 # Parameters
 DRY_RUN = True
@@ -239,7 +240,6 @@ for seq in sorted(os.listdir(os.path.join(DATA_PATH, TRAIN_SUBDIR))):
     #     break #frame
     # break #seq
 
-from scipy.spatial.distance import cdist, pdist, squareform
 vtx_scores_filtered = OrderedDict()
 for obj_id, all_scores in vtx_scores.items():
     scores_raw = sum(all_scores) / float(len(all_scores))
