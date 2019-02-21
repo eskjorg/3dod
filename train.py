@@ -8,10 +8,9 @@ import lib.setup
 from lib.checkpoint import CheckpointHandler
 from lib.constants import TRAIN, VAL
 from lib.detection import Detector
-from lib.evaluate import Evaluator
 from lib.loss import LossHandler
 from lib.model import Model
-from lib.save import ResultSaver
+from lib.result import ResultSaver
 from lib.utils import get_device, get_configs
 from lib.visualize import Visualizer
 
@@ -32,7 +31,6 @@ class Trainer():
                                            lr=configs.training.learning_rate)
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
         self._detector = Detector(configs)
-        self._evaluator = Evaluator(configs)
         self._visualizer = Visualizer(configs)
 
     def train(self):
@@ -57,16 +55,15 @@ class Trainer():
             self._loss_handler.log_batch(epoch, batch_id, mode)
             detections = self._detector.run_detection(batch, outputs_cnn)
             self._result_saver.save(detections, mode)
-            self._evaluator.calc_batch(detections, batch.annotation)
 
-        score = self._evaluator.summarize_epoch()
+        score = self._result_saver.summarize_epoch(mode)
         self._visualizer.report_score(epoch, score, mode)
         self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
         self._visualizer.save_images(batch, detections, mode, index=epoch)
 
         self._loss_handler.finish_epoch(epoch, mode)
-        # TODO: return score
-        return sum(self._loss_handler.get_averages().values())
+        # TODO: implement evaluation for other datasets
+        return score or sum(self._loss_handler.get_averages().values())
 
     def _run_model(self, inputs, mode):
         inputs = inputs.to(get_device(), non_blocking=True)

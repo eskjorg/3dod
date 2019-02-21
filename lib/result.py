@@ -9,19 +9,24 @@ import matplotlib
 matplotlib.use('Agg')  # Overriding nuscenes backend
 
 from nuscenes.eval.eval_utils import category_to_detection_name
+from nuscenes.eval.nuscenes_eval import NuScenesEval
 from nuscenes.utils.data_classes import Box
 
 class ResultSaver:
     """ResultSaver."""
     def __init__(self, configs):
         self._configs = configs
+        self._epoch_results = None
 
         self._result_dir = os.path.join(configs.experiment_path, 'detections')
         os.makedirs(self._result_dir, exist_ok=True)
 
         if configs.data.dataformat == 'nuscenes':
             self._nusc = configs.nusc
-            self._epoch_results = {sample['token']: [] for sample in self._nusc.sample}
+            self._init_results()
+
+    def _init_results(self):
+        self._epoch_results = {sample['token']: [] for sample in self._nusc.sample}
 
     def save(self, detections, mode):
         if self._configs.logging.save_nuscenes_format:
@@ -31,9 +36,26 @@ class ResultSaver:
             for frame_id, frame_detections in detections.items():
                 self.save_frame_kitti(frame_id, frame_detections, mode)
 
+    def summarize_epoch(self, mode):
+        if self._configs.data.dataformat != 'nuscenes':
+            return None  # TODO: implement evaluation for other datasets
+        result_path = self.write_to_file()
+        eval_set = 'teaser_' + mode
+        output_dir = os.path.join(self._result_dir, 'nuscenes_eval')
+        nusc_eval = NuScenesEval(nusc=self._nusc,
+                                 result_path=result_path,
+                                 eval_set=eval_set,
+                                 output_dir=output_dir)
+        all_metrics = nusc_eval.run_eval()
+        score = all_metrics[self._configs.evaluation.score]
+        return score
+
     def write_to_file(self):
-        with open(os.path.join(self._result_dir, 'nuscenes_results.json'), 'w') as file:
+        result_path = os.path.join(self._result_dir, 'nuscenes_results.json')
+        with open(result_path, 'w') as file:
             json.dump(self._epoch_results, file, indent=4)
+        self._init_results()
+        return result_path
 
     def save_nuscenes_format(self, data_token, frame_detections):
         # TODO: Make sure that not multiple sample_datas write to the same sample.

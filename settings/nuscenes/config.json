@@ -2,13 +2,16 @@
     "logging": {
         "save_nuscenes_format": true
     },
+    "evaluation": {
+        "score": "mean_ap"
+    },
     "data":{
         "dataformat": "nuscenes",
         "path": "/datasets/nuscenes/teaser",
         "channels": [
             "CAM_FRONT"
         ],
-        "keyframes_only": false,
+        "keyframes_only": true,
         "class_map": {
             "vehicle.car": 2,
             "human.pedestrian.adult": 3,

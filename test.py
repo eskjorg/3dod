@@ -9,9 +9,8 @@ import lib.setup
 from lib.checkpoint import CheckpointHandler
 from lib.constants import TEST
 from lib.detection import Detector
-from lib.evaluate import Evaluator
 from lib.model import Model
-from lib.save import ResultSaver
+from lib.result import ResultSaver
 from lib.utils import get_device, get_configs
 from lib.visualize import Visualizer
 
@@ -27,7 +26,6 @@ class Tester():
         self._checkpoint_handler = CheckpointHandler(configs)
         self._model = self._checkpoint_handler.init(Model(configs), force_load=True)
         self._detector = Detector(configs)
-        self._evaluator = Evaluator(configs)
         self._visualizer = Visualizer(configs)
         self._logger = logging.getLogger(self.__class__.__name__)
 
@@ -37,11 +35,9 @@ class Tester():
             outputs_cnn = self._run_model(batch.input)
             detections = self._detector.run_detection(batch, outputs_cnn)
             self._result_saver.save(detections, TEST)
-            self._evaluator.calc_batch(detections, batch.annotation)
             self._visualizer.save_images(batch, detections, TEST, index=batch_id)
             self._logger.info('Inference done for Batch {id:<5d}'.format(id=batch_id))
-        self._result_saver.write_to_file()
-        score = self._evaluator.summarize_epoch()
+        self._result_saver.summarize_epoch(TEST)
 
     def _run_model(self, inputs):
         inputs = inputs.to(get_device(), non_blocking=True)
