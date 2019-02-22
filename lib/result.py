@@ -41,6 +41,8 @@ class ResultSaver:
             return None  # TODO: implement evaluation for other datasets
         result_path = self.write_to_file()
         eval_set = 'teaser_' + mode
+        if mode == 'test':  # TODO: until full dataset released
+            eval_set = 'teaser_val'
         output_dir = os.path.join(self._result_dir, 'nuscenes_eval')
         nusc_eval = NuScenesEval(nusc=self._nusc,
                                  result_path=result_path,
