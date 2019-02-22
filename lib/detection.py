@@ -26,11 +26,11 @@ class Detector:
         batch_detections = defaultdict(dict)
         for frame_index, frame_id in enumerate(batch.id):
             result = self._2d_detection(frame_index, outputs)
-            if self._configs.postprocessing.method == 'bbox_estimation_3d':
-                if len(result) > 100:
-                    print('Frame %02d:' % frame_index, "More than 100 detections, skipping 3D")
-                else:
-                    result = self._3d_bbox_estimation(result, batch.calibration[frame_index])
+            if len(result) > 100:
+                print('Frame %02d:' % frame_index, "More than 100 detections, skipping frame")
+                result = []
+            elif self._configs.postprocessing.method == 'bbox_estimation_3d':
+                result = self._3d_bbox_estimation(result, batch.calibration[frame_index])
             elif self._configs.postprocessing.method == 'rigid_6d_pose_estimation':
                 result = self._rigid_6d_pose_estimation(result, batch.calibration[frame_index])
             batch_detections.update({frame_id: result})
