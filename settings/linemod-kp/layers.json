@@ -13,11 +13,6 @@
         "cls_specific_heads": false,
         "loss": "L1"
     },
-    "size": {
-        "n_layers": 3,
-        "cls_specific_heads": false,
-        "loss": "L1"
-    },
     "keypoints": {
         "n_layers": 40,
         "cls_specific_heads": true,
