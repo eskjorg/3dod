@@ -29,7 +29,7 @@ def get_metadata(configs):
         'objects': {obj_label: {
             # NOTE: ClassMap.id_from_label could be called when needed instead of storing ids. Unless performance issue..?
             # 'obj_id': ClassMap.id_from_label(obj_label),
-            'keypoints': build_kp_array(obj_anno) if obj_label is not 6 else np.zeros([3,3]),
+            'keypoints': build_kp_array(obj_anno),
         } for obj_label, obj_anno in models_info.items()},
     }
 
