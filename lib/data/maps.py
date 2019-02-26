@@ -22,7 +22,7 @@ class GtMapsGenerator:
         self._layers = get_layers(self._configs.config_name)
 
     def generate(self, annotations, calibration):
-        def generate_map_for_head(layer_name, cls_id_filter=None):
+        def generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None):
             if cls_id_filter is not None:
                 assert layer_name != "cls"
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
@@ -45,10 +45,10 @@ class GtMapsGenerator:
                 # Separate GT map for every class
                 for cls_id in self._class_map.get_ids():
                     class_label = self._class_map.label_from_id(cls_id)
-                    gt_maps['{}_{}'.format(layer_name, class_label)] = generate_map_for_head(layer_name, cls_id_filter=[cls_id])
+                    gt_maps['{}_{}'.format(layer_name, class_label)] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=[cls_id])
             else:
                 # Single GT map - shared among all classes
-                gt_maps[layer_name] = generate_map_for_head(layer_name, cls_id_filter=None)
+                gt_maps[layer_name] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None)
         return gt_maps
 
     def _get_coordinates(self, objects, shrink_factor=1):
