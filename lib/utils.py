@@ -97,10 +97,11 @@ def matrix_from_yaw(yaw):
 
 def project_3d_pts(pts_3d_objframe, p_matrix, loc, rot_y=None, rot_matrix=None):
     rot_matrix = matrix_from_yaw(rot_y) if rot_y else rot_matrix
+    nbr_pts = pts_3d_objframe.shape[1]
 
     # Euclidean transformation to global frame. Store as homogeneous coordinates.
-    pts_3d_global = np.ones((4,8))
-    pts_3d_global[:3] = np.tile(loc, (8, 1)).T + rot_matrix @ np.array(pts_3d_objframe)
+    pts_3d_global = np.ones((4,nbr_pts))
+    pts_3d_global[:3] = np.tile(loc, (nbr_pts, 1)).T + rot_matrix @ np.array(pts_3d_objframe)
 
     # Projection
     pts_2d = p_matrix @ pts_3d_global
