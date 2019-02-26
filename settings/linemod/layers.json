@@ -1,6 +1,6 @@
 {
     "cls": {
-        "n_layers": 17,
+        "n_layers": 10,
         "loss": "CE"
     },
     "bbox2d": {
