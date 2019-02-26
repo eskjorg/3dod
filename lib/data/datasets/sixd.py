@@ -86,8 +86,8 @@ class SixdDataset(Dataset):
     def _read_annotations(self, dir_path, img_ind):
         annotations = []
         with open(join(dir_path, 'gt.yml'), 'r') as file:
-            gts = yaml.load(file, Loader=yaml.CLoader)
-        for gt in gts[img_ind]:
+            gts = yaml.load(file, Loader=yaml.CLoader)[img_ind]
+        for gt in gts:
             model = self._models[gt['obj_id']]
             bbox2d = Tensor(gt['obj_bb'])
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
