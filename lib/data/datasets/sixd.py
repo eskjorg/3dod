@@ -26,7 +26,7 @@ def get_metadata(configs):
             obj_anno['kp_z'],
         ])
     return {
-        'objects': {obj_label: {
+        'objects': {'{:02}'.format(obj_label): {
             # NOTE: ClassMap.id_from_label could be called when needed instead of storing ids. Unless performance issue..?
             # 'obj_id': ClassMap.id_from_label(obj_label),
             'keypoints': build_kp_array(obj_anno),

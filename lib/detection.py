@@ -62,6 +62,8 @@ class Detector:
                 result_dict['cls'] = [self._class_map.label_from_id(class_index)] * len(indices)
                 if 'corners' in result_dict:
                     result_dict['corners'] = result_dict['corners'].reshape(-1, 2, 8, order='F')
+                if 'keypoints' in result_dict:
+                    result_dict['keypoints'] = result_dict['keypoints'].reshape(-1, 2, 20, order='F')
                 frame_results += [AttrDict(zip(result_dict, detection))
                                   for detection in zip(*result_dict.values())]
         return frame_results
