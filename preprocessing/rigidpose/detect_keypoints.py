@@ -44,13 +44,30 @@ class KeypointSelector(ABC):
             self.models[obj] = inout.load_ply(os.path.join(self.opts['DATA_PATH'], 'models', 'obj_{:02}.ply'.format(obj)))
         return self.models[obj]
 
-    def store_keypoints(self, kp_dict):
+    def find_normals(self, kp_dict):
+        normals_dict = {}
+        for obj_id, keypoints in kp_dict.items():
+            closest_vtx_idx_list = []
+            # Iterate over rows:
+            for keypoint in keypoints:
+                distances = np.linalg.norm(self.models[obj_id]['pts'] - keypoint[np.newaxis,:], axis=1)
+                closest_vtx_idx = np.argmin(distances)
+                closest_vtx_idx_list.append(closest_vtx_idx)
+            normals_dict[obj_id] = self.models[obj_id]['normals'][closest_vtx_idx_list,:]
+        return normals_dict
+
+    def store_keypoints(self, kp_dict, normals_dict=None):
         models_info_new = copy.copy(self.models_info_backup)
         for obj_id, keypoints in kp_dict.items():
             xs, ys, zs = keypoints.T
             models_info_new[obj_id]['kp_x'] = list(map(float, xs))
             models_info_new[obj_id]['kp_y'] = list(map(float, ys))
             models_info_new[obj_id]['kp_z'] = list(map(float, zs))
+            if normals_dict is not None:
+                xs, ys, zs = normals_dict[obj_id].T
+                models_info_new[obj_id]['kp_normals_x'] = list(map(float, xs))
+                models_info_new[obj_id]['kp_normals_y'] = list(map(float, ys))
+                models_info_new[obj_id]['kp_normals_z'] = list(map(float, zs))
         inout.save_yaml(os.path.join(self.opts['DATA_PATH'], 'models', 'models_info.yml'), models_info_new)
 
     def load_keypoints(self, models_info):
@@ -67,7 +84,7 @@ class KeypointSelector(ABC):
     def select_keypoints(self):
         pass
 
-    def plot_keypoints(self, model, keypoints, vtx_scores=None, store_plots=False):
+    def plot_keypoints(self, model, keypoints, normals=None, vtx_scores=None, store_plots=False):
         if self.opts['SCORES_COLORED_IN_SCATTERPLOT']:
             assert vtx_scores is not None
         if self.opts['MIN_VTX_SCORE_SCATTERPLOT'] is not None:
@@ -116,6 +133,10 @@ class KeypointSelector(ABC):
         # fig = plt.figure()
         # ax = fig.add_subplot(111, projection='3d')
         ax.plot(*keypoints.T, 'r*', markersize=self.opts['MARKERSIZE'])
+
+        if normals is not None:
+            normal_length_mm = 10.0
+            ax.quiver(*keypoints.T, *(normal_length_mm*normals).T)
 
         if store_plots:
             plt.savefig(os.path.join(self.opts['DATA_PATH'], 'models', 'keypoint_3dplots', 'obj_{:02}.png'.format(obj_id)))
@@ -404,9 +425,12 @@ class FarthestPointSamplingKeypointSelector(KeypointSelector):
             kp_dict[obj_id] = keypoints
         return kp_dict
 
-
 STORE_KEYPOINTS = True
 STORE_PLOTS = True
+# STORE_KEYPOINTS = False
+# STORE_PLOTS = False
+
+FIND_NORMALS = True # Assuming keypoints close to surface. Evaluates normal at closest vertex.
 
 opts = {
     'MARKERSIZE': 10,
@@ -445,10 +469,12 @@ kp_selector = FarthestPointSamplingKeypointSelector(opts)
 # })
 # kp_selector = DetectorKeypointSelector(opts)
 
+
 # Select features
 kp_dict = kp_selector.select_keypoints()
+normals_dict = kp_selector.find_normals(kp_dict) if FIND_NORMALS else None
 if STORE_KEYPOINTS:
-    kp_selector.store_keypoints(kp_dict)
+    kp_selector.store_keypoints(kp_dict, normals_dict=normals_dict)
 
 # Or read features from file
 # kp_dict = kp_selector.load_keypoints(kp_selector.read_models_info(from_backup=False))
@@ -459,6 +485,7 @@ for obj_id, keypoints in kp_dict.items():
     kp_selector.plot_keypoints(
         kp_selector.get_model(obj_id),
         keypoints,
+        normals = normals_dict[obj_id] if FIND_NORMALS else None,
         vtx_scores = vtx_scores_filtered[obj_id] if opts['SCORES_COLORED_IN_SCATTERPLOT'] else None,
         store_plots = STORE_PLOTS,
     )
