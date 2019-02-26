@@ -1,6 +1,6 @@
 """Reading input data in the SIXD common format."""
 from os.path import join
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 import yaml
 
 import numpy as np
@@ -51,7 +51,7 @@ class SixdDataset(Dataset):
         self._models = self._init_models()
 
     def _init_sequence_lengths(self):
-        sequences = {}
+        sequences = OrderedDict()
         root_path = self._configs.path
         for sequence in self._configs.sequences[self._mode]:
             num_images = len(listdir_nohidden(join(root_path, sequence, 'rgb')))
