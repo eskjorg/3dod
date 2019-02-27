@@ -23,9 +23,9 @@ class LossHandler:
 
     def calc_loss(self, gt_maps, outputs_cnn):
         def calc_task_loss(layer_name, tensor, gt_map):
-            if layer_name == 'cls':
+            if self._layers[layer_name]['loss'] == 'CE':
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
-            else:
+            elif self._layers[layer_name]['loss'] == 'L1':
                 task_loss = self._l1_loss(tensor, gt_map)
                 if outputs_ln_b:
                     ln_b = outputs_ln_b[layer_name]
@@ -33,6 +33,8 @@ class LossHandler:
                 task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
                 # clamp below is a trick to avoid 0 / 0 = NaN, and instead perform 0 / 1 = 0. Works because denominator will be either 0 or >= 1 (sum of boolean -> non-negative int).
                 task_loss = task_loss.sum() / clamp(gt_map.ne(IGNORE_IDX_REG).sum(), min=1)
+            else:
+                raise NotImplementedError("{} loss not implemented.".format(self._layers[layer_name]['loss']))
             return task_loss
         loss = 0
         outputs_task, outputs_ln_b = outputs_cnn
