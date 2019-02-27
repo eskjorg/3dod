@@ -57,7 +57,9 @@ class Trainer():
             self._result_saver.save(results, mode)
 
         score = self._result_saver.summarize_epoch(mode)
-        self._visualizer.report_score(epoch, score, mode)
+        if self._configs.data.dataformat == 'nuscenes':
+            # TODO: implement evaluation for other datasets
+            self._visualizer.report_score(epoch, score, mode)
         self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
         self._visualizer.save_images(batch, results, mode, index=epoch)
 
