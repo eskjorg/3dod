@@ -231,3 +231,20 @@ class KeypointsGenerator(GeneratorIndex):
                 print('Keypoint projected far outside image. Check object not behind camera.')
             self._map[2 * index + 0, ymin: ymax, xmin: xmax] = x - self._index_map[1, ymin: ymax, xmin: xmax]
             self._map[2 * index + 1, ymin: ymax, xmin: xmax] = y - self._index_map[0, ymin: ymax, xmin: xmax]
+
+
+class KeypointGenerator(GeneratorIndex):
+    """GT map KeypointGenerator."""
+    def _get_num_maps(self):
+        return 2
+
+    def add_obj(self, obj_annotation, map_coords):
+        xmin, ymin, xmax, ymax = map_coords
+        x, y = obj_annotation.keypoint
+        # Quite arbitrary threshold: 10
+        # If keypoint is slightly outside of image is OK
+        # If keypoint is far off, it will hurt training
+        if abs(x / self._configs.data.img_dims[1] - 0.5) > 10:
+            print('Keypoint projected far outside image. Check object not behind camera.')
+        self._map[0, ymin: ymax, xmin: xmax] = x - self._index_map[1, ymin: ymax, xmin: xmax]
+        self._map[1, ymin: ymax, xmin: xmax] = y - self._index_map[0, ymin: ymax, xmin: xmax]

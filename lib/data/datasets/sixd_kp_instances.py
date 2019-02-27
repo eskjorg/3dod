@@ -14,6 +14,7 @@ from lib.data.maps import GtMapsGenerator
 from lib.utils import read_image_to_pt
 from lib.utils import listdir_nohidden
 from lib.utils import get_metadata
+from lib.utils import project_3d_pts
 
 
 def get_metadata(configs):
@@ -39,7 +40,7 @@ def get_dataset(configs, mode):
     return SixdDataset(configs, mode)
 
 
-Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'location', 'rotation'])
+Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 'location', 'rotation'])
 
 
 class SixdDataset(Dataset):
@@ -91,13 +92,37 @@ class SixdDataset(Dataset):
             gts = yaml.load(file, Loader=yaml.CLoader)[img_ind]
         for gt in gts:
             model = self._models[gt['obj_id']]
-            bbox2d = Tensor(gt['obj_bb'])
-            bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
-            
-            annotations.append(Annotation(cls=self._class_map.id_from_label(self._class_map.format_label(gt['obj_id'])),
-                                          bbox2d=bbox2d,
-                                          location=Tensor(gt['cam_t_m2c']),
-                                          rotation=np.array(gt['cam_R_m2c']).reshape((3, 3))))
+
+            group_label = self._class_map.format_group_label(gt['obj_id'])
+            group_id = self._class_map.group_id_from_group_label(group_label)
+
+            calib = self._read_calibration(dir_path, img_ind)
+            location = Tensor(gt['cam_t_m2c'])
+            rot_matrix = np.array(gt['cam_R_m2c']).reshape((3, 3))
+            keypoints_3d = self._metadata['objects'][group_label]['keypoints']
+            keypoints_2d = project_3d_pts(
+                keypoints_3d,
+                calib,
+                location,
+                rot_matrix=rot_matrix,
+            )
+            for kp_idx in range(NBR_KEYPOINTS):
+                patch_width = 31
+                assert patch_width % 2 == 1
+                x1 = int(keypoints_2d[0,kp_idx]) - patch_width//2
+                x2 = int(keypoints_2d[0,kp_idx]) + patch_width//2
+                y1 = int(keypoints_2d[1,kp_idx]) - patch_width//2
+                y2 = int(keypoints_2d[1,kp_idx]) + patch_width//2
+                bbox2d = Tensor([x1, y1, x2, y2])
+                class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
+                annotations.append(Annotation(cls=class_id,
+                                              group_id=group_id,
+                                              bbox2d=bbox2d,
+                                              keypoint=keypoints_2d[:,kp_idx],
+                                              # All patches share the R, t annotation:
+                                              location=location,
+                                              rotation=rot_matrix,
+                                          ))
         return annotations
 
     def _read_calibration(self, dir_path, img_ind):
@@ -122,27 +147,55 @@ class ClassMap:
     """
     def __init__(self, configs):
         with open(join(configs.data.path, 'models', 'models_info.yml'), 'r') as model_file:
-            class_labels_int = sorted(yaml.load(model_file).keys())
-        class_labels_str = list(map(self.format_label, class_labels_int))
+            group_labels_int = sorted(yaml.load(model_file).keys())
+        group_labels_str = list(map(self.format_group_label, group_labels_int))
+        group_ids = list(range(0, len(group_labels_str)))
+        self._group_label2group_id_dict = dict(list(zip(group_labels_str, group_ids)))
+        self._group_id2group_label_dict = dict(list(zip(group_ids, group_labels_str)))
+
+        class_labels_str = ["obj{:s}_kp{:02d}".format(group_label, kp_idx) for group_label in group_labels_str for kp_idx in range(NBR_KEYPOINTS)]
         # In network, 0 and 1 are reserved for background and don't_care
         class_ids = list(range(2, len(class_labels_str)+2))
-        self._label2id_dict = dict(list(zip(class_labels_str, class_ids)))
-        self._id2label_dict = dict(list(zip(class_ids, class_labels_str)))
+        self._class_label2class_id_dict = dict(list(zip(class_labels_str, class_ids)))
+        self._class_id2class_label_dict = dict(list(zip(class_ids, class_labels_str)))
 
-    def format_label(self, class_label_int):
-        class_label_str = "{:02d}".format(class_label_int)
-        return class_label_str
+        group_id_and_kp_idx_tuples = [(group_id, kp_idx) for group_id in group_ids for kp_idx in range(NBR_KEYPOINTS)]
+        self._group_id_and_kp_idx2class_id_dict = dict(list(zip(group_id_and_kp_idx_tuples, class_ids)))
+        self._class_id2group_id_and_kp_idx_dict = dict(list(zip(class_ids, group_id_and_kp_idx_tuples)))
 
+    # CLASS ID METHODS ---------------------------------------------------------
     def id_from_label(self, class_label):
-        return self._label2id_dict[class_label]
+        return self._class_label2class_id_dict[class_label]
 
     def label_from_id(self, class_id):
-        return self._id2label_dict[class_id]
+        return self._class_id2class_label_dict[class_id]
 
     def get_ids(self):
-        return sorted(self._id2label_dict.keys())
+        return sorted(self._class_id2class_label_dict.keys())
 
     def get_color(self, class_id):
         if isinstance(class_id, str):
             class_id = self.id_from_label(class_id)
         return cm.Set3(class_id % 12)
+
+    # GROUP ID METHODS ---------------------------------------------------------
+    def format_group_label(self, group_label_int):
+        group_label_str = "{:02d}".format(group_label_int)
+        return group_label_str
+
+    def group_id_from_group_label(self, group_label):
+        return self._group_label2group_id_dict[group_label]
+
+    def group_label_from_group_id(self, group_id):
+        return self._group_id2group_label_dict[group_id]
+
+    def get_group_ids(self):
+        return sorted(self._group_id2group_label_dict.keys())
+
+    # CLASS / GROUP ID METHODS -------------------------------------------------
+    def class_id_from_group_id_and_kp_idx(self, group_id, kp_idx):
+        return self._group_id_and_kp_idx2class_id_dict[(group_id, kp_idx)]
+
+    def group_id_and_kp_idx_from_class_id(self, class_id):
+        group_id, kp_idx = self._class_id2group_id_and_kp_idx_dict[class_id]
+        return (group_id, kp_idx)
