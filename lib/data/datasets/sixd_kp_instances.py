@@ -109,7 +109,12 @@ class SixdDataset(Dataset):
                 location,
                 rot_matrix=rot_matrix,
             )
+            kp_normals_global_frame = rot_matrix @ self._metadata['objects'][group_label]['kp_normals']
             for kp_idx in range(NBR_KEYPOINTS):
+                normal_pointing_away = kp_normals_global_frame[2,kp_idx] > 0.0
+                if normal_pointing_away:
+                    continue
+
                 patch_width = 31
                 assert patch_width % 2 == 1
                 x1 = int(keypoints_2d[0,kp_idx]) - patch_width//2
