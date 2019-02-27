@@ -20,17 +20,16 @@ def get_metadata(configs):
     path = join(configs.data.path, 'models', 'models_info.yml')
     with open(path, 'r') as file:
         models_info = yaml.load(file, Loader=yaml.CLoader)
-    def build_kp_array(obj_anno):
+    def rows2array(obj_anno, prefix):
         return np.array([
-            obj_anno['kp_x'],
-            obj_anno['kp_y'],
-            obj_anno['kp_z'],
+            obj_anno[prefix + '_x'],
+            obj_anno[prefix + '_y'],
+            obj_anno[prefix + '_z'],
         ])
     return {
         'objects': {'{:02}'.format(obj_label): {
-            # NOTE: ClassMap.id_from_label could be called when needed instead of storing ids. Unless performance issue..?
-            # 'obj_id': ClassMap.id_from_label(obj_label),
-            'keypoints': build_kp_array(obj_anno),
+            'keypoints': rows2array(obj_anno, 'kp'),
+            'kp_normals': rows2array(obj_anno, 'kp_normals'),
         } for obj_label, obj_anno in models_info.items()},
     }
 
