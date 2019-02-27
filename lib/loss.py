@@ -35,7 +35,7 @@ class LossHandler:
                 task_loss = task_loss.sum() / clamp(gt_map.ne(IGNORE_IDX_REG).sum(), min=1)
             else:
                 raise NotImplementedError("{} loss not implemented.".format(self._layers[layer_name]['loss']))
-            return task_loss, self._layers[layer_name]['loss_weight']
+            return task_loss
         loss = 0
         outputs_task, outputs_ln_b = outputs_cnn
         for layer_name, tensor in outputs_task.items():
@@ -46,14 +46,14 @@ class LossHandler:
                     class_label = self._class_map.label_from_id(cls_id)
                     head_name = '{}_{}'.format(layer_name, class_label)
                     gt_map = gt_maps[head_name].to(get_device(), non_blocking=True)
-                    task_loss, loss_weight = calc_task_loss(layer_name, tensor, gt_map)
-                    loss += task_loss * loss_weight / float(nbr_classes)
+                    task_loss = calc_task_loss(layer_name, tensor, gt_map)
+                    loss += task_loss * self._layers[layer_name]['loss_weight'] / float(nbr_classes)
                     self._losses[head_name].append(task_loss.item())
             else:
                 # Single GT map - shared among all classes
                 gt_map = gt_maps[layer_name].to(get_device(), non_blocking=True)
-                task_loss, loss_weight = calc_task_loss(layer_name, tensor, gt_map)
-                loss += task_loss * loss_weight
+                task_loss = calc_task_loss(layer_name, tensor, gt_map)
+                loss += task_loss * self._layers[layer_name]['loss_weight']
                 self._losses[layer_name].append(task_loss.item())
         return loss
 
