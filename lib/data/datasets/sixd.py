@@ -13,6 +13,7 @@ from lib.data.loader import Sample
 from lib.data.maps import GtMapsGenerator
 from lib.utils import read_image_to_pt
 from lib.utils import listdir_nohidden
+from lib.utils import get_metadata
 
 
 def get_metadata(configs):
@@ -44,6 +45,7 @@ Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'size', 'location', 'rot
 class SixdDataset(Dataset):
     def __init__(self, configs, mode):
         self._configs = configs.data
+        self._metadata = get_metadata(configs)
         self._mode = mode
         self._class_map = ClassMap(configs)
         self._gt_map_generator = GtMapsGenerator(configs)
