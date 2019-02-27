@@ -52,8 +52,8 @@ class LossHandler:
             else:
                 # Single GT map - shared among all classes
                 gt_map = gt_maps[layer_name].to(get_device(), non_blocking=True)
-                task_loss = calc_task_loss(layer_name, tensor, gt_map)
-                loss += task_loss
+                task_loss, loss_weight = calc_task_loss(layer_name, tensor, gt_map)
+                loss += task_loss * loss_weight
                 self._losses[layer_name].append(task_loss.item())
         return loss
 
