@@ -46,12 +46,19 @@ Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 
 class SixdDataset(Dataset):
     def __init__(self, configs, mode):
         self._configs = configs.data
+        self._yaml_dict = {}
         self._metadata = get_metadata(configs)
         self._mode = mode
         self._class_map = ClassMap(configs)
         self._gt_map_generator = GtMapsGenerator(configs)
         self._sequence_lengths = self._init_sequence_lengths()
         self._models = self._init_models()
+
+    def _read_yaml(self, path):
+        if path not in self._yaml_dict:
+            with open(path, 'r') as f:
+                self._yaml_dict[path] = yaml.load(f, Loader=yaml.CLoader)
+        return self._yaml_dict[path]
 
     def _init_sequence_lengths(self):
         sequences = OrderedDict()
@@ -62,9 +69,7 @@ class SixdDataset(Dataset):
         return sequences
 
     def _init_models(self):
-        path = join(self._configs.path, 'models', 'models_info.yml')
-        with open(path, 'r') as file:
-            return yaml.load(file, Loader=yaml.CLoader)
+        return self._read_yaml(join(self._configs.path, 'models', 'models_info.yml'))
 
     def __len__(self):
         return sum(self._sequence_lengths.values())
@@ -88,8 +93,7 @@ class SixdDataset(Dataset):
 
     def _read_annotations(self, dir_path, img_ind):
         annotations = []
-        with open(join(dir_path, 'gt.yml'), 'r') as file:
-            gts = yaml.load(file, Loader=yaml.CLoader)[img_ind]
+        gts = self._read_yaml(join(dir_path, 'gt.yml'))[img_ind]
         calib = self._read_calibration(dir_path, img_ind)
         for gt in gts:
             model = self._models[gt['obj_id']]
@@ -126,8 +130,7 @@ class SixdDataset(Dataset):
         return annotations
 
     def _read_calibration(self, dir_path, img_ind):
-        with open(join(dir_path, 'info.yml'), 'r') as file:
-            obj_info = yaml.load(file, Loader=yaml.CLoader)[img_ind]
+        obj_info = self._read_yaml(join(dir_path, 'info.yml'))[img_ind]
         intrinsic = np.reshape(obj_info['cam_K'], (3, 3))
         return np.concatenate((intrinsic, np.zeros((3, 1))), axis=1)
 
