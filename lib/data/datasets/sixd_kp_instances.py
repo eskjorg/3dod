@@ -20,7 +20,7 @@ from lib.utils import project_3d_pts
 def get_metadata(configs):
     path = join(configs.data.path, 'models', 'models_info.yml')
     with open(path, 'r') as file:
-        models_info = yaml.load(file)
+        models_info = yaml.load(file, Loader=yaml.CLoader)
     def build_kp_array(obj_anno):
         return np.array([
             obj_anno['kp_x'],
@@ -64,7 +64,7 @@ class SixdDataset(Dataset):
     def _init_models(self):
         path = join(self._configs.path, 'models', 'models_info.yml')
         with open(path, 'r') as file:
-            return yaml.load(file)
+            return yaml.load(file, Loader=yaml.CLoader)
 
     def __len__(self):
         return sum(self._sequence_lengths.values())
@@ -147,7 +147,7 @@ class ClassMap:
     """
     def __init__(self, configs):
         with open(join(configs.data.path, 'models', 'models_info.yml'), 'r') as model_file:
-            group_labels_int = sorted(yaml.load(model_file).keys())
+            group_labels_int = sorted(yaml.load(model_file, Loader=yaml.CLoader).keys())
         group_labels_str = list(map(self.format_group_label, group_labels_int))
         group_ids = list(range(0, len(group_labels_str)))
         self._group_label2group_id_dict = dict(list(zip(group_labels_str, group_ids)))
