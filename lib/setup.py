@@ -21,6 +21,8 @@ def parse_arguments():
                         help='path of the model weights to load')
     parser.add_argument('--experiment-root-path', default=get_default_root(),
                         help='the root directory to hold experiments')
+    parser.add_argument('--overwrite-experiment', action='store_true', default=False,
+                        help='causes experiment to be overwritten, if it already exists')
     parser.add_argument('--experiment-name', default='3dod_demo',
                         help='name of the execution, will be '
                              'the name of the experiment\'s directory')
@@ -30,6 +32,8 @@ def parse_arguments():
 
     experiment_path = join(args.experiment_root_path, args.experiment_name)
     args.experiment_path = experiment_path
+    if args.overwrite_experiment and os.path.exists(args.experiment_path):
+        shutil.rmtree(args.experiment_path)
     args.checkpoint_root_dir = join(experiment_path, 'checkpoints')
     os.makedirs(args.checkpoint_root_dir, exist_ok=True)
 
