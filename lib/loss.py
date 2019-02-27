@@ -42,13 +42,23 @@ class LossHandler:
             if self._layers[layer_name]['cls_specific_heads']:
                 # Separate GT map for every class
                 nbr_classes = len(self._class_map.get_ids())
+
+                REPORT_LOSS_PER_CLASS = False
+
+                if not REPORT_LOSS_PER_CLASS:
+                    task_loss_avg = 0
                 for cls_id in self._class_map.get_ids():
                     class_label = self._class_map.label_from_id(cls_id)
                     head_name = '{}_{}'.format(layer_name, class_label)
                     gt_map = gt_maps[head_name].to(get_device(), non_blocking=True)
                     task_loss = calc_task_loss(layer_name, tensor, gt_map)
                     loss += task_loss * self._layers[layer_name]['loss_weight'] / float(nbr_classes)
-                    self._losses[head_name].append(task_loss.item())
+                    if REPORT_LOSS_PER_CLASS:
+                        self._losses[head_name].append(task_loss.item())
+                    else:
+                        task_loss_avg += task_loss / float(nbr_classes)
+                if not REPORT_LOSS_PER_CLASS:
+                    self._losses[layer_name].append(task_loss_avg.item())
             else:
                 # Single GT map - shared among all classes
                 gt_map = gt_maps[layer_name].to(get_device(), non_blocking=True)
