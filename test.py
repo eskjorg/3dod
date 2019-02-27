@@ -8,7 +8,7 @@ amp_handle = amp.init()
 import lib.setup
 from lib.checkpoint import CheckpointHandler
 from lib.constants import TEST
-from lib.detection import Detector
+from lib.postprocessing import PostProc
 from lib.model import Model
 from lib.result import ResultSaver
 from lib.utils import get_device, get_configs
@@ -25,7 +25,7 @@ class Tester():
         self._result_saver = ResultSaver(configs)
         self._checkpoint_handler = CheckpointHandler(configs)
         self._model = self._checkpoint_handler.init(Model(configs), force_load=True)
-        self._detector = Detector(configs)
+        self._post_proc = PostProc(configs)
         self._visualizer = Visualizer(configs)
         self._logger = logging.getLogger(self.__class__.__name__)
 
@@ -33,9 +33,9 @@ class Tester():
         self._model.eval()
         for batch_id, batch in enumerate(self._data_loader.gen_batches(TEST)):
             outputs_cnn = self._run_model(batch.input)
-            detections = self._detector.run_detection(batch, outputs_cnn)
-            self._result_saver.save(detections, TEST)
-            self._visualizer.save_images(batch, detections, TEST, index=batch_id)
+            results = self._post_proc.run(batch, outputs_cnn)
+            self._result_saver.save(results, TEST)
+            self._visualizer.save_images(batch, results, TEST, index=batch_id)
             self._logger.info('Inference done for Batch {id:<5d}'.format(id=batch_id))
         self._result_saver.summarize_epoch(TEST)
 

@@ -1,7 +1,37 @@
 """Estimate 3D bounding boxes for detected objects."""
+from multiprocessing import Pool
 import numpy as np
 from scipy.optimize import least_squares
 from lib.utils import project_3d_pts, construct_3d_box
+from lib.utils import matrix_from_yaw
+from lib.postprocessing import RunnerIf
+
+
+class Runner(RunnerIf):
+    def __init__(self, configs):
+        super(Runner, self).__init__(configs, "bbox3d_estimation")
+
+    def run(self, frame_detections, batch, frame_index):
+        calibration = batch.calibration[frame_index]
+        for detection in frame_detections:
+            if not all(attr in detection for attr in ['corners', 'zdepth', 'size']):
+                print("Estimation currently requires 'corners', 'zdepth' and 'size'")
+                continue
+            if self._configs.training.nll_loss:
+                weights = self._runner_configs.weights  # TODO: Optimize with L1 loss
+            else:
+                weights = self._runner_configs.weights
+            estimator = BoxEstimator(detection, calibration, weights)
+            box_parameters = estimator.heuristic_3d()
+            if self._runner_configs.local_optimization_3d:
+                box_parameters = estimator.solve()
+            detection['size'] = box_parameters[:3]
+            detection['location'] = box_parameters[3:6]
+            detection['rotation_y'] = box_parameters[6]
+            detection['rotation'] = matrix_from_yaw(box_parameters[6])
+            detection['alpha'] = box_parameters[6] - np.arctan2(box_parameters[3], box_parameters[5])
+        return frame_detections
+
 
 
 class BoxEstimator:
@@ -38,12 +68,10 @@ class BoxEstimator:
         size = box_parameters[:3]
         location = box_parameters[3:6]
         rot_y = box_parameters[6]
-        corners = project_3d_pts(
-            construct_3d_box(size),
-            self._calibration,
-            location,
-            rot_y=rot_y,
-        )
+        corners = project_3d_pts(construct_3d_box(size),
+                                 self._calibration,
+                                 location,
+                                 rot_y=rot_y)
 
         residuals = np.concatenate(((self.data.corners - corners).flatten(),
                                     self.data.size - size,

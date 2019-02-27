@@ -7,7 +7,7 @@ amp_handle = amp.init()
 import lib.setup
 from lib.checkpoint import CheckpointHandler
 from lib.constants import TRAIN, VAL
-from lib.detection import Detector
+from lib.postprocessing import PostProc
 from lib.loss import LossHandler
 from lib.model import Model
 from lib.result import ResultSaver
@@ -30,7 +30,7 @@ class Trainer():
         self._optimizer = torch.optim.Adam(self._model.parameters(),
                                            lr=configs.training.learning_rate)
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
-        self._detector = Detector(configs)
+        self._post_proc = PostProc(configs)
         self._visualizer = Visualizer(configs)
 
     def train(self):
@@ -53,13 +53,13 @@ class Trainer():
                     scaled_loss.backward()
                 self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
-            detections = self._detector.run_detection(batch, outputs_cnn)
-            self._result_saver.save(detections, mode)
+            results = self._post_proc.run(batch, outputs_cnn)
+            self._result_saver.save(results, mode)
 
         score = self._result_saver.summarize_epoch(mode)
         self._visualizer.report_score(epoch, score, mode)
         self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
-        self._visualizer.save_images(batch, detections, mode, index=epoch)
+        self._visualizer.save_images(batch, results, mode, index=epoch)
 
         self._loss_handler.finish_epoch(epoch, mode)
         # TODO: implement evaluation for other datasets

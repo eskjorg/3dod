@@ -12,13 +12,16 @@
         "gt": ["bbox2d"],
         "det": ["bbox2d", "corners", "zdepth"]
     },
-    "detection": {
-        "detection_threshold": 0.55,
-        "iou_threshold": 0.3
-    },
     "postprocessing": {
-        "method": "bbox_estimation_3d",
-        "bbox_estimation_3d": {
+        "methods": [
+            "bbox2d_detection",
+            "bbox3d_estimation"
+        ],
+        "bbox2d_detection": {
+            "detection_threshold": 0.55,
+            "iou_threshold": 0.3
+        },
+        "bbox3d_estimation": {
             "local_optimization_3d": false,
             "weights": {
                 "corners": 1,
