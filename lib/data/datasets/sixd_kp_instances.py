@@ -90,13 +90,13 @@ class SixdDataset(Dataset):
         annotations = []
         with open(join(dir_path, 'gt.yml'), 'r') as file:
             gts = yaml.load(file, Loader=yaml.CLoader)[img_ind]
+        calib = self._read_calibration(dir_path, img_ind)
         for gt in gts:
             model = self._models[gt['obj_id']]
 
             group_label = self._class_map.format_group_label(gt['obj_id'])
             group_id = self._class_map.group_id_from_group_label(group_label)
 
-            calib = self._read_calibration(dir_path, img_ind)
             location = Tensor(gt['cam_t_m2c'])
             rot_matrix = np.array(gt['cam_R_m2c']).reshape((3, 3))
             keypoints_3d = self._metadata['objects'][group_label]['keypoints']
