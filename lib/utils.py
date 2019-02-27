@@ -82,6 +82,9 @@ def get_layers(config_name):
     path = os.path.join(SETTINGS_PATH, config_name, 'layers.json')
     layer_spec = read_json(path)
     for layer_name in layer_spec:
+        if 'loss_weight' not in layer_spec[layer_name]:
+            # Default value: 1.0
+            layer_spec[layer_name]['loss_weight'] = 1.0
         if 'cls_specific_heads' not in layer_spec[layer_name]:
             # Default value: False
             layer_spec[layer_name]['cls_specific_heads'] = False
