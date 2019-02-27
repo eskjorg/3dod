@@ -6,7 +6,7 @@ from math import ceil
 import numpy as np
 import torch
 
-from lib.constants import IGNORE_IDX_CLS, IGNORE_IDX_REG
+from lib.constants import IGNORE_IDX_CLS, IGNORE_IDX_REG, NBR_KEYPOINTS
 from lib.utils import get_layers, get_metadata, get_class_map, project_3d_pts, construct_3d_box, matrix_from_yaw
 
 
@@ -206,7 +206,7 @@ class CornersGenerator(GeneratorIndex):
 class KeypointsGenerator(GeneratorIndex):
     """GT map KeypointsGenerator."""
     def _get_num_maps(self):
-        return 40
+        return 2*NBR_KEYPOINTS
 
     def add_obj(self, obj_annotation, map_coords):
         xmin, ymin, xmax, ymax = map_coords
@@ -214,16 +214,15 @@ class KeypointsGenerator(GeneratorIndex):
                    else obj_annotation.rotation
         obj_label = self._class_map.label_from_id(obj_annotation.cls)
         assert self._get_num_maps() % 2 == 0
-        nbr_kp = self._get_num_maps() // 2
         keypoints_3d = self._metadata['objects'][obj_label]['keypoints']
-        assert keypoints_3d.shape[1] == nbr_kp
+        assert keypoints_3d.shape[1] == NBR_KEYPOINTS
         keypoints_2d = project_3d_pts(
             keypoints_3d,
             self._calib,
             obj_annotation.location,
             rot_matrix=rotation,
         )
-        for index in range(nbr_kp):
+        for index in range(NBR_KEYPOINTS):
             x, y = keypoints_2d[:, index]
             # Quite arbitrary threshold: 10
             # If keypoint is slightly outside of image is OK

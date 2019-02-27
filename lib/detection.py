@@ -9,6 +9,7 @@ import torch
 
 from maskrcnn_benchmark.layers import nms
 
+from lib.constants import NBR_KEYPOINTS
 from lib.data import maps
 from lib.postprocessing import BoxEstimator
 from lib.utils import get_device, get_class_map, matrix_from_yaw
@@ -63,7 +64,7 @@ class Detector:
                 if 'corners' in result_dict:
                     result_dict['corners'] = result_dict['corners'].reshape(-1, 2, 8, order='F')
                 if 'keypoints' in result_dict:
-                    result_dict['keypoints'] = result_dict['keypoints'].reshape(-1, 2, 20, order='F')
+                    result_dict['keypoints'] = result_dict['keypoints'].reshape(-1, 2, NBR_KEYPOINTS, order='F')
                 frame_results += [AttrDict(zip(result_dict, detection))
                                   for detection in zip(*result_dict.values())]
         return frame_results

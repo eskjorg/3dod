@@ -8,7 +8,7 @@ from torch import Tensor
 from torch.utils.data import Dataset
 from matplotlib.pyplot import cm
 
-from lib.constants import IGNORE_IDX_CLS, TRAIN, VAL
+from lib.constants import IGNORE_IDX_CLS, TRAIN, VAL, NBR_KEYPOINTS
 from lib.data.loader import Sample
 from lib.data.maps import GtMapsGenerator
 from lib.utils import read_image_to_pt

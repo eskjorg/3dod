@@ -43,6 +43,9 @@ VELODYNE = 'velodyne'
 LABEL_2 = 'label_2'
 CALIB = 'calib'
 
+# Keypoint instances
+NBR_KEYPOINTS = 20
+
 # Classes
 DONT_CARE = 'dont_care'
 
