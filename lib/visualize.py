@@ -9,7 +9,7 @@ from matplotlib import pyplot, patches
 from torchvision.transforms.functional import normalize
 from tensorboardX import SummaryWriter
 
-from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, KEYPOINT_COLORS
+from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, NBR_KEYPOINTS
 from lib.constants import TV_MEAN, TV_STD
 from lib.utils import project_3d_pts, construct_3d_box, get_metadata, get_class_map
 
@@ -23,7 +23,6 @@ class Visualizer:
         shutil.rmtree(vis_path, ignore_errors=True)
         self._writer = SummaryWriter(vis_path)
         self._corner_colors = CORNER_COLORS
-        self._keypoint_colors = KEYPOINT_COLORS
 
     def report_loss(self, epoch, losses, mode):
         self._writer.add_scalar('loss/{}'.format(mode), sum(losses.values()), epoch)
@@ -76,24 +75,31 @@ class Visualizer:
             axes.add_patch(patches.Circle(corner_xy, radius=3, color=color, edgecolor='black'))
 
     def _plot_keypoints(self, axes, obj, calib, annotation_flag, **kwargs):
+        color_map = pyplot.cm.tab20
+        assert NBR_KEYPOINTS <= 20 # Colormap size: 20
         if annotation_flag:
             rotation = matrix_from_yaw(obj.rot_y) if hasattr(obj, 'rot_y') \
                        else obj.rotation
-            obj_label = self._class_map.label_from_id(obj.cls) if annotation_flag else obj.cls
+            class_label = self._class_map.label_from_id(obj.cls) if annotation_flag else obj.cls
+            if False:
+                obj_label = class_label
+            else:
+                group_id, kp_idx = self._class_map.group_id_and_kp_idx_from_class_id(self._class_map.id_from_label(class_label))
+                obj_label = self._class_map.group_label_from_group_id(group_id)
             keypoints_3d = self._metadata['objects'][obj_label]['keypoints']
-            nbr_kp = keypoints_3d.shape[1]
+            assert keypoints_3d.shape[1] == NBR_KEYPOINTS
             keypoints_2d = project_3d_pts(
                 keypoints_3d,
                 calib,
                 obj.location,
                 rot_matrix=rotation,
             )
-            for corner_xy, color in zip(keypoints_2d.T, self._keypoint_colors):
-                axes.add_patch(patches.Circle(corner_xy, radius=3, fill=True, color=color, edgecolor='black'))
+            for j, corner_xy in enumerate(keypoints_2d.T):
+                axes.add_patch(patches.Circle(corner_xy, radius=3, fill=True, color=color_map(j), edgecolor='black'))
         else:
             keypoints_2d = obj.keypoints
-            for corner_xy, color in zip(keypoints_2d.T, self._keypoint_colors):
-                axes.add_patch(patches.Circle(corner_xy, radius=5, fill=False, edgecolor=color))
+            for j, corner_xy in enumerate(keypoints_2d.T):
+                axes.add_patch(patches.Circle(corner_xy, radius=5, fill=False, edgecolor=color_map(j)))
         # for corner_xy, color in zip(obj.corners.T, self._corner_colors):
         #     axes.add_patch(patches.Circle(corner_xy, radius=3, color=color, edgecolor='black'))
 
