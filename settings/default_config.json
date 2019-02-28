@@ -10,6 +10,7 @@
     },
     "visualization": {
         "gt": ["bbox2d"],
+        "cnn": [],
         "det": ["bbox2d", "corners", "zdepth"]
     },
     "postprocessing": {

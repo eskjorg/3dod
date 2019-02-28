@@ -8,6 +8,11 @@ TRAIN = 'train'
 VAL = 'val'
 TEST = 'test'
 
+# Visualization
+GT_TYPE = 'gt_type'
+CNN_TYPE = 'cnn_type'
+DET_TYPE = 'det_type'
+
 # Training
 IGNORE_IDX_CLS = 1
 IGNORE_IDX_REG = 97986 # Nonsense number - expected never to interfere with actual GT annotations
