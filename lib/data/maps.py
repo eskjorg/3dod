@@ -137,6 +137,25 @@ class ClsGenerator(GeneratorIf):
         return self._map.long()
 
 
+class ClsnonmutexGenerator(GeneratorIf):
+    """GT map class generator."""
+    @property
+    def fill_value(self):
+        return 0.0  # Background class
+
+    def _get_num_maps(self):
+        return len(self._class_map.get_ids())
+
+    def add_obj(self, obj_annotation, map_coords, obj_class=None):
+        xmin, ymin, xmax, ymax = map_coords
+        if obj_class is None:
+            obj_class = obj_annotation.cls
+        self._map[obj_class-2, ymin: ymax, xmin: xmax] = 1.0
+
+    def get_map(self):
+        return self._map
+
+
 class Bbox2dGenerator(GeneratorIndex):
     """GT map Bbox2dGenerator."""
     def _get_num_maps(self):

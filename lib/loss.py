@@ -1,6 +1,7 @@
 """Loss handler."""
 import logging
 from collections import defaultdict
+import torch
 from torch import nn, exp, clamp
 
 from lib.constants import TRAIN, VAL
@@ -19,12 +20,32 @@ class LossHandler:
         self._losses = defaultdict(list)
 
         self._ce_loss = nn.CrossEntropyLoss(ignore_index=IGNORE_IDX_CLS).to(get_device())
+        self._bce_loss = self._get_bce_loss()
         self._l1_loss = nn.L1Loss(reduction='none').to(get_device())
+
+    def _get_bce_loss(self):
+        bce_layers = [layer_name for layer_name, layer in self._layers.items() if layer['loss'] == 'BCE']
+        if len(bce_layers) == 0:
+            # Avoid making assumptions below, if BCE not used anyway
+            return None
+        assert IGNORE_IDX_CLS == 1
+        assert len(bce_layers) == 1 and bce_layers[0] == 'clsnonmutex'
+        nbr_classes = len(self._class_map.get_ids())
+        # weight = torch.ones((nbr_classes,))
+        IMBALANCE = 10.0 # Background is more common
+        pos_weight = IMBALANCE * torch.ones((nbr_classes,))
+        return nn.BCEWithLogitsLoss(
+            # weight = weight,
+            # pos_weight = pos_weight,
+        ).to(get_device())
 
     def calc_loss(self, gt_maps, outputs_cnn):
         def calc_task_loss(layer_name, tensor, gt_map):
             if self._layers[layer_name]['loss'] == 'CE':
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
+            elif self._layers[layer_name]['loss'] == 'BCE':
+                assert layer_name == 'clsnonmutex'
+                task_loss = self._bce_loss(tensor, gt_map)
             elif self._layers[layer_name]['loss'] == 'L1':
                 task_loss = self._l1_loss(tensor, gt_map)
                 if outputs_ln_b:

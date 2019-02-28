@@ -57,6 +57,7 @@ class MultiTaskHead(nn.Sequential):
                              stride=1),
                    nn.BatchNorm2d(num_features=in_channels * 2),
                    nn.ReLU(inplace=True),
+                   nn.Dropout2d(p=0.5, inplace=False),
                    nn.Conv2d(in_channels=in_channels * 2,
                              out_channels=out_channels * upsampling ** 2,
                              kernel_size=1,
