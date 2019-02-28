@@ -131,7 +131,7 @@ class ClsGenerator(GeneratorIf):
 
     def add_obj(self, obj_annotation, map_coords, obj_class=None):
         xmin, ymin, xmax, ymax = map_coords
-        self._map[0, ymin: ymax, xmin: xmax] = obj_class or obj_annotation.cls
+        self._map[0, ymin: ymax, xmin: xmax] = obj_class if obj_class is not None else obj_annotation.cls
 
     def get_map(self):
         return self._map.long()
