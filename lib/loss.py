@@ -104,4 +104,4 @@ class LossHandler:
         mode = {TRAIN: 'Training', VAL: 'Validation'}[mode]
         self._logger.info('%s epoch %s done!',
                           mode, epoch)
-        self._task_losses = defaultdict(list)
+        self._losses = defaultdict(list)
