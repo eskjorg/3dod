@@ -27,11 +27,14 @@ class Trainer():
         self._loss_handler = LossHandler(configs, self.__class__.__name__)
         self._checkpoint_handler = CheckpointHandler(configs)
         self._model = self._checkpoint_handler.init(Model(configs))
-        self._optimizer = torch.optim.Adam(self._model.parameters(),
-                                           lr=configs.training.learning_rate)
+        self._optimizer = self._setup_optimizer()
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
         self._post_proc = PostProc(configs)
         self._visualizer = Visualizer(configs)
+
+    def _setup_optimizer(self):
+        return torch.optim.Adam(self._model.parameters(),
+                                           lr=self._configs.training.learning_rate)
 
     def train(self):
         """Main loop."""
