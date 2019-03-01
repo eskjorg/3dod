@@ -8,7 +8,7 @@ from torch import Tensor
 from torch.utils.data import Dataset
 from matplotlib.pyplot import cm
 
-from lib.constants import IGNORE_IDX_CLS, TRAIN, VAL, NBR_KEYPOINTS
+from lib.constants import IGNORE_IDX_CLS, TRAIN, VAL, NBR_KEYPOINTS, PATCH_SIZE
 from lib.data.loader import Sample
 from lib.data.maps import GtMapsGenerator
 from lib.utils import read_image_to_pt
@@ -115,12 +115,10 @@ class SixdDataset(Dataset):
                 if normal_pointing_away:
                     continue
 
-                patch_width = 31
-                assert patch_width % 2 == 1
-                x1 = int(keypoints_2d[0,kp_idx]) - patch_width//2
-                x2 = int(keypoints_2d[0,kp_idx]) + patch_width//2
-                y1 = int(keypoints_2d[1,kp_idx]) - patch_width//2
-                y2 = int(keypoints_2d[1,kp_idx]) + patch_width//2
+                x1 = int(keypoints_2d[0,kp_idx]) - PATCH_SIZE//2
+                x2 = int(keypoints_2d[0,kp_idx]) + PATCH_SIZE//2
+                y1 = int(keypoints_2d[1,kp_idx]) - PATCH_SIZE//2
+                y2 = int(keypoints_2d[1,kp_idx]) + PATCH_SIZE//2
                 bbox2d = Tensor([x1, y1, x2, y2])
                 class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
                 annotations.append(Annotation(cls=class_id,

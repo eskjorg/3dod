@@ -5,7 +5,7 @@ import torch
 from torch import nn, exp, clamp
 
 from lib.constants import TRAIN, VAL
-from lib.constants import LN_2, IGNORE_IDX_CLS, IGNORE_IDX_REG
+from lib.constants import LN_2, IGNORE_IDX_CLS, IGNORE_IDX_REG, PATCH_SIZE
 from lib.utils import get_device, get_layers, get_class_map
 
 
@@ -32,11 +32,13 @@ class LossHandler:
         assert len(bce_layers) == 1 and bce_layers[0] == 'clsnonmutex'
         nbr_classes = len(self._class_map.get_ids())
         # weight = torch.ones((nbr_classes,))
-        IMBALANCE = 10.0 # Background is more common
-        pos_weight = IMBALANCE * torch.ones((nbr_classes,))
+        img_height, img_width = self._configs.data.img_dims
+        IMBALANCE = img_height*img_width/float(PATCH_SIZE**2) # Background is more common
+        # IMBALANCE = 10000.0 # Background is more common
+        pos_weight = IMBALANCE * torch.ones((nbr_classes,60,80))
         return nn.BCEWithLogitsLoss(
             # weight = weight,
-            # pos_weight = pos_weight,
+            pos_weight = pos_weight,
         ).to(get_device())
 
     def calc_loss(self, gt_maps, outputs_cnn):
