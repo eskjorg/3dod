@@ -81,7 +81,7 @@ class KeypointSelector(ABC):
         return kp_dict
 
     @abstractmethod
-    def select_keypoints(self):
+    def select_keypoints(self, initial_keypoints=None):
         pass
 
     def plot_keypoints(self, model, keypoints, normals=None, vtx_scores=None, store_plots=False):
@@ -391,7 +391,8 @@ class DetectorKeypointSelector(KeypointSelector):
 
         return kp_dict
 
-    def select_keypoints(self):
+    def select_keypoints(self, initial_keypoints=None):
+        assert initial_keypoints is None
         vtx_scores = self._score_vertices()
         vtx_scores_filtered = self._smooth_vertex_scores(vtx_scores)
         kp_dict = self._get_keypoints_from_vtx_scores_via_gmm_fitting(vtx_scores_filtered)
@@ -411,7 +412,7 @@ class FarthestPointSamplingKeypointSelector(KeypointSelector):
 
         return all_pts[np.argmax(all_pts_dist_to_closest), :]
 
-    def select_keypoints(self):
+    def initialize_keypoints(self):
         kp_dict = {}
         for obj_id in self.models_info_backup.keys():
             model = self.get_model(obj_id)
@@ -419,10 +420,20 @@ class FarthestPointSamplingKeypointSelector(KeypointSelector):
             origin = np.zeros((3,)) # Model center
             initial_kp = self._get_farthest_point(origin[np.newaxis,:], model['pts'])
             keypoints = np.concatenate((keypoints, initial_kp[np.newaxis,:]), axis=0)
-            for _ in range(self.opts['NBR_KEYPOINTS'] - 1):
-                new_kp = self._get_farthest_point(keypoints, model['pts'])
-                keypoints = np.concatenate((keypoints, new_kp[np.newaxis,:]), axis=0)
             kp_dict[obj_id] = keypoints
+        return kp_dict
+
+    def select_keypoints(self, initial_keypoints=None):
+        if initial_keypoints is None:
+            kp_dict = self.initialize_keypoints()
+        else:
+            kp_dict = copy.copy(initial_keypoints)
+        for obj_id in self.models_info_backup.keys():
+            model = self.get_model(obj_id)
+            initial_nbr_kp = kp_dict[obj_id].shape[0]
+            for _ in range(initial_nbr_kp, self.opts['NBR_KEYPOINTS']):
+                new_kp = self._get_farthest_point(kp_dict[obj_id], model['pts'])
+                kp_dict[obj_id] = np.concatenate((kp_dict[obj_id], new_kp[np.newaxis,:]), axis=0)
         return kp_dict
 
 STORE_KEYPOINTS = True
@@ -471,7 +482,7 @@ kp_selector = FarthestPointSamplingKeypointSelector(opts)
 
 
 # Select features
-kp_dict = kp_selector.select_keypoints()
+kp_dict = kp_selector.select_keypoints(initial_keypoints=None)
 normals_dict = kp_selector.find_normals(kp_dict) if FIND_NORMALS else None
 if STORE_KEYPOINTS:
     kp_selector.store_keypoints(kp_dict, normals_dict=normals_dict)
