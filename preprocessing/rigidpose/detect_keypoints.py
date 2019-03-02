@@ -368,15 +368,22 @@ class DetectorKeypointSelector(KeypointSelector):
             print("Inferring GMM for object {}".format(obj_id))
 
             model = self.get_model(obj_id)
-            X = model['pts'][scores >= self.opts['MIN_VTX_SCORE_GMM'], :]
+
             # X = X[np.random.choice(X.shape[0], 1000),:]
+            if self.opts['MIN_VTX_SCORE_GMM'] is not None:
+                X = model['pts'][scores >= self.opts['MIN_VTX_SCORE_GMM'], :]
+                weights = scores[scores >= self.opts['MIN_VTX_SCORE_GMM']]**self.opts['SCORE_EXP']
+            else:
+                X = model['pts']
+                weights = scores**self.opts['SCORE_EXP']
+
             gmm_model = GeneralMixtureModel.from_samples(
                 MultivariateGaussianDistribution,
                 n_components=self.opts['NBR_KEYPOINTS'],
                 init='kmeans++',
                 # init='random',
                 X=X,
-                weights=scores[scores >= self.opts['MIN_VTX_SCORE_GMM']]**self.opts['SCORE_EXP'],
+                weights=weights,
             )
 
             keypoints = np.array([d.mu for d in gmm_model.distributions])
@@ -436,12 +443,14 @@ class FarthestPointSamplingKeypointSelector(KeypointSelector):
                 kp_dict[obj_id] = np.concatenate((kp_dict[obj_id], new_kp[np.newaxis,:]), axis=0)
         return kp_dict
 
-STORE_KEYPOINTS = True
-STORE_PLOTS = True
-# STORE_KEYPOINTS = False
-# STORE_PLOTS = False
+# STORE_KEYPOINTS = True
+# STORE_PLOTS = True
+STORE_KEYPOINTS = False
+STORE_PLOTS = False
 
 FIND_NORMALS = True # Assuming keypoints close to surface. Evaluates normal at closest vertex.
+
+
 
 opts = {
     'MARKERSIZE': 10,
@@ -449,8 +458,8 @@ opts = {
     'MAX_NBR_VTX_SCATTERPLOT': 500,
     'NBR_KEYPOINTS': 20,
     'SCORES_COLORED_IN_SCATTERPLOT': False,
+    'MIN_VTX_SCORE_GMM': None,
     'MIN_VTX_SCORE_SCATTERPLOT': None,
-    # 'MIN_VTX_SCORE_SCATTERPLOT': -1,
     'SCATTER_VMIN': 0.0,
     'SCATTER_VMAX': 10.0,
     'SCORE_EXP': 1.0,
