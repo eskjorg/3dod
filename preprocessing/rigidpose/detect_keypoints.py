@@ -443,13 +443,48 @@ class FarthestPointSamplingKeypointSelector(KeypointSelector):
                 kp_dict[obj_id] = np.concatenate((kp_dict[obj_id], new_kp[np.newaxis,:]), axis=0)
         return kp_dict
 
-# STORE_KEYPOINTS = True
-# STORE_PLOTS = True
-STORE_KEYPOINTS = False
-STORE_PLOTS = False
+STORE_KEYPOINTS = True
+STORE_PLOTS = True
+# STORE_KEYPOINTS = False
+# STORE_PLOTS = False
 
 FIND_NORMALS = True # Assuming keypoints close to surface. Evaluates normal at closest vertex.
 
+
+
+opts = {
+    'MARKERSIZE': 10,
+    # 'MARKERSIZE': 50,
+    'MAX_NBR_VTX_SCATTERPLOT': 500,
+    'NBR_KEYPOINTS': 10,
+    'SCORES_COLORED_IN_SCATTERPLOT': False,
+    'MIN_VTX_SCORE_GMM': None,
+    'MIN_VTX_SCORE_SCATTERPLOT': None,
+    'SCATTER_VMIN': 0.0,
+    'SCATTER_VMAX': 10.0,
+    'SCORE_EXP': 1.0,
+    # 'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/bop-unzipped/hinterstoisser', # Path to a BOP-SIXD dataset
+    'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented', # Path to a BOP-SIXD dataset
+}
+opts.update({
+    'DIFFERENTIATE_ON_KP_RESPONSE': False,
+    'MAX_NBR_FEATURES_DETECTED': 100,
+    # 'DIST_TH': 1e-2, # meters
+    'MAX_DIST_MM_FROM_KP_TO_SURFACE': 3.0,
+    'FEATURE_SCALE_FACTOR': 1e-1,
+    'NBR_FRAMES_SAMPLED_PER_SEQ': 100,
+    'LP_SIGMA_MM': 40.0,
+    'LP_DISTMAT_SUBSET_SIZE': 1000,
+    'DEPTH_DIFF_TH': 1e-2, # meters
+    # 'TRAIN_SUBDIR': 'train', # Images in this subdir will be used to collect keypoint statistics
+    # 'TRAIN_SUBDIR': 'train_occl', # Images in this subdir will be used to collect keypoint statistics
+    # 'MODEL_FILTER': None,
+    'TRAIN_SUBDIR': 'train_aug', # Images in this subdir will be used to collect keypoint statistics
+    'MODEL_FILTER': [1,4,5,6,7,8,9,10],
+    # 'MODEL_FILTER': [6],
+})
+kp_selector = DetectorKeypointSelector(opts)
+initial_keypoints = kp_selector.select_keypoints(initial_keypoints=None)
 
 
 opts = {
@@ -466,32 +501,10 @@ opts = {
     # 'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/bop-unzipped/hinterstoisser', # Path to a BOP-SIXD dataset
     'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented', # Path to a BOP-SIXD dataset
 }
-
-
 kp_selector = FarthestPointSamplingKeypointSelector(opts)
 
-# opts.update({
-#     'DIFFERENTIATE_ON_KP_RESPONSE': False,
-#     'MAX_NBR_FEATURES_DETECTED': 100,
-#     # 'DIST_TH': 1e-2, # meters
-#     'MAX_DIST_MM_FROM_KP_TO_SURFACE': 3.0,
-#     'FEATURE_SCALE_FACTOR': 1e-1,
-#     'NBR_FRAMES_SAMPLED_PER_SEQ': 100,
-#     'LP_SIGMA_MM': 40.0,
-#     'LP_DISTMAT_SUBSET_SIZE': 1000,
-#     'DEPTH_DIFF_TH': 1e-2, # meters
-#     # 'TRAIN_SUBDIR': 'train', # Images in this subdir will be used to collect keypoint statistics
-#     # 'TRAIN_SUBDIR': 'train_occl', # Images in this subdir will be used to collect keypoint statistics
-#     # 'MODEL_FILTER': None,
-#     'TRAIN_SUBDIR': 'train_aug', # Images in this subdir will be used to collect keypoint statistics
-#     'MODEL_FILTER': [1,4,5,6,7,8,9,10],
-#     # 'MODEL_FILTER': [6],
-# })
-# kp_selector = DetectorKeypointSelector(opts)
-
-
 # Select features
-kp_dict = kp_selector.select_keypoints(initial_keypoints=None)
+kp_dict = kp_selector.select_keypoints(initial_keypoints=initial_keypoints)
 normals_dict = kp_selector.find_normals(kp_dict) if FIND_NORMALS else None
 if STORE_KEYPOINTS:
     kp_selector.store_keypoints(kp_dict, normals_dict=normals_dict)
