@@ -44,6 +44,18 @@ class KeypointSelector(ABC):
             self.models[obj] = inout.load_ply(os.path.join(self.opts['DATA_PATH'], 'models', 'obj_{:02}.ply'.format(obj)))
         return self.models[obj]
 
+    def project_to_surface(self, kp_dict):
+        for obj_id, keypoints in kp_dict.items():
+            closest_vtx_idx_list = []
+            # Iterate over rows:
+            for keypoint in keypoints:
+                distances = np.linalg.norm(self.models[obj_id]['pts'] - keypoint[np.newaxis,:], axis=1)
+                closest_vtx_idx = np.argmin(distances)
+                closest_vtx_idx_list.append(closest_vtx_idx)
+            # Overwrite keypoints with closest vertices:
+            kp_dict[obj_id] = self.models[obj_id]['pts'][closest_vtx_idx_list,:]
+        return kp_dict
+
     def find_normals(self, kp_dict):
         normals_dict = {}
         for obj_id, keypoints in kp_dict.items():
@@ -448,6 +460,7 @@ STORE_PLOTS = True
 # STORE_KEYPOINTS = False
 # STORE_PLOTS = False
 
+PROJECT_TO_SURFACE = True # Replace keypoints with closest vertices
 FIND_NORMALS = True # Assuming keypoints close to surface. Evaluates normal at closest vertex.
 
 
@@ -505,6 +518,8 @@ kp_selector = FarthestPointSamplingKeypointSelector(opts)
 
 # Select features
 kp_dict = kp_selector.select_keypoints(initial_keypoints=initial_keypoints)
+if PROJECT_TO_SURFACE:
+    kp_dict = kp_selector.project_to_surface(kp_dict)
 normals_dict = kp_selector.find_normals(kp_dict) if FIND_NORMALS else None
 if STORE_KEYPOINTS:
     kp_selector.store_keypoints(kp_dict, normals_dict=normals_dict)
