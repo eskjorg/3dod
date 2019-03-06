@@ -5,7 +5,7 @@ import torch
 from torch import nn, exp, clamp
 
 from lib.constants import TRAIN, VAL
-from lib.constants import LN_2, IGNORE_IDX_CLS, IGNORE_IDX_REG, PATCH_SIZE
+from lib.constants import LN_2, IGNORE_IDX_CLS, IGNORE_IDX_REG, IGNORE_IDX_CLSNONMUTEX, PATCH_SIZE
 from lib.utils import get_device, get_layers, get_class_map
 
 
@@ -39,6 +39,7 @@ class LossHandler:
         return nn.BCEWithLogitsLoss(
             # weight = weight,
             pos_weight = pos_weight,
+            reduction = 'none',
         ).to(get_device())
 
     def calc_loss(self, gt_maps, outputs_cnn):
@@ -48,6 +49,11 @@ class LossHandler:
             elif self._layers[layer_name]['loss'] == 'BCE':
                 assert layer_name == 'clsnonmutex'
                 task_loss = self._bce_loss(tensor, gt_map)
+                task_loss = task_loss * gt_map.ne(IGNORE_IDX_CLSNONMUTEX).float()
+                # print(clamp((gt_map*0.0+1.0).sum(), min=1))
+                # print(clamp(gt_map.ne(IGNORE_IDX_CLSNONMUTEX).sum(), min=1))
+                # print(clamp((torch.abs(gt_map-IGNORE_IDX_CLSNONMUTEX)>1e-6).sum(), min=1))
+                task_loss = task_loss.sum() / clamp(gt_map.ne(IGNORE_IDX_CLSNONMUTEX).sum(), min=1)
             elif self._layers[layer_name]['loss'] == 'L1':
                 task_loss = self._l1_loss(tensor, gt_map)
                 if outputs_ln_b:
