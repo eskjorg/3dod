@@ -1,13 +1,13 @@
 {
-    "cls": {
-        "n_layers": 162,
-        "loss": "CE",
+    "clsnonmutex": {
+        "n_layers": 160,
+        "loss": "BCE",
         "loss_weight": 1.0
     },
     "keypoint": {
         "n_layers": 2,
         "cls_specific_heads": true,
         "loss": "L1",
-        "loss_weight": 0.5
+        "loss_weight": 1.0
     }
 }

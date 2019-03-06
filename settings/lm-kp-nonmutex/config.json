@@ -8,7 +8,8 @@
         "save_kitti_format": false
     },
     "training": {
-        "learning_rate": 0.0001,
+        "learning_rate": 0.001,
+        "weight_decay": {"encoder": 1e-4, "decoder": 1e-4},
         "nll_loss": true,
         "n_epochs": 100
     },
@@ -16,6 +17,9 @@
         "gt": [
             "bbox2d",
             "keypoints"
+        ],
+        "cnn": [
+            "heatmaps"
         ],
         "det": [
         ]
@@ -29,6 +33,16 @@
         "path": "/datasets/occluded-linemod-augmented",
         "sequences": {
             "train": [
+                "train_unoccl/ape",
+                "train_unoccl/can",
+                "train_unoccl/cat",
+                "train_unoccl/driller",
+                "train_unoccl/duck",
+                "train_unoccl/eggbox",
+                "train_unoccl/glue",
+                "train_unoccl/holepuncher"
+            ],
+            "train2": [
                 "train_aug/ape",
                 "train_aug/can",
                 "train_aug/cat",
@@ -54,7 +68,7 @@
             "num_workers": 4
         },
         "val": {
-            "batch_size": 4,
+            "batch_size": 16,
             "shuffle": false,
             "num_workers": 4
         },

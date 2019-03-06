@@ -8,7 +8,7 @@
         "save_kitti_format": false
     },
     "training": {
-        "learning_rate": 0.0001,
+        "learning_rate": 0.0003,
         "nll_loss": false
     },
     "visualization": {
@@ -20,6 +20,24 @@
             "bbox2d",
             "keypoints"
         ]
+    },
+    "postprocessing": {
+        "methods": [
+            "bbox2d_detection",
+            "bbox3d_estimation"
+        ],
+        "bbox2d_detection": {
+            "detection_threshold": 0.55,
+            "iou_threshold": 0.3
+        },
+        "bbox3d_estimation": {
+            "local_optimization_3d": false,
+            "weights": {
+                "corners": 1,
+                "size": 500,
+                "zdepth": 30
+            }
+        }
     },
     "data":{
         "dataformat": "sixd",

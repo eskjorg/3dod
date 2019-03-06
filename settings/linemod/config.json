@@ -1,4 +1,9 @@
 {
+    "network": {
+        "encoder": "resnet34",
+        "output_stride": 4,
+        "support_region": 0.2
+    },
     "logging": {
         "save_kitti_format": false
     },
@@ -7,25 +12,68 @@
         "nll_loss": false
     },
     "visualization": {
-        "det": ["bbox2d", "zdepth", "corners"]
+        "gt": ["bbox2d"],
+        "det": [
+            "bbox2d",
+            "corners"
+        ]
+    },
+    "postprocessing": {
+        "methods": [
+            "bbox2d_detection",
+            "bbox3d_estimation"
+        ],
+        "bbox2d_detection": {
+            "detection_threshold": 0.55,
+            "iou_threshold": 0.3
+        },
+        "bbox3d_estimation": {
+            "local_optimization_3d": false,
+            "weights": {
+                "corners": 1,
+                "size": 500,
+                "zdepth": 30
+            }
+        }
     },
     "data":{
         "dataformat": "sixd",
         "path": "/datasets/occluded-linemod-augmented",
         "sequences": {
             "train": [
-                "train_occl/ape",
                 "train_aug/ape",
-                "train_aug/can"
+                "train_aug/can",
+                "train_aug/cat",
+                "train_aug/driller",
+                "train_aug/duck",
+                "train_aug/eggbox",
+                "train_aug/glue",
+                "train_aug/holepuncher"
             ],
             "val": [
-                "train_aug/can",
-                "train_aug/driller"
+                "train_occl/ape"
             ],
             "test": [
                 "test_occl/benchviseblue"
             ]
         },
         "img_dims": [480, 640]
+    },
+    "loading": {
+        "train": {
+            "batch_size": 8,
+            "shuffle": true,
+            "num_workers": 6
+        },
+        "val": {
+            "batch_size": 4,
+            "shuffle": false,
+            "num_workers": 6
+        },
+        "test": {
+            "batch_size": 1,
+            "shuffle": false,
+            "num_workers": 6
+        }
     }
 }
