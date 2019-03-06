@@ -209,8 +209,10 @@ class DetectorKeypointSelector(KeypointSelector):
 
                 # Loop over all object instances
                 for instance in gt[frame_idx]:
-                    if self.opts['MODEL_FILTER'] is not None and instance['obj_id'] not in self.opts['MODEL_FILTER']:
+                    if instance['obj_id'] not in self.models_info_backup.keys():
                         continue
+                    # if self.opts['MODEL_FILTER'] is not None and instance['obj_id'] not in self.opts['MODEL_FILTER']:
+                    #     continue
 
                     if instance['obj_id'] in instance_counts:
                         instance_counts[instance['obj_id']] += 1
@@ -477,7 +479,7 @@ opts = {
     'SCATTER_VMAX': 10.0,
     'SCORE_EXP': 1.0,
     # 'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/bop-unzipped/hinterstoisser', # Path to a BOP-SIXD dataset
-    'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented', # Path to a BOP-SIXD dataset
+    'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2b_rerendered', # Path to a BOP-SIXD dataset
 }
 opts.update({
     'DIFFERENTIATE_ON_KP_RESPONSE': False,
@@ -490,10 +492,10 @@ opts.update({
     'LP_DISTMAT_SUBSET_SIZE': 1000,
     'DEPTH_DIFF_TH': 1e-2, # meters
     # 'TRAIN_SUBDIR': 'train', # Images in this subdir will be used to collect keypoint statistics
-    # 'TRAIN_SUBDIR': 'train_occl', # Images in this subdir will be used to collect keypoint statistics
+    'TRAIN_SUBDIR': 'train_unoccl', # Images in this subdir will be used to collect keypoint statistics
     # 'MODEL_FILTER': None,
-    'TRAIN_SUBDIR': 'train_aug', # Images in this subdir will be used to collect keypoint statistics
-    'MODEL_FILTER': [1,4,5,6,7,8,9,10],
+    # 'TRAIN_SUBDIR': 'train_aug', # Images in this subdir will be used to collect keypoint statistics
+    # 'MODEL_FILTER': [1,4,5,6,7,8,9,10],
     # 'MODEL_FILTER': [6],
 })
 kp_selector = DetectorKeypointSelector(opts)
@@ -512,7 +514,7 @@ opts = {
     'SCATTER_VMAX': 10.0,
     'SCORE_EXP': 1.0,
     # 'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/bop-unzipped/hinterstoisser', # Path to a BOP-SIXD dataset
-    'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented', # Path to a BOP-SIXD dataset
+    'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2b_rerendered', # Path to a BOP-SIXD dataset
 }
 kp_selector = FarthestPointSamplingKeypointSelector(opts)
 
