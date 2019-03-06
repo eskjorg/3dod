@@ -26,7 +26,7 @@ class GtMapsGenerator:
             if cls_id_filter is not None:
                 assert layer_name != "cls"
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
-            generator = Generator(self._configs, self._metadata, self._class_map, calibration)
+            generator = Generator(self._configs, self._metadata, self._class_map, calib=calibration)
             for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
                 if cls_id_filter is not None and obj.cls not in cls_id_filter:
                     # Discard instance if head is dedicated only to other class labels
@@ -69,13 +69,18 @@ class GtMapsGenerator:
 
 class GeneratorIf(metaclass=ABCMeta):
     """Abstract class for target gt generation."""
-    def __init__(self, configs, metadata, class_map, *args, **kwargs):
+    def __init__(self, configs, metadata, class_map, *args, fill_values=None, **kwargs):
         """Constructor."""
         super().__init__()
         self._configs = configs
         self._metadata = metadata
         self._class_map = class_map
-        self._map = torch.empty(self._get_num_maps(), *configs.target_dims).fill_(self.fill_value)
+        self._map = torch.empty(self._get_num_maps(), *configs.target_dims)
+        if fill_values is None:
+            self._map.fill_(self.fill_value)
+        else:
+            fill_values = [self.fill_value if val is None else val for val in fill_values]
+            self._map[:,:,:] = torch.tensor(fill_values).reshape((-1,1,1))
 
     @property
     def fill_value(self):
@@ -101,7 +106,7 @@ class GeneratorIf(metaclass=ABCMeta):
 
 class GeneratorIndex(GeneratorIf):
     """GeneratorIndex."""
-    def __init__(self, configs, metadata, class_map, calib=None, device='cpu'):
+    def __init__(self, configs, metadata, class_map, fill_values=None, calib=None, device='cpu'):
         """Constructor."""
         super().__init__(configs, metadata, class_map)
         self._calib = calib
