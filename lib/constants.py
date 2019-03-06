@@ -28,6 +28,7 @@ INPUT = 'input'
 GT_MAP = 'gt_map'
 CALIBRATION = 'calibration'
 ID = 'id'
+UNANNOTATED_CLASS_IDS = 'unannotated_class_ids'
 
 # Paths
 PROJECT_PATH = os.path.dirname(os.path.dirname(__file__))

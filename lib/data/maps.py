@@ -6,7 +6,7 @@ from math import ceil
 import numpy as np
 import torch
 
-from lib.constants import IGNORE_IDX_CLS, IGNORE_IDX_REG, NBR_KEYPOINTS
+from lib.constants import IGNORE_IDX_CLS, IGNORE_IDX_REG, IGNORE_IDX_CLSNONMUTEX, NBR_KEYPOINTS
 from lib.utils import get_layers, get_metadata, get_class_map, project_3d_pts, construct_3d_box, matrix_from_yaw
 
 
@@ -21,12 +21,12 @@ class GtMapsGenerator:
                                      for dim in self._configs.data.img_dims]
         self._layers = get_layers(self._configs.config_name)
 
-    def generate(self, annotations, calibration):
-        def generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None):
+    def generate(self, annotations, calibration, unannotated_class_ids=[]):
+        def generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None, fill_values=None):
             if cls_id_filter is not None:
                 assert layer_name != "cls"
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
-            generator = Generator(self._configs, self._metadata, self._class_map, calib=calibration)
+            generator = Generator(self._configs, self._metadata, self._class_map, calib=calibration, fill_values=fill_values)
             for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
                 if cls_id_filter is not None and obj.cls not in cls_id_filter:
                     # Discard instance if head is dedicated only to other class labels
@@ -48,7 +48,14 @@ class GtMapsGenerator:
                     gt_maps['{}_{}'.format(layer_name, class_label)] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=[cls_id])
             else:
                 # Single GT map - shared among all classes
-                gt_maps[layer_name] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None)
+                fill_values = None
+                if layer_name == 'clsnonmutex' and len(unannotated_class_ids) > 0:
+                    # print("fill: {}".format(IGNORE_IDX_CLSNONMUTEX))
+                    # Avoid using background as negative example - it may hold unannotated objects
+                    fill_values = [None] * len(self._class_map.get_ids())
+                    for class_id in unannotated_class_ids:
+                        fill_values[class_id - 2] = IGNORE_IDX_CLSNONMUTEX
+                gt_maps[layer_name] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None, fill_values=fill_values)
         return gt_maps
 
     def _get_coordinates(self, objects, shrink_factor=1):
