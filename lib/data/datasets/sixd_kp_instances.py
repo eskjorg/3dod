@@ -41,7 +41,7 @@ def get_dataset(configs, mode):
     return SixdDataset(configs, mode)
 
 
-Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 'keypoint_detectability', 'normal_is_facing', 'location', 'rotation'])
+Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 'keypoint_detectability', 'self_occluded', 'location', 'rotation'])
 
 
 seq_name2obj_id = {
@@ -142,7 +142,7 @@ class SixdDataset(Dataset):
             )
             kp_normals_global_frame = rot_matrix @ self._metadata['objects'][group_label]['kp_normals']
             for kp_idx in range(NBR_KEYPOINTS):
-                normal_is_facing = kp_normals_global_frame[2,kp_idx] <= 0.0
+                self_occluded = kp_normals_global_frame[2,kp_idx] > 0.0
 
                 x1 = int(keypoints_2d[0,kp_idx] - 0.5*(PATCH_SIZE-1))
                 x2 = x1 + (PATCH_SIZE-1) + 1 # Box is up until but not including x2
@@ -183,7 +183,7 @@ class SixdDataset(Dataset):
                                               bbox2d=bbox2d,
                                               keypoint=keypoints_2d[:,kp_idx],
                                               keypoint_detectability=keypoint_detectability, # Quantify occlusion
-                                              normal_is_facing=normal_is_facing, # Annotate self-occlusion
+                                              self_occluded=self_occluded, # Annotate self-occlusion
                                               # All patches share the R, t annotation:
                                               location=location,
                                               rotation=rot_matrix,

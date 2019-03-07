@@ -31,7 +31,7 @@ class GtMapsGenerator:
                 if cls_id_filter is not None and obj.cls not in cls_id_filter:
                     # Discard instance if head is dedicated only to other class labels
                     continue
-                if not obj.normal_is_facing:
+                if obj.self_occluded:
                     # Self-occluded, should not be used as positive example
                     continue
 
