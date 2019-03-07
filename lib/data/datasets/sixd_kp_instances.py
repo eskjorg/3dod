@@ -3,6 +3,7 @@ from os.path import join
 from collections import namedtuple, OrderedDict
 import yaml
 
+import math
 import cv2 as cv
 import numpy as np
 import torch
@@ -41,7 +42,7 @@ def get_dataset(configs, mode):
     return SixdDataset(configs, mode)
 
 
-Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 'keypoint_detectability', 'self_occluded', 'location', 'rotation'])
+Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 'keypoint_detectability', 'self_occluded', 'occluded', 'location', 'rotation'])
 
 
 seq_name2obj_id = {
@@ -144,38 +145,44 @@ class SixdDataset(Dataset):
             for kp_idx in range(NBR_KEYPOINTS):
                 self_occluded = kp_normals_global_frame[2,kp_idx] > 0.0
 
-                x1 = int(keypoints_2d[0,kp_idx] - 0.5*(PATCH_SIZE-1))
-                x2 = x1 + (PATCH_SIZE-1) + 1 # Box is up until but not including x2
-                if x1 < 0 or x2 > self._configs.data.img_dims[1]:
-                    continue
-                y1 = int(keypoints_2d[1,kp_idx] - 0.5*(PATCH_SIZE-1))
-                y2 = y1 + (PATCH_SIZE-1) + 1 # Box is up until but not including y2
-                if y1 < 0 or y2 > self._configs.data.img_dims[0]:
-                    continue
+                occluded = False
 
-                # x1 = int(keypoints_2d[0,kp_idx])     - PATCH_SIZE//2
-                # x2 = int(keypoints_2d[0,kp_idx]) + 1 + PATCH_SIZE//2
-                # if x1 < 0 or x2 > self._configs.data.img_dims[1]:
-                #     continue
-                # y1 = int(keypoints_2d[1,kp_idx])     - PATCH_SIZE//2
-                # y2 = int(keypoints_2d[1,kp_idx]) + 1 + PATCH_SIZE//2
-                # if y1 < 0 or y2 > self._configs.data.img_dims[0]:
-                #     continue
+                # Check that keypoint projects inside image, and is not occluded
+                x, y = keypoints_2d[:,kp_idx]
+                x = int(x)
+                y = int(y)
+                if x < 0 or x >= self._configs.data.img_dims[1]:
+                    occluded = True
+                elif y < 0 or y >= self._configs.data.img_dims[0]:
+                    occluded = True
+                elif instance_seg[0, y, x] != instance_idx:
+                    occluded = True
 
-                bbox2d = Tensor([x1, y1, x2, y2])
+                if occluded:
+                    bbox2d = None
+                    keypoint_detectability = None
+                else:
+                    x1 = int(keypoints_2d[0,kp_idx] - 0.5*(PATCH_SIZE-1))
+                    x2 = x1 + (PATCH_SIZE-1) + 1 # Box is up until but not including x2
+                    y1 = int(keypoints_2d[1,kp_idx] - 0.5*(PATCH_SIZE-1))
+                    y2 = y1 + (PATCH_SIZE-1) + 1 # Box is up until but not including y2
 
-                # Set ground truth visibility in the vicinity of the keypoint position
-                keypoint_detectability = torch.ones((PATCH_SIZE,PATCH_SIZE))
+                    stride = self._configs.network.output_stride
+                    x1 = max(0, math.floor(x1 / stride) * stride)
+                    x2 = min(self._configs.data.img_dims[1], math.ceil(x2 / stride) * stride)
+                    y1 = max(0, math.floor(y1 / stride) * stride)
+                    y2 = min(self._configs.data.img_dims[0], math.ceil(y2 / stride) * stride)
 
-                keypoint_detectability[instance_seg[0, y1:y2, x1:x2] != instance_idx] = 0.0
-                # try:
-                #     keypoint_detectability[instance_seg[0, y1:y2, x1:x2] != instance_idx] = 0.0
-                # except:
-                #     print(y1, y2)
-                #     print(x1, x2)
-                #     print(instance_seg.shape)
-                #     print(instance_seg[0, y1:y2, x1:x2].shape)
-                #     print((instance_seg[0, y1:y2, x1:x2] == instance_idx).shape)
+                    for val in [x1, x2, y1, y2]:
+                        assert val % stride == 0
+
+                    if x1 == x2 or y1 == y2:
+                        assert occluded
+
+                    bbox2d = Tensor([x1, y1, x2, y2])
+
+                    # Set ground truth visibility in the vicinity of the keypoint position
+                    keypoint_detectability = (instance_seg[0, y1:y2, x1:x2] == instance_idx).type(torch.float32)
 
                 class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
                 annotations.append(Annotation(cls=class_id,
@@ -184,6 +191,7 @@ class SixdDataset(Dataset):
                                               keypoint=keypoints_2d[:,kp_idx],
                                               keypoint_detectability=keypoint_detectability, # Quantify occlusion
                                               self_occluded=self_occluded, # Annotate self-occlusion
+                                              occluded=occluded, # Annotate occlusion by other objects (or outside field of view)
                                               # All patches share the R, t annotation:
                                               location=location,
                                               rotation=rot_matrix,
