@@ -49,11 +49,10 @@ class LossHandler:
             elif self._layers[layer_name]['loss'] == 'BCE':
                 assert layer_name == 'clsnonmutex'
                 task_loss = self._bce_loss(tensor, gt_map)
-                task_loss = task_loss * gt_map.ne(IGNORE_IDX_CLSNONMUTEX).float()
-                # print(clamp((gt_map*0.0+1.0).sum(), min=1))
-                # print(clamp(gt_map.ne(IGNORE_IDX_CLSNONMUTEX).sum(), min=1))
-                # print(clamp((torch.abs(gt_map-IGNORE_IDX_CLSNONMUTEX)>1e-6).sum(), min=1))
-                task_loss = task_loss.sum() / clamp(gt_map.ne(IGNORE_IDX_CLSNONMUTEX).sum(), min=1)
+                mask_loss_applied = gt_map.ne(IGNORE_IDX_CLSNONMUTEX)
+                # mask_loss_applied = torch.abs(gt_map - IGNORE_IDX_CLSNONMUTEX) > 1e-6
+                task_loss = task_loss * mask_loss_applied.float()
+                task_loss = task_loss.sum() / clamp(mask_loss_applied.sum(), min=1)
             elif self._layers[layer_name]['loss'] == 'L1':
                 task_loss = self._l1_loss(tensor, gt_map)
                 if outputs_ln_b:
