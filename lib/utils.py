@@ -40,14 +40,17 @@ def read_json(path):
     return AttrDict(json_dict)
 
 
-def read_image_to_pt(path, load_type=cv.IMREAD_COLOR):
+def read_image_to_pt(path, load_type=cv.IMREAD_COLOR, normalize_flag=True):
     """Read an image from path to pt tensor."""
     image = cv.imread(path, load_type)
     if image is None:
         raise Exception('Failed to read image: {}.'.format(path))
-    image = normalize(to_tensor(image), TV_MEAN, TV_STD)
     if len(image.shape) == 2:
-        image._unsqueeze(0)
+        image = image[:, :, np.newaxis]
+        # image._unsqueeze(0)
+    image = to_tensor(image)
+    if normalize_flag:
+        image = normalize(image, TV_MEAN, TV_STD)
     return image.flip(0)
 
 

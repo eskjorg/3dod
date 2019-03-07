@@ -6,7 +6,7 @@ from math import ceil
 import numpy as np
 import torch
 
-from lib.constants import IGNORE_IDX_CLS, IGNORE_IDX_REG, IGNORE_IDX_CLSNONMUTEX, NBR_KEYPOINTS
+from lib.constants import IGNORE_IDX_CLS, IGNORE_IDX_REG, IGNORE_IDX_CLSNONMUTEX, NBR_KEYPOINTS, PATCH_SIZE
 from lib.utils import get_layers, get_metadata, get_class_map, project_3d_pts, construct_3d_box, matrix_from_yaw
 
 
@@ -31,6 +31,10 @@ class GtMapsGenerator:
                 if cls_id_filter is not None and obj.cls not in cls_id_filter:
                     # Discard instance if head is dedicated only to other class labels
                     continue
+                if not obj.normal_is_facing:
+                    # Self-occluded, should not be used as positive example
+                    continue
+
                 if layer_name == "cls":
                     generator.add_obj(obj, full, IGNORE_IDX_CLS)
                 if obj.cls is not IGNORE_IDX_CLS:
@@ -88,6 +92,18 @@ class GeneratorIf(metaclass=ABCMeta):
         else:
             fill_values = [self.fill_value if val is None else val for val in fill_values]
             self._map[:,:,:] = torch.tensor(fill_values).reshape((-1,1,1))
+
+    def _downsample_keypoint_detectability(self, keypoint_detectability):
+        # Easily decimated to output resolution
+        assert PATCH_SIZE % self._configs.network.output_stride == 0
+        # But after decimation, there should still be a "center" pixel at the keypoint, i.e. demand odd size
+        assert (PATCH_SIZE // self._configs.network.output_stride) % 2 == 1
+        keypoint_detectability_ds = torch.nn.functional.avg_pool2d(
+            keypoint_detectability.unsqueeze(0),
+            self._configs.network.output_stride,
+            stride=self._configs.network.output_stride,
+        )[0,:,:]
+        return keypoint_detectability_ds
 
     @property
     def fill_value(self):
@@ -158,11 +174,15 @@ class ClsnonmutexGenerator(GeneratorIf):
     def _get_num_maps(self):
         return len(self._class_map.get_ids())
 
-    def add_obj(self, obj_annotation, map_coords, obj_class=None):
+    def add_obj(self, obj_annotation, map_coords):
         xmin, ymin, xmax, ymax = map_coords
-        if obj_class is None:
-            obj_class = obj_annotation.cls
-        self._map[obj_class-2, ymin: ymax, xmin: xmax] = 1.0
+
+        if hasattr(obj_annotation, 'keypoint_detectability'):
+            keypoint_detectability_ds = self._downsample_keypoint_detectability(obj_annotation.keypoint_detectability)
+            mask = keypoint_detectability_ds > 0
+            self._map[obj_annotation.cls-2, ymin: ymax, xmin: xmax][mask] = keypoint_detectability_ds[mask]
+        else:
+            self._map[obj_annotation.cls-2, ymin: ymax, xmin: xmax] = 1.0
 
     def get_map(self):
         return self._map
@@ -272,10 +292,12 @@ class KeypointGenerator(GeneratorIndex):
     def add_obj(self, obj_annotation, map_coords):
         xmin, ymin, xmax, ymax = map_coords
         x, y = obj_annotation.keypoint
-        # Quite arbitrary threshold: 10
-        # If keypoint is slightly outside of image is OK
-        # If keypoint is far off, it will hurt training
-        if abs(x / self._configs.data.img_dims[1] - 0.5) > 10:
-            print('Keypoint projected far outside image. Check object not behind camera.')
-        self._map[0, ymin: ymax, xmin: xmax] = x - self._index_map[1, ymin: ymax, xmin: xmax]
-        self._map[1, ymin: ymax, xmin: xmax] = y - self._index_map[0, ymin: ymax, xmin: xmax]
+
+        if hasattr(obj_annotation, 'keypoint_detectability'):
+            keypoint_detectability_ds = self._downsample_keypoint_detectability(obj_annotation.keypoint_detectability)
+            mask = keypoint_detectability_ds > 0
+            self._map[0, ymin: ymax, xmin: xmax][mask] = (x - self._index_map[1, ymin: ymax, xmin: xmax])[mask]
+            self._map[1, ymin: ymax, xmin: xmax][mask] = (y - self._index_map[0, ymin: ymax, xmin: xmax])[mask]
+        else:
+            self._map[0, ymin: ymax, xmin: xmax] = x - self._index_map[1, ymin: ymax, xmin: xmax]
+            self._map[1, ymin: ymax, xmin: xmax] = y - self._index_map[0, ymin: ymax, xmin: xmax]

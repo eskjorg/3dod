@@ -3,7 +3,9 @@ from os.path import join
 from collections import namedtuple, OrderedDict
 import yaml
 
+import cv2 as cv
 import numpy as np
+import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 from matplotlib.pyplot import cm
@@ -39,7 +41,7 @@ def get_dataset(configs, mode):
     return SixdDataset(configs, mode)
 
 
-Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 'location', 'rotation'])
+Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 'keypoint_detectability', 'normal_is_facing', 'location', 'rotation'])
 
 
 seq_name2obj_id = {
@@ -98,8 +100,9 @@ class SixdDataset(Dataset):
         seq_name, img_ind = self._get_data_pointers(index)
         dir_path = join(self._configs.path, seq_name)
         data = self._read_data(dir_path, img_ind)
-        annotations = self._read_annotations(dir_path, img_ind)
+        instance_seg = self._read_instance_seg(dir_path, img_ind)
         calibration = self._read_calibration(dir_path, img_ind)
+        annotations = self._read_annotations(dir_path, img_ind, calibration, instance_seg)
         unannotated_class_ids = self._lookup_unannotated_class_ids(seq_name)
         gt_maps = self._mode in (TRAIN, VAL) and \
                   self._gt_map_generator.generate(annotations, calibration, unannotated_class_ids=unannotated_class_ids)
@@ -107,15 +110,20 @@ class SixdDataset(Dataset):
 
     def _read_data(self, dir_path, img_ind):
         path = join(dir_path, 'rgb', str(img_ind).zfill(4) + '.png')
-        image = read_image_to_pt(path)
+        image = read_image_to_pt(path, load_type=cv.IMREAD_COLOR, normalize_flag=True)
         max_h, max_w = self._configs.img_dims
         return image[:, :max_h, :max_w]
 
-    def _read_annotations(self, dir_path, img_ind):
+    def _read_instance_seg(self, dir_path, img_ind):
+        path = join(dir_path, 'instance_seg', str(img_ind).zfill(4) + '.png')
+        instance_seg = read_image_to_pt(path, load_type=cv.IMREAD_GRAYSCALE, normalize_flag=False)
+        max_h, max_w = self._configs.img_dims
+        return instance_seg[:, :max_h, :max_w]
+
+    def _read_annotations(self, dir_path, img_ind, calib, instance_seg):
         annotations = []
         gts = self._read_yaml(join(dir_path, 'gt.yml'))[img_ind]
-        calib = self._read_calibration(dir_path, img_ind)
-        for gt in gts:
+        for instance_idx, gt in enumerate(gts):
             model = self._models[gt['obj_id']]
 
             group_label = self._class_map.format_group_label(gt['obj_id'])
@@ -132,20 +140,48 @@ class SixdDataset(Dataset):
             )
             kp_normals_global_frame = rot_matrix @ self._metadata['objects'][group_label]['kp_normals']
             for kp_idx in range(NBR_KEYPOINTS):
-                normal_pointing_away = kp_normals_global_frame[2,kp_idx] > 0.0
-                if normal_pointing_away:
+                normal_is_facing = kp_normals_global_frame[2,kp_idx] <= 0.0
+
+                x1 = int(keypoints_2d[0,kp_idx] - 0.5*(PATCH_SIZE-1))
+                x2 = x1 + (PATCH_SIZE-1) + 1 # Box is up until but not including x2
+                if x1 < 0 or x2 > self._configs.img_dims[1]:
+                    continue
+                y1 = int(keypoints_2d[1,kp_idx] - 0.5*(PATCH_SIZE-1))
+                y2 = y1 + (PATCH_SIZE-1) + 1 # Box is up until but not including y2
+                if y1 < 0 or y2 > self._configs.img_dims[0]:
                     continue
 
-                x1 = int(keypoints_2d[0,kp_idx]) - PATCH_SIZE//2
-                x2 = int(keypoints_2d[0,kp_idx]) + PATCH_SIZE//2
-                y1 = int(keypoints_2d[1,kp_idx]) - PATCH_SIZE//2
-                y2 = int(keypoints_2d[1,kp_idx]) + PATCH_SIZE//2
+                # x1 = int(keypoints_2d[0,kp_idx])     - PATCH_SIZE//2
+                # x2 = int(keypoints_2d[0,kp_idx]) + 1 + PATCH_SIZE//2
+                # if x1 < 0 or x2 > self._configs.img_dims[1]:
+                #     continue
+                # y1 = int(keypoints_2d[1,kp_idx])     - PATCH_SIZE//2
+                # y2 = int(keypoints_2d[1,kp_idx]) + 1 + PATCH_SIZE//2
+                # if y1 < 0 or y2 > self._configs.img_dims[0]:
+                #     continue
+
                 bbox2d = Tensor([x1, y1, x2, y2])
+
+                # Set ground truth visibility in the vicinity of the keypoint position
+                keypoint_detectability = torch.ones((PATCH_SIZE,PATCH_SIZE))
+
+                keypoint_detectability[instance_seg[0, y1:y2, x1:x2] != instance_idx] = 0.0
+                # try:
+                #     keypoint_detectability[instance_seg[0, y1:y2, x1:x2] != instance_idx] = 0.0
+                # except:
+                #     print(y1, y2)
+                #     print(x1, x2)
+                #     print(instance_seg.shape)
+                #     print(instance_seg[0, y1:y2, x1:x2].shape)
+                #     print((instance_seg[0, y1:y2, x1:x2] == instance_idx).shape)
+
                 class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
                 annotations.append(Annotation(cls=class_id,
                                               group_id=group_id,
                                               bbox2d=bbox2d,
                                               keypoint=keypoints_2d[:,kp_idx],
+                                              keypoint_detectability=keypoint_detectability, # Quantify occlusion
+                                              normal_is_facing=normal_is_facing, # Annotate self-occlusion
                                               # All patches share the R, t annotation:
                                               location=location,
                                               rotation=rot_matrix,

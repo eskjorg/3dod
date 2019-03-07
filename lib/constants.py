@@ -52,9 +52,8 @@ CALIB = 'calib'
 
 # Keypoint instances
 NBR_KEYPOINTS = 20
-PATCH_SIZE = 31
-# PATCH_SIZE = 15
-assert PATCH_SIZE % 2 == 1
+PATCH_SIZE = 24
+# PATCH_SIZE = 40
 
 # Classes
 DONT_CARE = 'dont_care'
