@@ -58,7 +58,9 @@ seq_name2obj_id = {
 
 class SixdDataset(Dataset):
     def __init__(self, configs, mode):
-        self._configs = configs.data
+        self._configs = configs
+        assert self._configs.data.img_dims[0] % self._configs.network.output_stride == 0
+        assert self._configs.data.img_dims[1] % self._configs.network.output_stride == 0
         self._yaml_dict = {}
         self._metadata = get_metadata(configs)
         self._mode = mode
@@ -75,14 +77,14 @@ class SixdDataset(Dataset):
 
     def _init_sequence_lengths(self):
         sequences = OrderedDict()
-        root_path = self._configs.path
-        for sequence in self._configs.sequences[self._mode]:
+        root_path = self._configs.data.path
+        for sequence in self._configs.data.sequences[self._mode]:
             num_images = len(listdir_nohidden(join(root_path, sequence, 'rgb')))
             sequences[sequence] = num_images
         return sequences
 
     def _init_models(self):
-        return self._read_yaml(join(self._configs.path, 'models', 'models_info.yml'))
+        return self._read_yaml(join(self._configs.data.path, 'models', 'models_info.yml'))
 
     def __len__(self):
         return sum(self._sequence_lengths.values())
@@ -98,7 +100,7 @@ class SixdDataset(Dataset):
     def __getitem__(self, index):
         #index = int(index)
         seq_name, img_ind = self._get_data_pointers(index)
-        dir_path = join(self._configs.path, seq_name)
+        dir_path = join(self._configs.data.path, seq_name)
         data = self._read_data(dir_path, img_ind)
         instance_seg = self._read_instance_seg(dir_path, img_ind)
         calibration = self._read_calibration(dir_path, img_ind)
@@ -111,13 +113,13 @@ class SixdDataset(Dataset):
     def _read_data(self, dir_path, img_ind):
         path = join(dir_path, 'rgb', str(img_ind).zfill(4) + '.png')
         image = read_image_to_pt(path, load_type=cv.IMREAD_COLOR, normalize_flag=True)
-        max_h, max_w = self._configs.img_dims
+        max_h, max_w = self._configs.data.img_dims
         return image[:, :max_h, :max_w]
 
     def _read_instance_seg(self, dir_path, img_ind):
         path = join(dir_path, 'instance_seg', str(img_ind).zfill(4) + '.png')
         instance_seg = read_image_to_pt(path, load_type=cv.IMREAD_GRAYSCALE, normalize_flag=False)
-        max_h, max_w = self._configs.img_dims
+        max_h, max_w = self._configs.data.img_dims
         return instance_seg[:, :max_h, :max_w]
 
     def _read_annotations(self, dir_path, img_ind, calib, instance_seg):
@@ -144,20 +146,20 @@ class SixdDataset(Dataset):
 
                 x1 = int(keypoints_2d[0,kp_idx] - 0.5*(PATCH_SIZE-1))
                 x2 = x1 + (PATCH_SIZE-1) + 1 # Box is up until but not including x2
-                if x1 < 0 or x2 > self._configs.img_dims[1]:
+                if x1 < 0 or x2 > self._configs.data.img_dims[1]:
                     continue
                 y1 = int(keypoints_2d[1,kp_idx] - 0.5*(PATCH_SIZE-1))
                 y2 = y1 + (PATCH_SIZE-1) + 1 # Box is up until but not including y2
-                if y1 < 0 or y2 > self._configs.img_dims[0]:
+                if y1 < 0 or y2 > self._configs.data.img_dims[0]:
                     continue
 
                 # x1 = int(keypoints_2d[0,kp_idx])     - PATCH_SIZE//2
                 # x2 = int(keypoints_2d[0,kp_idx]) + 1 + PATCH_SIZE//2
-                # if x1 < 0 or x2 > self._configs.img_dims[1]:
+                # if x1 < 0 or x2 > self._configs.data.img_dims[1]:
                 #     continue
                 # y1 = int(keypoints_2d[1,kp_idx])     - PATCH_SIZE//2
                 # y2 = int(keypoints_2d[1,kp_idx]) + 1 + PATCH_SIZE//2
-                # if y1 < 0 or y2 > self._configs.img_dims[0]:
+                # if y1 < 0 or y2 > self._configs.data.img_dims[0]:
                 #     continue
 
                 bbox2d = Tensor([x1, y1, x2, y2])
