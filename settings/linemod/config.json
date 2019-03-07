@@ -4,7 +4,7 @@
     },
     "training": {
         "learning_rate": 0.0001,
-        "nll_loss": false
+        "weighting_mode": "uniform"
     },
     "visualization": {
         "det": ["bbox2d", "zdepth", "corners"]

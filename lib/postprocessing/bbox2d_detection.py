@@ -15,17 +15,13 @@ class Runner(RunnerIf):
         self._class_map = get_class_map(configs)
 
     def run(self, outputs, batch, frame_index):
-        outputs_task, outputs_ln_b = outputs
         frame_outputs = {}
-        for key in outputs_task:
-            data = outputs_task[key][frame_index].detach()
+        for key in outputs:
+            data = outputs[key][0][frame_index].detach()
             Generator = getattr(maps, key.capitalize() + 'Generator')
             metadata = None
             data = Generator(self._configs, metadata, self._class_map, device=get_device()).decode(data)
             frame_outputs[key] = data.permute(1, 2, 0).reshape(-1, data.shape[0]).squeeze().float()
-        for key in outputs_ln_b:
-            data = outputs_ln_b[key][frame_index].detach()
-            frame_outputs[key + '_ln_b'] = data.permute(1, 2, 0).reshape(-1, data.shape[0]).squeeze().float()
         frame_results = []
         for class_index in self._class_map.get_ids():
             confidence_vector = frame_outputs['cls'][:, class_index]

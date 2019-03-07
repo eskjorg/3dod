@@ -4,7 +4,7 @@ from collections import defaultdict
 from torch import nn, exp, clamp
 
 from lib.constants import TRAIN, VAL
-from lib.constants import LN_2, IGNORE_IDX_CLS, IGNORE_IDX_REG
+from lib.constants import IGNORE_IDX_CLS, IGNORE_IDX_REG
 from lib.utils import get_device, get_layers, get_class_map
 
 
@@ -22,14 +22,13 @@ class LossHandler:
         self._l1_loss = nn.L1Loss(reduction='none').to(get_device())
 
     def calc_loss(self, gt_maps, outputs_cnn):
-        def calc_task_loss(layer_name, tensor, gt_map):
+        def calc_task_loss(layer_name, layer_outputs, gt_map):
+            tensor, ln_var = layer_outputs
             if self._layers[layer_name]['loss'] == 'CE':
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
             elif self._layers[layer_name]['loss'] == 'L1':
                 task_loss = self._l1_loss(tensor, gt_map)
-                if outputs_ln_b:
-                    ln_b = outputs_ln_b[layer_name]
-                    task_loss = task_loss * exp(-ln_b) + LN_2 + ln_b
+                task_loss = task_loss * exp(-ln_var) + ln_var
                 task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
                 # clamp below is a trick to avoid 0 / 0 = NaN, and instead perform 0 / 1 = 0. Works because denominator will be either 0 or >= 1 (sum of boolean -> non-negative int).
                 task_loss = task_loss.sum() / clamp(gt_map.ne(IGNORE_IDX_REG).sum(), min=1)
@@ -37,8 +36,7 @@ class LossHandler:
                 raise NotImplementedError("{} loss not implemented.".format(self._layers[layer_name]['loss']))
             return task_loss
         loss = 0
-        outputs_task, outputs_ln_b = outputs_cnn
-        for layer_name, tensor in outputs_task.items():
+        for layer_name, layer_outputs in outputs_cnn.items():
             if self._layers[layer_name]['cls_specific_heads']:
                 # Separate GT map for every class
                 nbr_classes = len(self._class_map.get_ids())
@@ -51,7 +49,7 @@ class LossHandler:
                     class_label = self._class_map.label_from_id(cls_id)
                     head_name = '{}_{}'.format(layer_name, class_label)
                     gt_map = gt_maps[head_name].to(get_device(), non_blocking=True)
-                    task_loss = calc_task_loss(layer_name, tensor, gt_map)
+                    task_loss = calc_task_loss(layer_name, layer_outputs, gt_map)
                     loss += task_loss * self._layers[layer_name]['loss_weight'] / float(nbr_classes)
                     if REPORT_LOSS_PER_CLASS:
                         self._losses[head_name].append(task_loss.item())
@@ -62,7 +60,7 @@ class LossHandler:
             else:
                 # Single GT map - shared among all classes
                 gt_map = gt_maps[layer_name].to(get_device(), non_blocking=True)
-                task_loss = calc_task_loss(layer_name, tensor, gt_map)
+                task_loss = calc_task_loss(layer_name, layer_outputs, gt_map)
                 loss += task_loss * self._layers[layer_name]['loss_weight']
                 self._losses[layer_name].append(task_loss.item())
         return loss

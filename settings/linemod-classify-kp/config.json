@@ -9,7 +9,7 @@
     },
     "training": {
         "learning_rate": 0.0003,
-        "nll_loss": true
+        "weighting_mode": "sample_wise"
     },
     "visualization": {
         "gt": [

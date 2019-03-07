@@ -1,6 +1,5 @@
 """Constants for 3DOD."""
 import os
-import math
 import numpy
 
 # Execution
@@ -11,10 +10,6 @@ TEST = 'test'
 # Training
 IGNORE_IDX_CLS = 1
 IGNORE_IDX_REG = 97986 # Nonsense number - expected never to interfere with actual GT annotations
-
-# Math
-LN_SQRT_2_PI = math.log(math.sqrt(2*math.pi))
-LN_2 = math.log(2)
 
 # Data
 ANNOTATION = 'annotation'
