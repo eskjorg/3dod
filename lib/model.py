@@ -2,7 +2,7 @@
 
 from importlib import import_module
 from torch import nn
-from lib.utils import get_layers
+from lib.utils import get_layers, get_class_map
 
 class Model(nn.Module):
     """Neural network module."""
@@ -10,6 +10,7 @@ class Model(nn.Module):
     def __init__(self, configs):
         super().__init__()
         self._configs = configs
+        self._class_map = get_class_map(configs)
         self._encoder, self._bottleneck_channels, downsampling = self._create_encoder()
         self._decoder = self._create_decoder(downsampling)
         if self._configs.training.nll_loss:
@@ -22,7 +23,8 @@ class Model(nn.Module):
         return module.get_encoder()
 
     def _create_decoder(self, downsampling):
-        return MultiTaskNet(get_layers(self._configs.config_name),
+        return MultiTaskNet(self._class_map,
+                            get_layers(self._configs.config_name),
                             in_channels=self._bottleneck_channels,
                             upsampling_factor=int(downsampling / self._configs.network.output_stride))
 
@@ -35,12 +37,22 @@ class Model(nn.Module):
 
 class MultiTaskNet(nn.ModuleDict):
     """MultiTaskNet."""
-    def __init__(self, layers, in_channels, upsampling_factor):
+    def __init__(self, class_map, layers, in_channels, upsampling_factor):
+        self._class_map = class_map
         heads = {}
+        def create_single_head(in_channels, settings, upsampling_factor):
+            return MultiTaskHead(
+                in_channels=in_channels,
+                out_channels=settings['n_layers'],
+                upsampling=upsampling_factor,
+            )
         for name, settings in layers.items():
-            heads[name] = MultiTaskHead(in_channels=in_channels,
-                                        out_channels=settings['n_layers'],
-                                        upsampling=upsampling_factor)
+            if layers[name]['cls_specific_heads']:
+                # Separate head for every class
+                for cls_id in self._class_map.get_ids():
+                    class_label = self._class_map.label_from_id(cls_id)
+                    heads['{}_{}'.format(name, class_label)] = create_single_head(in_channels, settings, upsampling_factor)
+            heads[name] = create_single_head(in_channels, settings, upsampling_factor)
         super(MultiTaskNet, self).__init__(heads)
 
     def forward(self, x):
