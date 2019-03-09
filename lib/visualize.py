@@ -6,10 +6,13 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot, patches
 
+import numpy as np
+
+from torch import nn
 from torchvision.transforms.functional import normalize
 from tensorboardX import SummaryWriter
 
-from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, NBR_KEYPOINTS, GT_TYPE, CNN_TYPE, DET_TYPE
+from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, NBR_KEYPOINTS, PATCH_SIZE, GT_TYPE, CNN_TYPE, DET_TYPE
 from lib.constants import TV_MEAN, TV_STD
 from lib.utils import project_3d_pts, construct_3d_box, get_metadata, get_class_map
 
@@ -38,100 +41,119 @@ class Visualizer:
         image_tensor = normalize(batch.input[sample], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
         frame_id = batch.id[sample]
 
+        # # Pick one sample from batch of detections / whatever comes from postprocessing modules
+        # detections = output[frame_id]
+
         # Pick one sample from batch of ground truth annotations
         annotations = batch.annotation[sample]
-        print(sample)
+
+        sigmoid = lambda x: 1.0 / (1.0 + np.exp(-x))
+
+        def tensor2numpy(tensor, sample_idx, upsample_and_permute=False):
+            tensor = tensor.detach()
+            if upsample_and_permute:
+                tensor = nn.Upsample(size=self._configs.data.img_dims,mode='nearest')(tensor)
+            tensor = tensor[sample_idx,:,:,:]
+            array = tensor.cpu().numpy()
+            # if upsample_and_permute:
+            #     array = np.moveaxis(array, 0, -1)
+            return array
 
         # Pick one sample from batch of output feature maps
         cnn_outs_task, cnn_outs_ln_b = cnn_outs
-        cnn_out_task = {layer_name: tensor[sample,:,:,:].detach().cpu().numpy() for layer_name, tensor in cnn_outs_task.items()}
-        cnn_out_ln_b = {layer_name: tensor[sample,:,:,:].detach().cpu().numpy() for layer_name, tensor in cnn_outs_ln_b.items()} if cnn_outs_ln_b is not None else None
+        kp_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_task.items() if task_name.startswith('keypoint')}
+        kp_confidence_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_ln_b.items() if task_name.startswith('keypoint')}
+        visibility_maps_lowres = sigmoid(tensor2numpy(cnn_outs_task['clsnonmutex'], sample))
+        visibility_maps_highres = sigmoid(tensor2numpy(cnn_outs_task['clsnonmutex'], sample, upsample_and_permute=True))
 
-        # Pick one sample from batch of detections / whatever comes from postprocessing modules
-        detections = output[frame_id]
 
-        fig, axes = pyplot.subplots(figsize=[dim / PYPLOT_DPI for dim in image_tensor.shape[2:0:-1]])
-        axes.axis('off')
-        _ = axes.imshow(image_tensor.permute(1, 2, 0))
-        for feature in self._configs.visualization.gt:
-            for annotation in annotations:
-                getattr(self, "_plot_" + feature)(axes, annotation, calib, GT_TYPE)
-        for feature in self._configs.visualization.cnn:
-            getattr(self, "_plot_" + feature)(axes, (cnn_out_task, cnn_out_ln_b), calib, CNN_TYPE)
-        for feature in self._configs.visualization.det:
-            for detection in detections:
-                getattr(self, "_plot_" + feature)(axes, detection, calib, DET_TYPE)
-        self._writer.add_figure(mode, fig, index)
+        def blend_rgb(rgb1, rgb2, lambda_map):
+            """
+            lambda = 0 - rgb1 unchanged
+            lambda = 1 - rgb2 unchanged
+            """
+            blended =      lambda_map[:,:,np.newaxis]  * rgb2 + \
+                    (1.0 - lambda_map[:,:,np.newaxis]) * rgb1
+            return blended
 
-    def _plot_bbox2d(self, axes, obj, calib, dtype):
-        assert dtype in [GT_TYPE, DET_TYPE]
-        if dtype == GT_TYPE:
-            kwargs = {'fill': True, 'alpha': 0.2}
-        else:
-            kwargs = {'fill': False}
-        x1, y1, x2, y2 = obj.bbox2d
-        color = self._class_map.get_color(obj.cls)
-        rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2, edgecolor=color, **kwargs)
-        axes.add_patch(rect)
+        def get_uniform_color(color):
+            return color[np.newaxis,np.newaxis,:]
 
-    def _plot_bbox3d(self, axes, obj, calib, dtype):
-        assert dtype in [GT_TYPE, DET_TYPE]
-        if dtype == GT_TYPE:
-            kwargs = {'fill': True, 'alpha': 0.2}
-        else:
-            kwargs = {'fill': False}
-        corners_2d = project_3d_pts(
-            construct_3d_box(obj.size),
-            calib,
-            obj.location,
-            rot_y=obj.rotation_y,
-        )
-        coordinates = [corners_2d[:, idx] for idx in BOX_SKELETON]
-        color = self._class_map.get_color(obj.cls)
-        polygon = patches.Polygon(coordinates, linewidth=2, edgecolor=color, **kwargs)
-        axes.add_patch(polygon)
+        def rgb2grayscale(rgb):
+            return rgb.prod(axis=2)
 
-    def _plot_corners(self, axes, obj, calib, dtype):
-        assert dtype in [GT_TYPE, DET_TYPE]
-        for corner_xy, color in zip(obj.corners.T, self._corner_colors):
-            axes.add_patch(patches.Circle(corner_xy, radius=3, color=color, edgecolor='black'))
+        def grayscale2rgb(grayscale):
+            return np.tile(grayscale[:,:,np.newaxis], (1,1,3))
 
-    def _plot_keypoints(self, axes, obj, calib, dtype):
-        assert dtype in [GT_TYPE, DET_TYPE]
-        color_map = pyplot.cm.tab20
-        assert NBR_KEYPOINTS <= 20 # Colormap size: 20
-        if dtype == GT_TYPE:
-            rotation = matrix_from_yaw(obj.rot_y) if hasattr(obj, 'rot_y') \
-                       else obj.rotation
-            class_label = self._class_map.label_from_id(obj.cls) if dtype == GT_TYPE else obj.cls
-            if False:
-                obj_label = class_label
-            else:
-                group_id, kp_idx = self._class_map.group_id_and_kp_idx_from_class_id(self._class_map.id_from_label(class_label))
-                obj_label = self._class_map.group_label_from_group_id(group_id)
-            keypoints_3d = self._metadata['objects'][obj_label]['keypoints']
-            assert keypoints_3d.shape[1] == NBR_KEYPOINTS
-            keypoints_2d = project_3d_pts(
-                keypoints_3d,
-                calib,
-                obj.location,
-                rot_matrix=rotation,
+        img = np.moveaxis(image_tensor.numpy(), 0, -1)
+        # img = grayscale2rgb(rgb2grayscale(rgb))
+
+        nrows = NBR_KEYPOINTS + 1
+        ncols = 2
+
+        figwidth_fullres = ncols*img.shape[1] / PYPLOT_DPI
+        figheight_fullres = nrows*img.shape[0] / PYPLOT_DPI
+
+        # figwidth = figwidth_fullres
+        # figheight = figheight_fullres
+        figwidth = 10
+        figheight = figheight_fullres * (figwidth / figwidth_fullres)
+
+        def plot_img(axes, img, title):
+            axes.axis('off')
+            axes.imshow(img)
+            axes.set_title(title)
+
+        anno_lookup = dict(zip([anno.cls for anno in annotations], annotations))
+
+        for group_id in self._class_map.get_group_ids():
+            class_ids = [self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)]
+
+            fig, axes_array = pyplot.subplots(
+                nrows=nrows,
+                ncols=ncols,
+                figsize=[figwidth, figheight],
+                squeeze=False,
+                dpi=PYPLOT_DPI,
+                tight_layout=True,
             )
-            for j, corner_xy in enumerate(keypoints_2d.T):
-                axes.add_patch(patches.Circle(corner_xy, radius=3, fill=True, color=color_map(j), edgecolor='black'))
-        else:
-            keypoints_2d = obj.keypoints
-            for j, corner_xy in enumerate(keypoints_2d.T):
-                axes.add_patch(patches.Circle(corner_xy, radius=5, fill=False, edgecolor=color_map(j)))
-        # for corner_xy, color in zip(obj.corners.T, self._corner_colors):
-        #     axes.add_patch(patches.Circle(corner_xy, radius=3, color=color, edgecolor='black'))
+            def process_group_label(label):
+                lookup = {
+                    '01': 'ape',
+                    '05': 'can',
+                    '06': 'cat',
+                    '08': 'driller',
+                    '09': 'duck',
+                    '10': 'eggbox',
+                    '11': 'glue',
+                    '12': 'holepuncher',
+                }
+                return lookup[label]
+            plot_img(axes_array[0,0], img, 'Image')
+            for kp_idx in range(NBR_KEYPOINTS):
+                class_id = class_ids[kp_idx]
+                kp_color = np.array(pyplot.cm.tab20.colors[kp_idx])
+                # heatmap_color = kp_color
+                heatmap_color = np.array([1.0, 0.0, 1.0])
 
-    def _plot_zdepth(self, axes, obj, calib, dtype):
-        assert dtype in [GT_TYPE, DET_TYPE]
-        _, ymin, xmax, _ = obj.bbox2d
-        axes.text(x=xmax, y=ymin,
-                  s='z={0:.2f}m'.format(obj.zdepth),
-                  fontdict={'family': 'monospace',
-                            'color':  'white',
-                            'size': 'small'},
-                  bbox={'color': 'black'})
+                visibility_map_highres = visibility_maps_highres[class_id-2,:,:]
+
+                lambda_map = 0.6*visibility_map_highres
+                heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
+                heatmap[:100,:100,:] = kp_color
+                plot_img(axes_array[kp_idx+1,0], heatmap, 'Keypoint {:02d}'.format(kp_idx))
+
+                plot_img(axes_array[kp_idx+1,1], img, 'Keypoint {:02d}'.format(kp_idx))
+
+                if class_id in anno_lookup:
+                    gt_color = 'red' if anno_lookup[class_id].self_occluded or anno_lookup[class_id].occluded else 'blue'
+                    axes_array[kp_idx+1,1].add_patch(patches.Circle(anno_lookup[class_id].keypoint, radius=4, color=gt_color, edgecolor='black'))
+            # pyplot.subplots_adjust(
+            #     left = 0.0,
+            #     right = 1.0,
+            #     bottom = 0.0,
+            #     top = 1.0,
+            #     wspace = 0.0,
+            #     hspace = 0.0,
+            # )
+            self._writer.add_figure('{}_{}'.format(mode, process_group_label(self._class_map.group_label_from_group_id(group_id))), fig, index)
