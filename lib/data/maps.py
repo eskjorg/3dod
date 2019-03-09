@@ -21,12 +21,24 @@ class GtMapsGenerator:
                                      for dim in self._configs.data.img_dims]
         self._layers = get_layers(self._configs.config_name)
 
-    def generate(self, annotations, calibration, unannotated_class_ids=[]):
-        def generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None, fill_values=None):
+    def generate(self, annotations, calibration, unannotated_class_ids=[], seg=None):
+        def generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None, fill_values=None, seg=None):
             if cls_id_filter is not None:
                 assert layer_name != "cls"
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
             generator = Generator(self._configs, self._metadata, self._class_map, calib=calibration, fill_values=fill_values)
+            if seg is not None and len(unannotated_class_ids) > 0:
+                # fullres binary mask
+                fg_mask_fullres = (seg > 0).unsqueeze(0)
+                downsampled = torch.nn.functional.avg_pool2d(
+                    fg_mask_fullres.type(torch.float32),
+                    self._configs.network.output_stride,
+                    stride=self._configs.network.output_stride,
+                )
+                # lowres mask, requiring 70% foreground pixels
+                fg_mask = downsampled > 0.7
+                # Initialize all channels with background wherever there is actually an object annotated:
+                generator._map[fg_mask.repeat(len(self._class_map.get_ids()), 1, 1)] = 0
             for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
                 if cls_id_filter is not None and obj.cls not in cls_id_filter:
                     # Discard instance if head is dedicated only to other class labels
@@ -49,7 +61,7 @@ class GtMapsGenerator:
                 # Separate GT map for every class
                 for cls_id in self._class_map.get_ids():
                     class_label = self._class_map.label_from_id(cls_id)
-                    gt_maps['{}_{}'.format(layer_name, class_label)] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=[cls_id])
+                    gt_maps['{}_{}'.format(layer_name, class_label)] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=[cls_id], seg=None)
             else:
                 # Single GT map - shared among all classes
                 fill_values = None
@@ -59,7 +71,7 @@ class GtMapsGenerator:
                     fill_values = [None] * len(self._class_map.get_ids())
                     for class_id in unannotated_class_ids:
                         fill_values[class_id - 2] = IGNORE_IDX_CLSNONMUTEX
-                gt_maps[layer_name] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None, fill_values=fill_values)
+                gt_maps[layer_name] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None, fill_values=fill_values, seg=seg if layer_name == 'clsnonmutex' else None)
         return gt_maps
 
     def _get_coordinates(self, objects, shrink_factor=1):

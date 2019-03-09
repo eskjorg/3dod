@@ -104,11 +104,12 @@ class SixdDataset(Dataset):
         dir_path = join(self._configs.data.path, seq_name)
         data = self._read_data(dir_path, img_ind)
         instance_seg = self._read_instance_seg(dir_path, img_ind)
+        seg = self._seg_from_instance_seg(dir_path, img_ind, instance_seg)
         calibration = self._read_calibration(dir_path, img_ind)
         annotations = self._read_annotations(dir_path, img_ind, calibration, instance_seg)
         unannotated_class_ids = self._lookup_unannotated_class_ids(seq_name)
         gt_maps = self._mode in (TRAIN, VAL) and \
-                  self._gt_map_generator.generate(annotations, calibration, unannotated_class_ids=unannotated_class_ids)
+                  self._gt_map_generator.generate(annotations, calibration, unannotated_class_ids=unannotated_class_ids, seg=seg)
         return Sample(annotations, data, gt_maps, calibration, index)
 
     def _read_data(self, dir_path, img_ind):
@@ -122,6 +123,17 @@ class SixdDataset(Dataset):
         instance_seg = read_seg_to_pt(path)
         max_h, max_w = self._configs.data.img_dims
         return instance_seg[:max_h, :max_w]
+
+    def _seg_from_instance_seg(self, dir_path, img_ind, instance_seg):
+        seg = torch.zeros_like(instance_seg, dtype=torch.uint8)
+        gts = self._read_yaml(join(dir_path, 'gt.yml'))[img_ind]
+        instance_idx = 0
+        for gt in gts:
+            instance_idx += 1
+            group_label = self._class_map.format_group_label(gt['obj_id'])
+            group_id = self._class_map.group_id_from_group_label(group_label)
+            seg[instance_seg == instance_idx] = group_id+1
+        return seg
 
     def _read_annotations(self, dir_path, img_ind, calib, instance_seg):
         annotations = []
