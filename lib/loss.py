@@ -35,7 +35,7 @@ class LossHandler:
         img_height, img_width = self._configs.data.img_dims
         IMBALANCE = img_height*img_width/float(PATCH_SIZE**2) # Background is more common
         # IMBALANCE = 10000.0 # Background is more common
-        pos_weight = IMBALANCE * torch.ones((nbr_classes,60,80))
+        pos_weight = IMBALANCE * torch.ones((nbr_classes, *self._configs.target_dims))
         return nn.BCEWithLogitsLoss(
             # weight = weight,
             pos_weight = pos_weight,
@@ -52,6 +52,7 @@ class LossHandler:
                 mask_loss_applied = gt_map.ne(IGNORE_IDX_CLSNONMUTEX)
                 # mask_loss_applied = torch.abs(gt_map - IGNORE_IDX_CLSNONMUTEX) > 1e-6
                 task_loss = task_loss * mask_loss_applied.float()
+                # clamp below is a trick to avoid 0 / 0 = NaN, and instead perform 0 / 1 = 0. Works because denominator will be either 0 or >= 1 (sum of boolean -> non-negative int).
                 task_loss = task_loss.sum() / clamp(mask_loss_applied.sum(), min=1)
             elif self._layers[layer_name]['loss'] == 'L1':
                 task_loss = self._l1_loss(tensor, gt_map)
@@ -117,14 +118,14 @@ class LossHandler:
                                     epoch=epoch,
                                     iteration=iteration))
         for statistic, value in losses.items():
-            status_total_loss += '{stat:s}: {value:>7.3f}   '.format(stat=statistic,
+            status_total_loss += '{stat:s}: {value:>7.7f}   '.format(stat=statistic,
                                                                      value=sum(value.values()))
         self._logger.info(status_total_loss)
 
         for task_name in self._losses.keys():
             status_task_loss = '{name:<26s}'.format(name=task_name)
             for statistic, value in losses.items():
-                status_task_loss += '{stat:s}: {value:>7.3f}   '.format(stat=statistic,
+                status_task_loss += '{stat:s}: {value:>7.7f}   '.format(stat=statistic,
                                                                         value=value[task_name])
             self._logger.info(status_task_loss)
 
