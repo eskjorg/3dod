@@ -45,17 +45,6 @@ def get_dataset(configs, mode):
 Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 'keypoint_detectability', 'self_occluded', 'occluded', 'location', 'rotation'])
 
 
-seq_name2obj_id = {
-    'ape': 1,
-    'can': 5,
-    'cat': 6,
-    'driller': 8,
-    'duck': 9,
-    'eggbox': 10,
-    'glue': 11,
-    'holepuncher': 12,
-}
-
 
 class SixdDataset(Dataset):
     def __init__(self, configs, mode):
@@ -91,9 +80,19 @@ class SixdDataset(Dataset):
         return sum(self._sequence_lengths.values())
 
     def _lookup_unannotated_class_ids(self, seq_name):
+        seq_name2group_id = {
+            'ape': 1,
+            'can': 5,
+            'cat': 6,
+            'driller': 8,
+            'duck': 9,
+            'eggbox': 10,
+            'glue': 11,
+            'holepuncher': 12,
+        }
         subset, seq_name = seq_name.split('/')
         if subset in ['train_unoccl', 'train_aug']:
-            group_label = self._class_map.format_group_label(seq_name2obj_id[seq_name])
+            group_label = self._class_map.format_group_label(seq_name2group_id[seq_name])
             group_id_annotated = self._class_map.group_id_from_group_label(group_label)
             return [self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for group_id in self._class_map.get_group_ids() for kp_idx in range(NBR_KEYPOINTS) if group_id != group_id_annotated]
         return []
