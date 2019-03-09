@@ -4,6 +4,7 @@ import json
 from attrdict import AttrDict
 from importlib import import_module
 
+from PIL import Image
 import numpy as np
 import cv2 as cv
 import torch
@@ -51,7 +52,15 @@ def read_image_to_pt(path, load_type=cv.IMREAD_COLOR, normalize_flag=True):
     image = to_tensor(image)
     if normalize_flag:
         image = normalize(image, TV_MEAN, TV_STD)
-    return image.flip(0)
+    return image.flip(0) # BGR -> RGB..?
+
+
+def read_seg_to_pt(path):
+    """Read a segmentation map from path to pt tensor."""
+    seg = Image.open(path)
+    seg = np.array(seg)
+    seg = torch.from_numpy(seg)
+    return seg
 
 
 def read_velodyne_to_pt(path):

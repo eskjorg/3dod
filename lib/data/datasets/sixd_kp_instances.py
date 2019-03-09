@@ -15,6 +15,7 @@ from lib.constants import IGNORE_IDX_CLS, TRAIN, VAL, NBR_KEYPOINTS, PATCH_SIZE
 from lib.data.loader import Sample
 from lib.data.maps import GtMapsGenerator
 from lib.utils import read_image_to_pt
+from lib.utils import read_seg_to_pt
 from lib.utils import listdir_nohidden
 from lib.utils import get_metadata
 from lib.utils import project_3d_pts
@@ -118,14 +119,16 @@ class SixdDataset(Dataset):
 
     def _read_instance_seg(self, dir_path, img_ind):
         path = join(dir_path, 'instance_seg', str(img_ind).zfill(4) + '.png')
-        instance_seg = read_image_to_pt(path, load_type=cv.IMREAD_GRAYSCALE, normalize_flag=False)
+        instance_seg = read_seg_to_pt(path)
         max_h, max_w = self._configs.data.img_dims
-        return instance_seg[:, :max_h, :max_w]
+        return instance_seg[:max_h, :max_w]
 
     def _read_annotations(self, dir_path, img_ind, calib, instance_seg):
         annotations = []
         gts = self._read_yaml(join(dir_path, 'gt.yml'))[img_ind]
-        for instance_idx, gt in enumerate(gts):
+        instance_idx = 0
+        for gt in gts:
+            instance_idx += 1
             model = self._models[gt['obj_id']]
 
             group_label = self._class_map.format_group_label(gt['obj_id'])
@@ -154,7 +157,7 @@ class SixdDataset(Dataset):
                     occluded = True
                 elif y < 0 or y >= self._configs.data.img_dims[0]:
                     occluded = True
-                elif instance_seg[0, y, x] != instance_idx:
+                elif instance_seg[y, x] != instance_idx:
                     occluded = True
 
                 if occluded:
@@ -181,7 +184,7 @@ class SixdDataset(Dataset):
                     bbox2d = Tensor([x1, y1, x2, y2])
 
                     # Set ground truth visibility in the vicinity of the keypoint position
-                    keypoint_detectability = (instance_seg[0, y1:y2, x1:x2] == instance_idx).type(torch.float32)
+                    keypoint_detectability = (instance_seg[y1:y2, x1:x2] == instance_idx).type(torch.float32)
 
                 class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
                 annotations.append(Annotation(cls=class_id,
