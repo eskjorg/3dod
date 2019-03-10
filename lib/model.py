@@ -63,14 +63,15 @@ class MultiTaskNet(nn.ModuleDict):
 class MultiTaskHead(nn.Sequential):
     """MultiTaskHead."""
     def __init__(self, in_channels, out_channels, upsampling=1):
+        mid_channels = in_channels * 2
         modules = [nn.Conv2d(in_channels=in_channels,
-                             out_channels=in_channels * 2,
+                             out_channels=mid_channels,
                              kernel_size=1,
                              stride=1),
-                   nn.BatchNorm2d(num_features=in_channels * 2),
+                   nn.BatchNorm2d(num_features=mid_channels),
                    nn.ReLU(inplace=True),
                    # nn.Dropout2d(p=0.5, inplace=False),
-                   nn.Conv2d(in_channels=in_channels * 2,
+                   nn.Conv2d(in_channels=mid_channels,
                              out_channels=out_channels * upsampling ** 2,
                              kernel_size=1,
                              stride=1)]
