@@ -6,6 +6,7 @@ import yaml
 import math
 import cv2 as cv
 import numpy as np
+from PIL import Image
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset
@@ -59,6 +60,7 @@ class SixdDataset(Dataset):
         self._gt_map_generator = GtMapsGenerator(configs)
         self._sequence_lengths = self._init_sequence_lengths()
         self._models = self._init_models()
+        self._gdists = self._init_gdists()
 
     def _read_yaml(self, path):
         if path not in self._yaml_dict:
@@ -76,6 +78,9 @@ class SixdDataset(Dataset):
 
     def _init_models(self):
         return self._read_yaml(join(self._configs.data.path, 'models', 'models_info.yml'))
+
+    def _init_gdists(self):
+        return self._read_yaml(join(self._configs.data.path, 'models', 'gdists.yml'))
 
     def __len__(self):
         return sum(self._sequence_lengths.values())
@@ -103,10 +108,11 @@ class SixdDataset(Dataset):
         seq_name, img_ind = self._get_data_pointers(index)
         dir_path = join(self._configs.data.path, seq_name)
         data = self._read_data(dir_path, img_ind)
+        vtx_idx_map = self._read_vtx_idx_map(dir_path, img_ind)
         instance_seg = self._read_instance_seg(dir_path, img_ind)
         seg = self._seg_from_instance_seg(dir_path, img_ind, instance_seg)
         calibration = self._read_calibration(dir_path, img_ind)
-        annotations = self._read_annotations(dir_path, img_ind, calibration, instance_seg)
+        annotations = self._read_annotations(dir_path, img_ind, calibration, instance_seg, vtx_idx_map)
         unannotated_class_ids = self._lookup_unannotated_class_ids(seq_name)
         gt_maps = self._mode in (TRAIN, VAL) and \
                   self._gt_map_generator.generate(annotations, calibration, unannotated_class_ids=unannotated_class_ids, seg=seg)
@@ -124,6 +130,13 @@ class SixdDataset(Dataset):
         max_h, max_w = self._configs.data.img_dims
         return instance_seg[:max_h, :max_w]
 
+    def _read_vtx_idx_map(self, dir_path, img_ind):
+        path = join(dir_path, 'vtx_idx', str(img_ind).zfill(4) + '.png')
+        vtx_idx_map = Image.open(path)
+        vtx_idx_map = np.array(vtx_idx_map)
+        max_h, max_w = self._configs.data.img_dims
+        return vtx_idx_map[:max_h, :max_w]
+
     def _seg_from_instance_seg(self, dir_path, img_ind, instance_seg):
         seg = torch.zeros_like(instance_seg, dtype=torch.uint8)
         gts = self._read_yaml(join(dir_path, 'gt.yml'))[img_ind]
@@ -135,7 +148,7 @@ class SixdDataset(Dataset):
             seg[instance_seg == instance_idx] = group_id+1
         return seg
 
-    def _read_annotations(self, dir_path, img_ind, calib, instance_seg):
+    def _read_annotations(self, dir_path, img_ind, calib, instance_seg, vtx_idx_map):
         annotations = []
         gts = self._read_yaml(join(dir_path, 'gt.yml'))[img_ind]
         instance_idx = 0
@@ -196,7 +209,16 @@ class SixdDataset(Dataset):
                     bbox2d = Tensor([x1, y1, x2, y2])
 
                     # Set ground truth visibility in the vicinity of the keypoint position
-                    keypoint_detectability = (instance_seg[y1:y2, x1:x2] == instance_idx).type(torch.float32)
+                    # keypoint_detectability = (instance_seg[y1:y2, x1:x2] == instance_idx).type(torch.float32)
+
+                    mask = instance_seg[y1:y2, x1:x2].numpy() == instance_idx
+                    keypoint_detectability = np.zeros((y2-y1, x2-x1))
+                    vtx_idx_vec = vtx_idx_map[y1:y2, x1:x2][mask]
+                    gdist_patch = self._gdists[gt['obj_id']][kp_idx][vtx_idx_vec]
+                    # gdist_sigma = 15.0
+                    gdist_sigma = 30.0
+                    keypoint_detectability[mask] = np.exp(-0.5*(gdist_patch/gdist_sigma)**2)
+                    keypoint_detectability = torch.from_numpy(keypoint_detectability).float() # double -> float
 
                 class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
                 annotations.append(Annotation(cls=class_id,
