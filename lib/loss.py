@@ -43,11 +43,13 @@ class LossHandler:
         ).to(get_device())
 
     def calc_loss(self, gt_maps, outputs_cnn):
-        def calc_task_loss(layer_name, tensor, ln_b, gt_map):
+        def calc_task_loss(layer_name, tensor, ln_b, gt_map, lossweight_map=None):
             if self._layers[layer_name]['loss'] == 'CE':
+                assert lossweight_map is None
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
             elif self._layers[layer_name]['loss'] == 'BCE':
                 assert layer_name == 'clsnonmutex'
+                assert lossweight_map is None
                 task_loss = self._bce_loss(tensor, gt_map)
                 mask_loss_applied = gt_map.ne(IGNORE_IDX_CLSNONMUTEX)
                 # mask_loss_applied = torch.abs(gt_map - IGNORE_IDX_CLSNONMUTEX) > 1e-6
@@ -59,6 +61,8 @@ class LossHandler:
                 if ln_b is not None:
                     task_loss = task_loss * exp(-ln_b) + LN_2 + ln_b
                 task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
+                if lossweight_map is not None:
+                    task_loss = task_loss * torch.unsqueeze(lossweight_map, 1)
                 # clamp below is a trick to avoid 0 / 0 = NaN, and instead perform 0 / 1 = 0. Works because denominator will be either 0 or >= 1 (sum of boolean -> non-negative int).
                 task_loss = task_loss.sum() / clamp(gt_map.ne(IGNORE_IDX_REG).sum(), min=1)
             else:
@@ -73,6 +77,9 @@ class LossHandler:
 
                 REPORT_LOSS_PER_CLASS = False
 
+                if layer_name == 'keypoint':
+                    lossweight_maps = gt_maps['clsnonmutex'].to(get_device(), non_blocking=True)
+
                 if not REPORT_LOSS_PER_CLASS:
                     task_loss_avg = 0
                 for cls_id in self._class_map.get_ids():
@@ -80,7 +87,8 @@ class LossHandler:
                     head_name = '{}_{}'.format(layer_name, class_label)
                     gt_map = gt_maps[head_name].to(get_device(), non_blocking=True)
                     ln_b = outputs_ln_b[head_name] if outputs_ln_b is not None else None
-                    task_loss = calc_task_loss(layer_name, outputs_task[head_name], ln_b, gt_map)
+                    lossweight_map = lossweight_maps[:,cls_id-2,:,:] if layer_name == 'keypoint' else None
+                    task_loss = calc_task_loss(layer_name, outputs_task[head_name], ln_b, gt_map, lossweight_map=lossweight_map)
                     loss += task_loss * self._layers[layer_name]['loss_weight'] / float(nbr_classes)
                     if REPORT_LOSS_PER_CLASS:
                         self._losses[head_name].append(task_loss.item())
