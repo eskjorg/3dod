@@ -95,13 +95,23 @@ class Trainer():
             self._loss_handler.log_batch(epoch, batch_id, mode)
             results = self._post_proc.run(batch, outputs_cnn)
             self._result_saver.save(results, mode)
+            cnt += 1
+            # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
+            # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
+            # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
+            if cnt == 100:
+                break
+            if cnt % 10 == 0:
+                self._visualizer.report_loss(self._loss_handler.get_averages(), mode)
+            # if cnt % 10 == 0:
+            #     self._visualizer.save_images(batch, outputs_cnn, results, mode, index=cnt)
 
         score = self._result_saver.summarize_epoch(mode)
         if self._configs.data.dataformat == 'nuscenes':
             # TODO: implement evaluation for other datasets
             self._visualizer.report_score(epoch, score, mode)
-        self._visualizer.report_loss(epoch, self._loss_handler.get_averages(), mode)
-        self._visualizer.save_images(batch, results, mode, index=epoch)
+        self._visualizer.report_loss(self._loss_handler.get_averages(), mode)
+        self._visualizer.save_images(batch, outputs_cnn, results, mode, index=epoch)
 
         self._loss_handler.finish_epoch(epoch, mode)
         # TODO: implement evaluation for other datasets

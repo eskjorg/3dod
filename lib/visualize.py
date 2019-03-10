@@ -26,10 +26,12 @@ class Visualizer:
         shutil.rmtree(vis_path, ignore_errors=True)
         self._writer = SummaryWriter(vis_path)
         self._corner_colors = CORNER_COLORS
+        self._loss_count_dict = {'train': 0, 'val': 0}
 
-    def report_loss(self, epoch, losses, mode):
-        self._writer.add_scalar('loss/{}'.format(mode), sum(losses.values()), epoch)
-        self._writer.add_scalars('task_losses/{}'.format(mode), losses, epoch)
+    def report_loss(self, losses, mode):
+        self._writer.add_scalar('loss/{}'.format(mode), sum(losses.values()), self._loss_count_dict[mode])
+        self._writer.add_scalars('task_losses/{}'.format(mode), losses, self._loss_count_dict[mode])
+        self._loss_count_dict[mode] += 1
 
     def report_score(self, epoch, score, mode):
         self._writer.add_scalar('score/{}'.format(mode), score, epoch)
@@ -65,6 +67,10 @@ class Visualizer:
         kp_confidence_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_ln_b.items() if task_name.startswith('keypoint')}
         visibility_maps_lowres = sigmoid(tensor2numpy(cnn_outs_task['clsnonmutex'], sample))
         visibility_maps_highres = sigmoid(tensor2numpy(cnn_outs_task['clsnonmutex'], sample, upsample_and_permute=True))
+
+        # And corresponding ground truth
+        gt_visibility_maps_highres = tensor2numpy(batch.gt_map['clsnonmutex'], sample, upsample_and_permute=True)
+
 
 
         def blend_rgb(rgb1, rgb2, lambda_map):
@@ -137,13 +143,16 @@ class Visualizer:
                 heatmap_color = np.array([1.0, 0.0, 1.0])
 
                 visibility_map_highres = visibility_maps_highres[class_id-2,:,:]
-
                 lambda_map = 0.6*visibility_map_highres
                 heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
                 heatmap[:100,:100,:] = kp_color
                 plot_img(axes_array[kp_idx+1,0], heatmap, 'Keypoint {:02d}'.format(kp_idx))
 
-                plot_img(axes_array[kp_idx+1,1], img, 'Keypoint {:02d}'.format(kp_idx))
+                gt_visibility_map_highres = gt_visibility_maps_highres[class_id-2,:,:]
+                lambda_map = 0.6*gt_visibility_map_highres
+                heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
+                heatmap[:100,:100,:] = kp_color
+                plot_img(axes_array[kp_idx+1,1], heatmap, 'Keypoint {:02d}'.format(kp_idx))
 
                 if class_id in anno_lookup:
                     gt_color = 'red' if anno_lookup[class_id].self_occluded or anno_lookup[class_id].occluded else 'blue'
