@@ -62,11 +62,10 @@ class Visualizer:
             return array
 
         # Pick one sample from batch of output feature maps
-        cnn_outs_task, cnn_outs_ln_b = cnn_outs
-        kp_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_task.items() if task_name.startswith('keypoint')}
-        kp_ln_b_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_ln_b.items() if task_name.startswith('keypoint')}
-        visibility_maps_lowres = sigmoid(tensor2numpy(cnn_outs_task['clsnonmutex'], sample))
-        visibility_maps_highres = sigmoid(tensor2numpy(cnn_outs_task['clsnonmutex'], sample, upsample_and_permute=True))
+        kp_maps_dict = {task_name: tensor2numpy(task_output[0], sample, upsample_and_permute=False) for task_name, task_output in cnn_outs.items() if task_name.startswith('keypoint')}
+        kp_ln_b_maps_dict = {task_name: tensor2numpy(task_output[1], sample, upsample_and_permute=False) for task_name, task_output in cnn_outs.items() if task_name.startswith('keypoint')}
+        visibility_maps_lowres = sigmoid(tensor2numpy(cnn_outs['clsnonmutex'][0], sample))
+        visibility_maps_highres = sigmoid(tensor2numpy(cnn_outs['clsnonmutex'][0], sample, upsample_and_permute=True))
 
         # And corresponding ground truth
         gt_visibility_maps_highres = tensor2numpy(batch.gt_map['clsnonmutex'], sample, upsample_and_permute=True)

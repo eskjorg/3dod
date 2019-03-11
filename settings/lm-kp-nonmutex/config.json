@@ -10,7 +10,7 @@
     "training": {
         "learning_rate": 0.001,
         "weight_decay": {"encoder": 1e-4, "decoder": 1e-4},
-        "nll_loss": true,
+        "weighting_mode": "sample_wise",
         "n_epochs": 100
     },
     "visualization": {

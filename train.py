@@ -41,30 +41,21 @@ class Trainer():
         else:
             param_groups = []
             param_groups.append({
-                'params': [param for name, param in self._model._encoder.named_parameters() if name.endswith('weight') and param.requires_grad],
+                'params': [param for name, param in self._model.encoder.named_parameters() if name.endswith('weight') and param.requires_grad],
                 'weight_decay': self._configs.training.weight_decay['encoder'],
             })
             param_groups.append({
-                'params': [param for name, param in self._model._encoder.named_parameters() if name.endswith('bias') and param.requires_grad],
+                'params': [param for name, param in self._model.encoder.named_parameters() if name.endswith('bias') and param.requires_grad],
                 'weight_decay': 0,
             })
             param_groups.append({
-                'params': [param for name, param in self._model._decoder.named_parameters() if name.endswith('weight') and param.requires_grad],
+                'params': [param for name, param in self._model.decoder.named_parameters() if name.endswith('weight') and param.requires_grad],
                 'weight_decay': self._configs.training.weight_decay['decoder'],
             })
             param_groups.append({
-                'params': [param for name, param in self._model._decoder.named_parameters() if name.endswith('bias') and param.requires_grad],
+                'params': [param for name, param in self._model.decoder.named_parameters() if name.endswith('bias') and param.requires_grad],
                 'weight_decay': 0,
             })
-            if self._configs.training.nll_loss:
-                param_groups.append({
-                    'params': [param for name, param in self._model._decoder_ln_b.named_parameters() if name.endswith('weight') and param.requires_grad],
-                    'weight_decay': self._configs.training.weight_decay['decoder'],
-                })
-                param_groups.append({
-                    'params': [param for name, param in self._model._decoder_ln_b.named_parameters() if name.endswith('bias') and param.requires_grad],
-                    'weight_decay': 0,
-                })
             nbr_params = sum([len(param_group['params']) for param_group in param_groups])
             total_nbr_params = len([param for param in self._model.parameters() if param.requires_grad])
             assert nbr_params == total_nbr_params

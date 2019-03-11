@@ -5,7 +5,7 @@ import torch
 from torch import nn, exp, clamp
 
 from lib.constants import TRAIN, VAL
-from lib.constants import LN_2, IGNORE_IDX_CLS, IGNORE_IDX_REG, IGNORE_IDX_CLSNONMUTEX, PATCH_SIZE
+from lib.constants import IGNORE_IDX_CLS, IGNORE_IDX_REG, IGNORE_IDX_CLSNONMUTEX, PATCH_SIZE
 from lib.utils import get_device, get_layers, get_class_map
 
 
@@ -43,7 +43,8 @@ class LossHandler:
         ).to(get_device())
 
     def calc_loss(self, gt_maps, outputs_cnn):
-        def calc_task_loss(layer_name, tensor, ln_b, gt_map, lossweight_map=None):
+        def calc_task_loss(layer_name, layer_outputs, gt_map, lossweight_map=None):
+            tensor, ln_var = layer_outputs
             if self._layers[layer_name]['loss'] == 'CE':
                 assert lossweight_map is None
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
@@ -58,8 +59,7 @@ class LossHandler:
                 task_loss = task_loss.sum() / clamp(mask_loss_applied.sum(), min=1)
             elif self._layers[layer_name]['loss'] == 'L1':
                 task_loss = self._l1_loss(tensor, gt_map)
-                if ln_b is not None:
-                    task_loss = task_loss * exp(-ln_b) + LN_2 + ln_b
+                task_loss = task_loss * exp(-ln_var) + ln_var
                 task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
                 if lossweight_map is not None:
                     task_loss = task_loss * torch.unsqueeze(lossweight_map, 1)
@@ -69,7 +69,6 @@ class LossHandler:
                 raise NotImplementedError("{} loss not implemented.".format(self._layers[layer_name]['loss']))
             return task_loss
         loss = 0
-        outputs_task, outputs_ln_b = outputs_cnn
         for layer_name in self._layers:
             if self._layers[layer_name]['cls_specific_heads']:
                 # Separate GT map for every class
@@ -86,9 +85,8 @@ class LossHandler:
                     class_label = self._class_map.label_from_id(cls_id)
                     head_name = '{}_{}'.format(layer_name, class_label)
                     gt_map = gt_maps[head_name].to(get_device(), non_blocking=True)
-                    ln_b = outputs_ln_b[head_name] if outputs_ln_b is not None else None
                     lossweight_map = lossweight_maps[:,cls_id-2,:,:] if layer_name == 'keypoint' else None
-                    task_loss = calc_task_loss(layer_name, outputs_task[head_name], ln_b, gt_map, lossweight_map=lossweight_map)
+                    task_loss = calc_task_loss(layer_name, outputs_cnn[head_name], gt_map, lossweight_map=lossweight_map)
                     loss += task_loss * self._layers[layer_name]['loss_weight'] / float(nbr_classes)
                     if REPORT_LOSS_PER_CLASS:
                         self._losses[head_name].append(task_loss.item())
@@ -99,8 +97,7 @@ class LossHandler:
             else:
                 # Single GT map - shared among all classes
                 gt_map = gt_maps[layer_name].to(get_device(), non_blocking=True)
-                ln_b = outputs_ln_b[layer_name] if outputs_ln_b is not None else None
-                task_loss = calc_task_loss(layer_name, outputs_task[layer_name], ln_b, gt_map)
+                task_loss = calc_task_loss(layer_name, outputs_cnn[layer_name], gt_map)
                 loss += task_loss * self._layers[layer_name]['loss_weight']
                 self._losses[layer_name].append(task_loss.item())
         return loss

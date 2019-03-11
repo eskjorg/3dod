@@ -1,10 +1,24 @@
 {
+    "network": {
+        "encoder": "drn_c_26",
+        "output_stride": 4,
+        "support_region": 0.2
+    },
     "logging": {
         "save_kitti_format": true
     },
     "training": {
         "learning_rate": 0.001,
-        "nll_loss": true
+        "weighting_mode": "sample_wise"
+    },
+    "postprocessing": {
+        "methods": [
+            "bbox2d_detection"
+        ],
+        "bbox2d_detection": {
+            "detection_threshold": 0.55,
+            "iou_threshold": 0.3
+        }
     },
     "data":{
         "dataformat": "kitti_object",
