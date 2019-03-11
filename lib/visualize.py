@@ -64,7 +64,7 @@ class Visualizer:
         # Pick one sample from batch of output feature maps
         cnn_outs_task, cnn_outs_ln_b = cnn_outs
         kp_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_task.items() if task_name.startswith('keypoint')}
-        kp_uncertainty_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_ln_b.items() if task_name.startswith('keypoint')}
+        kp_ln_b_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_ln_b.items() if task_name.startswith('keypoint')}
         visibility_maps_lowres = sigmoid(tensor2numpy(cnn_outs_task['clsnonmutex'], sample))
         visibility_maps_highres = sigmoid(tensor2numpy(cnn_outs_task['clsnonmutex'], sample, upsample_and_permute=True))
 
@@ -180,18 +180,24 @@ class Visualizer:
                 if nbr_confident > 0:
                     visib_vec = visibility_map_lowres[mask_confident].flatten()
                     key = '{}_{}'.format('keypoint', self._class_map.label_from_id(class_id))
-                    kp_x_vec = (index_map_lowres[1,:,:][mask_confident] + kp_maps_dict[key][0,:,:][mask_confident]).flatten()
-                    kp_y_vec = (index_map_lowres[0,:,:][mask_confident] + kp_maps_dict[key][1,:,:][mask_confident]).flatten()
-                    kp_x_uncertainty_vec = kp_uncertainty_maps_dict[key][0,:,:][mask_confident].flatten()
-                    kp_y_uncertainty_vec = kp_uncertainty_maps_dict[key][1,:,:][mask_confident].flatten()
+                    idx_x_vec = index_map_lowres[1,:,:][mask_confident].flatten()
+                    idx_y_vec = index_map_lowres[0,:,:][mask_confident].flatten()
+                    kp_x_vec = idx_x_vec + kp_maps_dict[key][0,:,:][mask_confident].flatten()
+                    kp_y_vec = idx_y_vec + kp_maps_dict[key][1,:,:][mask_confident].flatten()
+                    kp_x_ln_b_vec = kp_ln_b_maps_dict[key][0,:,:][mask_confident].flatten()
+                    kp_y_ln_b_vec = kp_ln_b_maps_dict[key][1,:,:][mask_confident].flatten()
+                    # Laplace distribution, going from log(b) to b, to sigma=sqrt(2)*b
+                    kp_x_std_vec = np.sqrt(2) * np.exp(kp_x_ln_b_vec)
+                    kp_y_std_vec = np.sqrt(2) * np.exp(kp_y_ln_b_vec)
 
                     nbr_sampled = min(10, nbr_confident)
                     idx_sampled = np.random.choice(nbr_confident, nbr_sampled, p=visib_vec/np.sum(visib_vec))
                     for idx in idx_sampled:
-                        # Laplace distribution, going from log(b) to b, to sigma=sqrt(2)*b
-                        avg_std = np.mean(np.sqrt(2) * np.exp(np.array([kp_x_uncertainty_vec[idx], kp_y_uncertainty_vec[idx]])))
+                        avg_std = np.mean(np.array([kp_x_std_vec[idx], kp_y_std_vec[idx]]))
                         nbr_std_px_half_faded = 5.0 # When std amounts to this number of pixels, KP color will be faded to half intensity
-                        color = np.array([0.0, 1.0, 0.0]) / (1.0 + avg_std/nbr_std_px_half_faded)
+                        confidence_interp_factor = 1.0 / (1.0 + (avg_std/nbr_std_px_half_faded)**2)
+                        color = confidence_interp_factor * np.array([0.0, 1.0, 0.0]) + (1.0 - confidence_interp_factor) * np.array([0.0, 0.0, 0.0])
+                        axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
                         axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
 
 
