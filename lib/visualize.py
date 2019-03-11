@@ -64,14 +64,22 @@ class Visualizer:
         # Pick one sample from batch of output feature maps
         cnn_outs_task, cnn_outs_ln_b = cnn_outs
         kp_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_task.items() if task_name.startswith('keypoint')}
-        kp_confidence_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_ln_b.items() if task_name.startswith('keypoint')}
+        kp_uncertainty_maps_dict = {task_name: tensor2numpy(tensor, sample, upsample_and_permute=False) for task_name, tensor in cnn_outs_ln_b.items() if task_name.startswith('keypoint')}
         visibility_maps_lowres = sigmoid(tensor2numpy(cnn_outs_task['clsnonmutex'], sample))
         visibility_maps_highres = sigmoid(tensor2numpy(cnn_outs_task['clsnonmutex'], sample, upsample_and_permute=True))
 
         # And corresponding ground truth
         gt_visibility_maps_highres = tensor2numpy(batch.gt_map['clsnonmutex'], sample, upsample_and_permute=True)
 
-
+        # Index map
+        def get_index_map(img_dims, stride):
+            img_height, img_width = img_dims
+            assert img_height % stride == 0
+            assert img_width % stride == 0
+            map_height = img_height // stride
+            map_width = img_width // stride
+            return stride * np.indices((map_height, map_width), dtype=np.float32)
+        index_map_lowres = get_index_map(self._configs.data.img_dims, self._configs.network.output_stride)
 
         def blend_rgb(rgb1, rgb2, lambda_map):
             """
@@ -142,21 +150,51 @@ class Visualizer:
                 # heatmap_color = kp_color
                 heatmap_color = np.array([1.0, 0.0, 1.0])
 
-                visibility_map_highres = visibility_maps_highres[class_id-2,:,:]
-                lambda_map = 0.6*visibility_map_highres
-                heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
-                heatmap[:100,:100,:] = kp_color
-                plot_img(axes_array[kp_idx+1,0], heatmap, 'Keypoint {:02d}'.format(kp_idx))
 
+                # GT heatmap
                 gt_visibility_map_highres = gt_visibility_maps_highres[class_id-2,:,:]
                 lambda_map = 0.6*gt_visibility_map_highres
                 heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
                 heatmap[:100,:100,:] = kp_color
-                plot_img(axes_array[kp_idx+1,1], heatmap, 'Keypoint {:02d}'.format(kp_idx))
+                plot_img(axes_array[kp_idx+1,0], heatmap, 'Keypoint {:02d} - GT'.format(kp_idx))
 
+                # GT position
                 if class_id in anno_lookup:
                     gt_color = 'red' if anno_lookup[class_id].self_occluded or anno_lookup[class_id].occluded else 'blue'
-                    axes_array[kp_idx+1,1].add_patch(patches.Circle(anno_lookup[class_id].keypoint, radius=4, color=gt_color, edgecolor='black'))
+                    axes_array[kp_idx+1,0].add_patch(patches.Circle(anno_lookup[class_id].keypoint, radius=4, color=gt_color, edgecolor='black'))
+
+
+
+                # Pred heatmap
+                visibility_map_highres = visibility_maps_highres[class_id-2,:,:]
+                lambda_map = 0.6*visibility_map_highres
+                heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
+                heatmap[:100,:100,:] = kp_color
+                plot_img(axes_array[kp_idx+1,1], heatmap, 'Keypoint {:02d} - Pred'.format(kp_idx))
+
+                # Pred position
+                th = 0.5
+                visibility_map_lowres = visibility_maps_lowres[class_id-2,:,:]
+                mask_confident = visibility_map_lowres >= th
+                nbr_confident = np.sum(mask_confident)
+                if nbr_confident > 0:
+                    visib_vec = visibility_map_lowres[mask_confident].flatten()
+                    key = '{}_{}'.format('keypoint', self._class_map.label_from_id(class_id))
+                    kp_x_vec = (index_map_lowres[1,:,:][mask_confident] + kp_maps_dict[key][0,:,:][mask_confident]).flatten()
+                    kp_y_vec = (index_map_lowres[0,:,:][mask_confident] + kp_maps_dict[key][1,:,:][mask_confident]).flatten()
+                    kp_x_uncertainty_vec = kp_uncertainty_maps_dict[key][0,:,:][mask_confident].flatten()
+                    kp_y_uncertainty_vec = kp_uncertainty_maps_dict[key][1,:,:][mask_confident].flatten()
+
+                    nbr_sampled = min(10, nbr_confident)
+                    idx_sampled = np.random.choice(nbr_confident, nbr_sampled, p=visib_vec/np.sum(visib_vec))
+                    for idx in idx_sampled:
+                        # Laplace distribution, going from log(b) to b, to sigma=sqrt(2)*b
+                        avg_std = np.mean(np.sqrt(2) * np.exp(np.array([kp_x_uncertainty_vec[idx], kp_y_uncertainty_vec[idx]])))
+                        nbr_std_px_half_faded = 5.0 # When std amounts to this number of pixels, KP color will be faded to half intensity
+                        color = np.array([0.0, 1.0, 0.0]) / (1.0 + avg_std/nbr_std_px_half_faded)
+                        axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
+
+
             # pyplot.subplots_adjust(
             #     left = 0.0,
             #     right = 1.0,
