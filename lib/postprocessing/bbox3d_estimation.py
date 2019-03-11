@@ -17,11 +17,7 @@ class Runner(RunnerIf):
             if not all(attr in detection for attr in ['corners', 'zdepth', 'size']):
                 print("Estimation currently requires 'corners', 'zdepth' and 'size'")
                 continue
-            if self._configs.training.nll_loss:
-                weights = self._runner_configs.weights  # TODO: Optimize with L1 loss
-            else:
-                weights = self._runner_configs.weights
-            estimator = BoxEstimator(detection, calibration, weights)
+            estimator = BoxEstimator(detection, calibration)
             box_parameters = estimator.heuristic_3d()
             if self._runner_configs.local_optimization_3d:
                 box_parameters = estimator.solve()
@@ -33,20 +29,19 @@ class Runner(RunnerIf):
         return frame_detections
 
 
-
 class BoxEstimator:
 
-    def __init__(self, data, calibration, weights):
+    def __init__(self, data, calibration):
         self.data = data
         self._calibration = calibration
 
-        self._weights = self._set_weights(weights)
+        self._weights = self._set_weights(data)
         self._solution = None
 
-    def _set_weights(self, weights_dict):
+    def _set_weights(self, data):
         weights_list = []
-        for modality, data in weights_dict.items():
-            weights_list += self.data[modality].size * [data]
+        for modularity in ('corners', 'size', 'zdepth'):
+            weights_list += list(data.get('w_' + modularity))
         return np.asarray(weights_list)
 
     def heuristic_3d(self):

@@ -41,7 +41,7 @@ class MultiTaskNet(nn.ModuleDict):
             # The loss weighting for that head
             if settings['loss'] == "CE" or weighting_mode == 'uniform':  # no weighting
                 task_weighting = nn.Module()
-                task_weighting.forward = lambda x: 0
+                task_weighting.forward = lambda x: Tensor([0])
             elif weighting_mode == 'layer_wise':  # a.k.a. homoscedatic
                 task_weighting = LayerWeights(settings['n_layers'])
             elif weighting_mode == 'sample_wise':  # a.k.a. heteroscedastic
