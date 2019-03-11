@@ -9,7 +9,7 @@
     },
     "training": {
         "learning_rate": 0.001,
-        "weight_decay": {"encoder": 1e-4, "decoder": 1e-4},
+        "weight_decay": {"encoder": 1e-3, "decoder": 1e-3},
         "weighting_mode": "sample_wise",
         "n_epochs": 100
     },
@@ -63,13 +63,13 @@
     },
     "loading": {
         "train": {
-            "batch_size": 16,
+            "batch_size": 4,
             "shuffle": true,
             "num_workers": 4
         },
         "val": {
-            "batch_size": 16,
-            "shuffle": false,
+            "batch_size": 4,
+            "shuffle": true,
             "num_workers": 4
         },
         "test": {
