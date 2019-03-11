@@ -22,33 +22,35 @@ class GtMapsGenerator:
         self._layers = get_layers(self._configs.config_name)
 
     def generate(self, annotations, calibration):
-        def generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None):
+        def generate_map_for_head(layer_name, cls_id_filter=None):
             if cls_id_filter is not None:
                 assert layer_name != "cls"
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
             generator = Generator(self._configs, self._metadata, self._class_map, calibration)
-            for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
-                if cls_id_filter is not None and obj.cls not in cls_id_filter:
-                    # Discard instance if head is dedicated only to other class labels
-                    continue
-                if layer_name == "cls":
-                    generator.add_obj(obj, full, IGNORE_IDX_CLS)
-                if obj.cls is not IGNORE_IDX_CLS:
-                    generator.add_obj(obj, supp)
+            # First, add all ignore regions (so that no support region gets overwritten)
+            if layer_name == "cls":
+                obj_coords_full = self._get_coordinates(annotations)
+                for obj, full in zip(annotations, obj_coords_full):
+                    if cls_id_filter is None or obj.cls in cls_id_filter:
+                        generator.add_obj(obj, full, IGNORE_IDX_CLS)
+            # Then, add support regions
+            obj_coords_supp = self._get_coordinates(annotations, self._configs.network.support_region)
+            for obj, supp, in zip(annotations, obj_coords_supp): 
+                if cls_id_filter is None or obj.cls in cls_id_filter:
+                    if obj.cls is not IGNORE_IDX_CLS:
+                        generator.add_obj(obj, supp) 
             return generator.get_map()
 
         gt_maps = {}
-        obj_coords_full = self._get_coordinates(annotations)
-        obj_coords_supp = self._get_coordinates(annotations, self._configs.network.support_region)
         for layer_name in self._layers.keys():
             if self._layers[layer_name]['cls_specific_heads']:
                 # Separate GT map for every class
                 for cls_id in self._class_map.get_ids():
                     class_label = self._class_map.label_from_id(cls_id)
-                    gt_maps['{}_{}'.format(layer_name, class_label)] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=[cls_id])
+                    gt_maps['{}_{}'.format(layer_name, class_label)] = generate_map_for_head(layer_name, cls_id_filter=[cls_id])
             else:
                 # Single GT map - shared among all classes
-                gt_maps[layer_name] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None)
+                gt_maps[layer_name] = generate_map_for_head(layer_name, cls_id_filter=None)
         return gt_maps
 
     def _get_coordinates(self, objects, shrink_factor=1):
