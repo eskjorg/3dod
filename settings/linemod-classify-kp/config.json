@@ -8,8 +8,10 @@
         "save_kitti_format": false
     },
     "training": {
-        "learning_rate": 0.0003,
-        "weighting_mode": "sample_wise"
+        "learning_rate": 0.001,
+        "weight_decay": {"encoder": 1e-3, "decoder": 1e-3},
+        "weighting_mode": "sample_wise",
+        "n_epochs": 100
     },
     "visualization": {
         "gt": [
@@ -48,14 +50,14 @@
     },
     "loading": {
         "train": {
-            "batch_size": 8,
+            "batch_size": 4,
             "shuffle": true,
             "num_workers": 6
         },
         "val": {
             "batch_size": 4,
-            "shuffle": false,
-            "num_workers": 6
+            "shuffle": true,
+            "num_workers": 4
         },
         "test": {
             "batch_size": 1,
