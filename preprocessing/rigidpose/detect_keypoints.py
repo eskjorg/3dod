@@ -96,7 +96,7 @@ class KeypointSelector(ABC):
     def select_keypoints(self, initial_keypoints=None):
         pass
 
-    def plot_keypoints(self, model, keypoints, normals=None, vtx_scores=None, store_plots=False):
+    def plot_keypoints(self, model, keypoints, kp_colors=None, normals=None, vtx_scores=None, store_plots=False):
         if self.opts['SCORES_COLORED_IN_SCATTERPLOT']:
             assert vtx_scores is not None
         if self.opts['MIN_VTX_SCORE_SCATTERPLOT'] is not None:
@@ -144,7 +144,11 @@ class KeypointSelector(ABC):
 
         # fig = plt.figure()
         # ax = fig.add_subplot(111, projection='3d')
-        ax.plot(*keypoints.T, 'r*', markersize=self.opts['MARKERSIZE'])
+        if kp_colors is not None:
+            for kp, color in zip(keypoints, kp_colors):
+                ax.plot([kp[0]], [kp[1]], [kp[2]], '*', color=color, markersize=self.opts['MARKERSIZE'])
+        else:
+            ax.plot(*keypoints.T, 'r*', markersize=self.opts['MARKERSIZE'])
 
         if normals is not None:
             normal_length_mm = 10.0
@@ -468,8 +472,8 @@ FIND_NORMALS = True # Assuming keypoints close to surface. Evaluates normal at c
 
 
 opts = {
-    'MARKERSIZE': 10,
-    # 'MARKERSIZE': 50,
+    # 'MARKERSIZE': 10,
+    'MARKERSIZE': 30,
     'MAX_NBR_VTX_SCATTERPLOT': 500,
     'NBR_KEYPOINTS': 10,
     'SCORES_COLORED_IN_SCATTERPLOT': False,
@@ -519,6 +523,7 @@ opts = {
 kp_selector = FarthestPointSamplingKeypointSelector(opts)
 
 # Select features
+# kp_dict = kp_selector.select_keypoints()
 kp_dict = kp_selector.select_keypoints(initial_keypoints=initial_keypoints)
 if PROJECT_TO_SURFACE:
     kp_dict = kp_selector.project_to_surface(kp_dict)
@@ -535,6 +540,7 @@ for obj_id, keypoints in kp_dict.items():
     kp_selector.plot_keypoints(
         kp_selector.get_model(obj_id),
         keypoints,
+        kp_colors = plt.cm.tab20.colors,
         normals = normals_dict[obj_id] if FIND_NORMALS else None,
         vtx_scores = vtx_scores_filtered[obj_id] if opts['SCORES_COLORED_IN_SCATTERPLOT'] else None,
         store_plots = STORE_PLOTS,
