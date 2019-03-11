@@ -101,7 +101,7 @@ class ResultSaver:
         return box.center, box.orientation
 
     def save_frame_kitti(self, frame_id, frame_detections, mode):
-        save_dir = os.path.join(self._result_dir, mode, 'kitti_format')
+        save_dir = os.path.join(self._result_dir, mode, 'kitti_format', 'data')
         os.makedirs(save_dir, exist_ok=True)
 
         lines_to_write = []
@@ -132,7 +132,7 @@ class ResultSaver:
                 lines_to_write.append(write_line)
             else:
                 print('Warning, negative size: Skipping writing')
-        with open(os.path.join(save_dir, '%6d.txt' % int(frame_id)), 'w') as file:
+        with open(os.path.join(save_dir, '%06d.txt' % int(frame_id)), 'w') as file:
             file.writelines(lines_to_write)
 
     def _clip_bbox(self, bbox):
