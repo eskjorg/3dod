@@ -186,26 +186,26 @@ class Visualizer:
                     kp_x_ln_b_vec = kp_ln_b_maps_dict[key][0,:,:][mask_confident].flatten()
                     kp_y_ln_b_vec = kp_ln_b_maps_dict[key][1,:,:][mask_confident].flatten()
                     # Laplace distribution, going from log(b) to b, to sigma=sqrt(2)*b
-                    kp_x_std_vec = np.sqrt(2) * np.exp(kp_x_ln_b_vec)
-                    kp_y_std_vec = np.sqrt(2) * np.exp(kp_y_ln_b_vec)
+                    kp_std1_vec = np.sqrt(2) * np.exp(kp_x_ln_b_vec)
+                    kp_std2_vec = np.sqrt(2) * np.exp(kp_y_ln_b_vec)
 
                     nbr_sampled = min(10, nbr_confident)
                     idx_sampled = np.random.choice(nbr_confident, nbr_sampled, p=visib_vec/np.sum(visib_vec))
                     for idx in idx_sampled:
-                        avg_std = np.mean(np.array([kp_x_std_vec[idx], kp_y_std_vec[idx]]))
+                        avg_std = np.mean(np.array([kp_std1_vec[idx], kp_std2_vec[idx]]))
                         nbr_std_px_half_faded = 5.0 # When std amounts to this number of pixels, KP color will be faded to half intensity
                         confidence_interp_factor = 1.0 / (1.0 + (avg_std/nbr_std_px_half_faded)**2)
                         color = confidence_interp_factor * np.array([0.0, 1.0, 0.0]) + (1.0 - confidence_interp_factor) * np.array([0.0, 0.0, 0.0])
                         axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
                         axes_array[kp_idx+1,1].plot(
-                            [kp_x_vec[idx] - 0.5*kp_x_std_vec[idx],    kp_x_vec[idx] + 0.5*kp_x_std_vec[idx]],
+                            [kp_x_vec[idx] - 0.5*kp_std1_vec[idx],    kp_x_vec[idx] + 0.5*kp_std1_vec[idx]],
                             [kp_y_vec[idx],                            kp_y_vec[idx]],
                             '-',
                             color='red',
                         )
                         axes_array[kp_idx+1,1].plot(
                             [kp_x_vec[idx],                            kp_x_vec[idx]],
-                            [kp_y_vec[idx] - 0.5*kp_y_std_vec[idx],    kp_y_vec[idx] + 0.5*kp_y_std_vec[idx]],
+                            [kp_y_vec[idx] - 0.5*kp_std2_vec[idx],    kp_y_vec[idx] + 0.5*kp_std2_vec[idx]],
                             '-',
                             color='red',
                         )
