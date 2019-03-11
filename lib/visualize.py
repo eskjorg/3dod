@@ -198,6 +198,18 @@ class Visualizer:
                         confidence_interp_factor = 1.0 / (1.0 + (avg_std/nbr_std_px_half_faded)**2)
                         color = confidence_interp_factor * np.array([0.0, 1.0, 0.0]) + (1.0 - confidence_interp_factor) * np.array([0.0, 0.0, 0.0])
                         axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
+                        axes_array[kp_idx+1,1].plot(
+                            [kp_x_vec[idx] - 0.5*kp_x_std_vec[idx],    kp_x_vec[idx] + 0.5*kp_x_std_vec[idx]],
+                            [kp_y_vec[idx],                            kp_y_vec[idx]],
+                            '-',
+                            color='red',
+                        )
+                        axes_array[kp_idx+1,1].plot(
+                            [kp_x_vec[idx],                            kp_x_vec[idx]],
+                            [kp_y_vec[idx] - 0.5*kp_y_std_vec[idx],    kp_y_vec[idx] + 0.5*kp_y_std_vec[idx]],
+                            '-',
+                            color='red',
+                        )
                         axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
 
 
