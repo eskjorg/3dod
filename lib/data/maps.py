@@ -43,9 +43,6 @@ class GtMapsGenerator:
                 if cls_id_filter is not None and obj.cls not in cls_id_filter:
                     # Discard instance if head is dedicated only to other class labels
                     continue
-                if obj.self_occluded or obj.occluded:
-                    # Occluded, should not be used as positive example
-                    continue
 
                 if layer_name == "cls":
                     generator.add_obj(obj, full, IGNORE_IDX_CLS)
@@ -82,14 +79,11 @@ class GtMapsGenerator:
                     coord2 * (1 - shrink_factor) / 2
             return  int(max(0, min(max_limit, coord)))
         for obj in objects:
-            if obj.self_occluded or obj.occluded:
-                obj_coords.append(None)
-            else:
-                xmin, ymin, xmax, ymax = obj.bbox2d / self._configs.network.output_stride
-                obj_coords.append((get_coord_convex(xmin, xmax, target_dims[1]),
-                                   get_coord_convex(ymin, ymax, target_dims[0]),
-                                   get_coord_convex(xmax, xmin, target_dims[1]),
-                                   get_coord_convex(ymax, ymin, target_dims[0])))
+            xmin, ymin, xmax, ymax = obj.bbox2d / self._configs.network.output_stride
+            obj_coords.append((get_coord_convex(xmin, xmax, target_dims[1]),
+                               get_coord_convex(ymin, ymax, target_dims[0]),
+                               get_coord_convex(xmax, xmin, target_dims[1]),
+                               get_coord_convex(ymax, ymin, target_dims[0])))
         return obj_coords
 
 

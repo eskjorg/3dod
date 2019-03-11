@@ -187,55 +187,48 @@ class SixdDataset(Dataset):
             )
             kp_normals_global_frame = rot_matrix @ self._metadata['objects'][group_label]['kp_normals']
             for kp_idx in range(NBR_KEYPOINTS):
-                self_occluded = kp_normals_global_frame[2,kp_idx] > 0.0
-
-                occluded = False
-
-                # Check that keypoint projects inside image, and is not occluded
+                # Discard keypoint if not projected inside image
                 x, y = keypoints_2d[:,kp_idx]
                 x = int(x)
                 y = int(y)
                 if x < 0 or x >= self._configs.data.img_dims[1]:
-                    occluded = True
+                    continue
                 elif y < 0 or y >= self._configs.data.img_dims[0]:
-                    occluded = True
-                elif instance_seg[y, x] != instance_idx:
-                    occluded = True
+                    continue
 
-                if occluded:
-                    bbox2d = None
-                    keypoint_detectability = None
-                else:
-                    x1 = int(keypoints_2d[0,kp_idx] - 0.5*(PATCH_SIZE-1))
-                    x2 = x1 + (PATCH_SIZE-1) + 1 # Box is up until but not including x2
-                    y1 = int(keypoints_2d[1,kp_idx] - 0.5*(PATCH_SIZE-1))
-                    y2 = y1 + (PATCH_SIZE-1) + 1 # Box is up until but not including y2
+                # Determine occlusion / self-occlusion
+                occluded = instance_seg[y, x] != instance_idx
+                self_occluded = kp_normals_global_frame[2,kp_idx] > 0.0
 
-                    stride = self._configs.network.output_stride
-                    x1 = max(0, math.floor(x1 / stride) * stride)
-                    x2 = min(self._configs.data.img_dims[1], math.ceil(x2 / stride) * stride)
-                    y1 = max(0, math.floor(y1 / stride) * stride)
-                    y2 = min(self._configs.data.img_dims[0], math.ceil(y2 / stride) * stride)
+                x1 = int(keypoints_2d[0,kp_idx] - 0.5*(PATCH_SIZE-1))
+                x2 = x1 + (PATCH_SIZE-1) + 1 # Box is up until but not including x2
+                y1 = int(keypoints_2d[1,kp_idx] - 0.5*(PATCH_SIZE-1))
+                y2 = y1 + (PATCH_SIZE-1) + 1 # Box is up until but not including y2
 
-                    for val in [x1, x2, y1, y2]:
-                        assert val % stride == 0
+                stride = self._configs.network.output_stride
+                x1 = max(0, math.floor(x1 / stride) * stride)
+                x2 = min(self._configs.data.img_dims[1], math.ceil(x2 / stride) * stride)
+                y1 = max(0, math.floor(y1 / stride) * stride)
+                y2 = min(self._configs.data.img_dims[0], math.ceil(y2 / stride) * stride)
 
-                    if x1 == x2 or y1 == y2:
-                        assert occluded
+                for val in [x1, x2, y1, y2]:
+                    assert val % stride == 0
 
-                    bbox2d = Tensor([x1, y1, x2, y2])
+                assert not x1 == x2 or y1 == y2
 
-                    # Set ground truth visibility in the vicinity of the keypoint position
-                    # keypoint_detectability = (instance_seg[y1:y2, x1:x2] == instance_idx).type(torch.float32)
+                bbox2d = Tensor([x1, y1, x2, y2])
 
-                    mask = instance_seg[y1:y2, x1:x2].numpy() == instance_idx
-                    keypoint_detectability = np.zeros((y2-y1, x2-x1))
-                    vtx_idx_vec = vtx_idx_map[y1:y2, x1:x2][mask]
-                    gdist_patch = self._gdists[gt['obj_id']][kp_idx][vtx_idx_vec]
-                    # gdist_sigma = 15.0
-                    gdist_sigma = 30.0
-                    keypoint_detectability[mask] = np.exp(-0.5*(gdist_patch/gdist_sigma)**2)
-                    keypoint_detectability = torch.from_numpy(keypoint_detectability).float() # double -> float
+                # Set ground truth visibility in the vicinity of the keypoint position
+                # keypoint_detectability = (instance_seg[y1:y2, x1:x2] == instance_idx).type(torch.float32)
+
+                mask = instance_seg[y1:y2, x1:x2].numpy() == instance_idx
+                keypoint_detectability = np.zeros((y2-y1, x2-x1))
+                vtx_idx_vec = vtx_idx_map[y1:y2, x1:x2][mask]
+                gdist_patch = self._gdists[gt['obj_id']][kp_idx][vtx_idx_vec]
+                # gdist_sigma = 15.0
+                gdist_sigma = 30.0
+                keypoint_detectability[mask] = np.exp(-0.5*(gdist_patch/gdist_sigma)**2)
+                keypoint_detectability = torch.from_numpy(keypoint_detectability).float() # double -> float
 
                 class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
                 annotations.append(Annotation(cls=class_id,
