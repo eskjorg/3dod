@@ -27,20 +27,16 @@ class LossHandler:
             if layer_spec['loss'] == 'CE':
                 loss_function_dict[layer_name] = nn.CrossEntropyLoss(ignore_index=IGNORE_IDX_CLS).to(get_device())
             elif layer_spec['loss'] == 'BCE':
-                loss_function_dict[layer_name] = self._get_bce_loss()
+                loss_function_dict[layer_name] = self._get_bce_loss(layer_name)
             elif layer_spec['loss'] == 'L1':
                 loss_function_dict[layer_name] = nn.L1Loss(reduction='none').to(get_device())
             else:
                 raise NotImplementedError("{} loss not implemented.".format(layer_spec['loss']))
         return loss_function_dict
 
-    def _get_bce_loss(self):
-        bce_layers = [layer_name for layer_name, layer in self._layers.items() if layer['loss'] == 'BCE']
-        if len(bce_layers) == 0:
-            # Avoid making assumptions below, if BCE not used anyway
-            return None
+    def _get_bce_loss(self, layer_name):
         assert IGNORE_IDX_CLS == 1
-        assert len(bce_layers) == 1 and bce_layers[0] == 'clsnonmutex'
+        assert layer_name == 'clsnonmutex'
 
         if self._layers['clsnonmutex']['ignore_bg']:
             # No considerable class imbalance if background is ignored
