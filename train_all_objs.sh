@@ -1,15 +1,17 @@
 # exit when any command fails
 set -e
 
-SUFFIX=$(openssl rand -hex 4)
-WS=/tmp/3dod-ws-$SUFFIX
+EXPERIMENT_PREFIX=$1
+
+TMP_SUFFIX=$(openssl rand -hex 4)
+WS=/tmp/3dod-ws-$TMP_SUFFIX
 rm -rf $WS
 cp -r /home/lucas/research/3dod $WS
 OBJECTS=(ape can cat duck driller eggbox glue holepuncher)
 
 for OBJ in ${OBJECTS[@]}; do
-    echo "Removing experiment /hdd/lucas/out/3dod-experiments/nightly-$OBJ"
-    rm -rf /hdd/lucas/out/3dod-experiments/nightly-$OBJ
+    echo "Removing experiment /hdd/lucas/out/3dod-experiments/$EXPERIMENT_PREFIX-$OBJ"
+    rm -rf /hdd/lucas/out/3dod-experiments/$EXPERIMENT_PREFIX-$OBJ
 done
 
 for OBJ in ${OBJECTS[@]}; do
@@ -21,7 +23,7 @@ for OBJ in ${OBJECTS[@]}; do
         -v /home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists:/datasets/occluded-linemod-augmented 3dod python train.py \
         --overwrite-experiment \
         --config-name lm-kp-nonmutex \
-        --experiment-name nightly-$OBJ \
+        --experiment-name $EXPERIMENT_PREFIX-$OBJ \
         --train-seqs train_unoccl/$OBJ
 done
 rm -rf $WS
