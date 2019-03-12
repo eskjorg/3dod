@@ -58,8 +58,52 @@ class LossHandler:
                 # clamp below is a trick to avoid 0 / 0 = NaN, and instead perform 0 / 1 = 0. Works because denominator will be either 0 or >= 1 (sum of boolean -> non-negative int).
                 task_loss = task_loss.sum() / clamp(mask_loss_applied.sum(), min=1)
             elif self._layers[layer_name]['loss'] == 'L1':
-                task_loss = self._l1_loss(tensor, gt_map)
-                task_loss = task_loss * exp(-ln_var) + ln_var
+                PROJECTION = False
+                if PROJECTION:
+                    # Permute axes for easier mask indexing
+                    pred_perm = tensor.permute(1,0,2,3)
+                    gt_perm = gt_map.permute(1,0,2,3)
+                    ln_var_perm = ln_var.permute(1,0,2,3)
+
+                    # Determine which predictions are "long" enough to be able to determine their direction
+                    pred_perm_norm = torch.norm(pred_perm, dim=0)
+                    eps = 1e-6
+                    has_dir = pred_perm_norm >= eps
+                    # no_dir = has_dir ^ 1
+                    no_dir = pred_perm_norm < eps
+
+                    task_loss_perm = torch.empty_like(pred_perm, dtype=torch.float32)
+
+                    def rotate_tensor_90(t1):
+                        t2 = t1.flip(0)
+                        t2[0,:] = -t2[0,:]
+                        return t2
+
+                    # If norm < eps, projection is avoided, since direction is undefined.
+                    # Instead, average ln_var is applied in both x & y direction.
+                    task_loss_perm[:,no_dir] = self._l1_loss(pred_perm[:,no_dir], gt_perm[:,no_dir])
+                    avg_ln_var = ln_var_perm[:,no_dir].mean(dim=0)
+                    task_loss_perm[:,no_dir] = task_loss_perm[:,no_dir] * exp(-avg_ln_var) + avg_ln_var
+
+                    # Determine new basis from direction of predictions
+                    axis1 = pred_perm[:,has_dir] / pred_perm_norm[has_dir].unsqueeze(0)
+                    axis2 = rotate_tensor_90(axis1)
+
+                    # Carry out projection to determine new coefficients
+                    pred1 = pred_perm_norm[has_dir]
+                    pred2 = torch.sum(pred_perm[:,has_dir]*axis2, dim=0)
+                    gt1 = torch.sum(gt_perm[:,has_dir]*axis1, dim=0)
+                    gt2 = torch.sum(gt_perm[:,has_dir]*axis2, dim=0)
+                    task_loss_perm[0,has_dir] = self._l1_loss(pred1, gt1) * exp(-ln_var_perm[0,has_dir]) + ln_var_perm[0,has_dir]
+                    task_loss_perm[1,has_dir] = self._l1_loss(pred2, gt2) * exp(-ln_var_perm[1,has_dir]) + ln_var_perm[1,has_dir]
+
+                    # Permute back
+                    task_loss = task_loss_perm.permute(1,0,2,3)
+
+                else:
+                    task_loss = self._l1_loss(tensor, gt_map)
+                    task_loss = task_loss * exp(-ln_var) + ln_var
+
                 task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
                 if lossweight_map is not None:
                     task_loss = task_loss * torch.unsqueeze(lossweight_map, 1)
