@@ -212,6 +212,16 @@ class Visualizer:
 
         # Suppress visibility maps outside of segmentation
         for group_id in self._class_map.get_group_ids():
+            # print(type(visibility_maps_lowres))
+            # print(type(seg_map_lowres != group_id))
+            # print(type(seg_map_lowres))
+            # 
+            # print(visibility_maps_lowres[class_ids-2,:,:][np.tile((seg_map_lowres[np.newaxis,:,:] != group_id), (NBR_KEYPOINTS, 1, 1))])
+            # print(visibility_maps_lowres[class_ids-2,:,:][np.tile((seg_map_lowres[np.newaxis,:,:] != group_id), (NBR_KEYPOINTS, 1, 1))].shape)
+            # visibility_maps_lowres[class_ids-2,:,:][np.tile((seg_map_lowres[np.newaxis,:,:] != group_id), (NBR_KEYPOINTS, 1, 1))] = 0.0
+            # print(visibility_maps_lowres[class_ids-2,:,:][np.tile((seg_map_lowres[np.newaxis,:,:] != group_id), (NBR_KEYPOINTS, 1, 1))])
+            # visibility_maps_highres[class_ids-2,:,:][np.tile((seg_map_highres[np.newaxis,:,:] != group_id), (NBR_KEYPOINTS, 1, 1))] = 0.0
+
             class_ids = np.array([self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)])
             for kp_idx in range(NBR_KEYPOINTS):
                 class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
