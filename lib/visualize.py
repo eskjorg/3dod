@@ -6,6 +6,7 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot, patches
 
+import math
 import numpy as np
 
 from torch import nn
@@ -79,6 +80,7 @@ class Visualizer:
             map_width = img_width // stride
             return stride * np.indices((map_height, map_width), dtype=np.float32)
         index_map_lowres = get_index_map(self._configs.data.img_dims, self._configs.network.output_stride)
+        index_map_highres = get_index_map(self._configs.data.img_dims, 1)
 
         def blend_rgb(rgb1, rgb2, lambda_map):
             """
@@ -102,14 +104,14 @@ class Visualizer:
         # img = grayscale2rgb(rgb2grayscale(rgb))
 
         nrows = NBR_KEYPOINTS + 1
-        ncols = 2
+        ncols = 4
 
         figwidth_fullres = ncols*img.shape[1] / PYPLOT_DPI
         figheight_fullres = nrows*img.shape[0] / PYPLOT_DPI
 
         # figwidth = figwidth_fullres
         # figheight = figheight_fullres
-        figwidth = 10
+        figwidth = 15
         figheight = figheight_fullres * (figwidth / figwidth_fullres)
 
         def plot_img(axes, img, title):
@@ -172,6 +174,8 @@ class Visualizer:
                 plot_img(axes_array[kp_idx+1,1], heatmap, 'Keypoint {:02d} - Pred'.format(kp_idx))
 
                 # Pred position
+                likelihood_map = np.zeros(self._configs.data.img_dims)
+
                 th = 0.5
                 visibility_map_lowres = visibility_maps_lowres[class_id-2,:,:]
                 mask_confident = visibility_map_lowres >= th
@@ -189,27 +193,78 @@ class Visualizer:
                     kp_std1_vec = np.sqrt(2) * np.exp(kp_x_ln_b_vec)
                     kp_std2_vec = np.sqrt(2) * np.exp(kp_y_ln_b_vec)
 
-                    nbr_sampled = min(10, nbr_confident)
-                    idx_sampled = np.random.choice(nbr_confident, nbr_sampled, p=visib_vec/np.sum(visib_vec))
+                    nbr_sampled = min(15, nbr_confident)
+
+                    # Sample based on estimated visibility
+                    p = visib_vec / np.sum(visib_vec)
+
+                    # Sample based on confidence
+                    kp_avg_std_vec = 0.5*sum([kp_std1_vec, kp_std2_vec])
+                    center_likelihood_vec = (0.5 / np.exp(kp_x_ln_b_vec)) * (0.5 / np.exp(kp_y_ln_b_vec))
+                    p = center_likelihood_vec / np.sum(center_likelihood_vec)
+
+                    # for idx in {np.argmin(0.5*sum([kp_std1_vec, kp_std2_vec]))}:
+                    idx_sampled = np.random.choice(nbr_confident, nbr_sampled, p=p)
                     for idx in idx_sampled:
-                        avg_std = np.mean(np.array([kp_std1_vec[idx], kp_std2_vec[idx]]))
+                        avg_std = 0.5*sum([kp_std1_vec[idx], kp_std2_vec[idx]])
                         nbr_std_px_half_faded = 5.0 # When std amounts to this number of pixels, KP color will be faded to half intensity
                         confidence_interp_factor = 1.0 / (1.0 + (avg_std/nbr_std_px_half_faded)**2)
+
+                        # confidence_interp_factor = center_likelihood_vec[idx]
+
                         color = confidence_interp_factor * np.array([0.0, 1.0, 0.0]) + (1.0 - confidence_interp_factor) * np.array([0.0, 0.0, 0.0])
                         axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
-                        axes_array[kp_idx+1,1].plot(
-                            [kp_x_vec[idx] - 0.5*kp_std1_vec[idx],    kp_x_vec[idx] + 0.5*kp_std1_vec[idx]],
-                            [kp_y_vec[idx],                            kp_y_vec[idx]],
-                            '-',
-                            color='red',
-                        )
-                        axes_array[kp_idx+1,1].plot(
-                            [kp_x_vec[idx],                            kp_x_vec[idx]],
-                            [kp_y_vec[idx] - 0.5*kp_std2_vec[idx],    kp_y_vec[idx] + 0.5*kp_std2_vec[idx]],
-                            '-',
-                            color='red',
-                        )
+                        # axes_array[kp_idx+1,1].plot(
+                        #     [kp_x_vec[idx] - 0.5*kp_std1_vec[idx],    kp_x_vec[idx] + 0.5*kp_std1_vec[idx]],
+                        #     [kp_y_vec[idx],                            kp_y_vec[idx]],
+                        #     '-',
+                        #     color='red',
+                        # )
+                        # axes_array[kp_idx+1,1].plot(
+                        #     [kp_x_vec[idx],                            kp_x_vec[idx]],
+                        #     [kp_y_vec[idx] - 0.5*kp_std2_vec[idx],    kp_y_vec[idx] + 0.5*kp_std2_vec[idx]],
+                        #     '-',
+                        #     color='red',
+                        # )
                         axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
+
+                    for idx in range(nbr_confident):
+                        x = kp_x_vec[idx]
+                        y = kp_y_vec[idx]
+                        std1 = kp_std1_vec[idx]
+                        std2 = kp_std2_vec[idx]
+                        b1 = std1 / np.sqrt(2)
+                        b2 = std2 / np.sqrt(2)
+
+                        x1 = max(0, math.floor(x - 2.0*std1))
+                        x2 = min(self._configs.data.img_dims[1], math.ceil(x + 2.0*std1))
+                        y1 = max(0, math.floor(y - 2.0*std2))
+                        y2 = min(self._configs.data.img_dims[0], math.ceil(y + 2.0*std2))
+
+                        likelihood_map[y1:y2, x1:x2] += visib_vec[idx]*np.exp(sum([
+                            -np.abs(index_map_highres[1, y1:y2, x1:x2] - x)/b1 - np.log(2*b1),
+                            -np.abs(index_map_highres[0, y1:y2, x1:x2] - y)/b2 - np.log(2*b2),
+                        ]))
+
+                    likelihood_map /= nbr_confident
+
+                # Plot likelihood values, to get a feel for its shape
+                axes_array[kp_idx+1,3].plot(list(reversed(sorted(likelihood_map.flatten())))[:10000])
+                axes_array[kp_idx+1,3].set_ylim(0, 0.001)
+
+                # Uncertainty map
+                # lambda_map = 0.6*likelihood_map
+                lambda_map = likelihood_map / likelihood_map.max()
+                # lambda_map = 10.0*np.clip(likelihood_map/10.0, 0.0, 1.0)
+                # lambda_map = np.clip(likelihood_map/0.7, 0.0, 1.0)
+                heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
+                heatmap[:100,:100,:] = kp_color
+                plot_img(axes_array[kp_idx+1,2], heatmap, 'Keypoint {:02d} - Uncertainty'.format(kp_idx))
+
+
+
+
+
 
 
             # pyplot.subplots_adjust(
