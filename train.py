@@ -75,6 +75,7 @@ class Trainer():
 
     def _run_epoch(self, epoch, mode):
         getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
+        cnt = 0
         for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
             outputs_cnn = self._run_model(batch.input, mode)
             loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)
@@ -90,8 +91,9 @@ class Trainer():
             # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
             # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
             # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
-            if cnt == 100:
-                break
+            # if cnt == 100:
+            #     break
+
             if cnt % 10 == 0:
                 self._visualizer.report_loss(self._loss_handler.get_averages(), mode)
             # if cnt % 10 == 0:
