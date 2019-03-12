@@ -28,6 +28,8 @@ class LossHandler:
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
             elif self._layers[layer_name]['loss'] == 'L1':
                 task_loss = self._l1_loss(tensor, gt_map)
+                if len(ln_var.shape) == 1:
+                    ln_var = ln_var.unsqueeze(-1).unsqueeze(-1)
                 task_loss = task_loss * exp(-ln_var) + ln_var
                 task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
                 # clamp below is a trick to avoid 0 / 0 = NaN, and instead perform 0 / 1 = 0. Works because denominator will be either 0 or >= 1 (sum of boolean -> non-negative int).

@@ -1,7 +1,8 @@
 """Neural network model."""
 
 from importlib import import_module
-from torch import nn, Tensor
+import torch
+from torch import nn
 from lib.utils import get_layers
 
 class Model(nn.Module):
@@ -40,14 +41,15 @@ class MultiTaskNet(nn.ModuleDict):
                                       upsampling=upsampling)
             # The loss weighting for that head
             if settings['loss'] == "CE" or weighting_mode == 'uniform':  # no weighting
-                task_weighting = nn.Module()
-                task_weighting.forward = lambda x: Tensor([0])
+                task_weighting = ZeroHead()
             elif weighting_mode == 'layer_wise':  # a.k.a. homoscedatic
                 task_weighting = LayerWeights(settings['n_layers'])
             elif weighting_mode == 'sample_wise':  # a.k.a. heteroscedastic
                 task_weighting = MultiTaskHead(in_channels=in_channels,
                                                out_channels=settings['n_layers'],
                                                upsampling=upsampling)
+            else:
+                raise NotImplementedError(weighting_mode)
             heads[name] = WeightedHead([task_head, task_weighting])
         super(MultiTaskNet, self).__init__(heads)
 
@@ -82,7 +84,11 @@ class WeightedHead(nn.ModuleList):
 class LayerWeights(nn.Module):
     def __init__(self, n_weights):
         super().__init__()
-        self.register_parameter('weighting', nn.Parameter(Tensor(n_weights)))
+        self.register_parameter('weighting', nn.Parameter(torch.zeros(n_weights)))
 
     def forward(self, x):
         return self.weighting
+
+class ZeroHead(nn.Module):
+    def forward(self, x):
+        return torch.Tensor([0])

@@ -34,15 +34,17 @@ class Runner(RunnerIf):
         Generator = getattr(maps, key.capitalize() + 'Generator')
         metadata = None
         data = Generator(self._configs, metadata, self._class_map, device=get_device()).decode(data)
-        data = data.permute(1, 2, 0).reshape(-1, data.shape[0]).squeeze().float()
+        data = data.permute(1, 2, 0).reshape(-1, data.shape[0]).float()
         # weights
-        if key == "cls" or self._configs.training.weighting_mode == 'uniform':
-            weights = torch.Tensor(data.shape[0])
-            weights.fill_(getattr(self._configs.postprocessing.bbox3d_estimation.weights, key, 0))
-        else:
-            weights = (-outputs[key][1][frame_index]).exp().detach()
-            if self._configs.training.weighting_mode == 'sample_wise':
-                weights = weights.permute(1, 2, 0).reshape(-1, weights.shape[0]).float()
+        weighting_mode = self._configs.training.weighting_mode
+        if key == "cls" or weighting_mode == 'uniform':
+            weight = getattr(self._configs.postprocessing.bbox3d_estimation.weights, key, 0)
+            weights = torch.full(size=data.shape, fill_value=weight)
+        elif weighting_mode == "layer_wise":
+            weights = (-outputs[key][1].detach()).exp().expand(data.shape)
+        elif weighting_mode == 'sample_wise':
+            weights = (-outputs[key][1][frame_index].detach()).exp()
+            weights = weights.permute(1, 2, 0).reshape(-1, weights.shape[0]).float()
         return data, weights
 
     def detect_class(self, frame_outputs, class_index):
