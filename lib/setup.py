@@ -26,6 +26,7 @@ def parse_arguments():
     parser.add_argument('--experiment-name', default='3dod_demo',
                         help='name of the execution, will be '
                              'the name of the experiment\'s directory')
+    parser.add_argument('--train-seqs', default=None, type=str)
 
 
     args = parser.parse_args()

@@ -122,6 +122,8 @@ def main(setup):
 
     configs = get_configs(args.config_name)
     configs += vars(args)
+    if args.train_seqs is not None:
+        configs['data']['sequences']['train'] = args.train_seqs.split(',')
     trainer = Trainer(configs)
     trainer.train()
 

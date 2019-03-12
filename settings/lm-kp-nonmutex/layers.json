@@ -1,6 +1,6 @@
 {
     "clsnonmutex": {
-        "n_layers": 160,
+        "n_layers": 20,
         "loss": "BCE",
         "loss_weight": 1.0
     },

@@ -1,0 +1,27 @@
+# exit when any command fails
+set -e
+
+SUFFIX=$(openssl rand -hex 4)
+WS=/tmp/3dod-ws-$SUFFIX
+rm -rf $WS
+cp -r /home/lucas/research/3dod $WS
+OBJECTS=(ape can cat duck driller eggbox glue holepuncher)
+
+for OBJ in ${OBJECTS[@]}; do
+    echo "Removing experiment /hdd/lucas/out/3dod-experiments/nightly-$OBJ"
+    rm -rf /hdd/lucas/out/3dod-experiments/nightly-$OBJ
+done
+
+for OBJ in ${OBJECTS[@]}; do
+    ndocker \
+        -e PYTHONPATH=/workspace/3dod \
+        -w /workspace/3dod \
+        -v $WS:/workspace/3dod \
+        -v /hdd/lucas/out/3dod-experiments:/workspace/3dod/experiments \
+        -v /home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists:/datasets/occluded-linemod-augmented 3dod python train.py \
+        --overwrite-experiment \
+        --config-name lm-kp-nonmutex \
+        --experiment-name nightly-$OBJ \
+        --train-seqs train_unoccl/$OBJ
+done
+rm -rf $WS

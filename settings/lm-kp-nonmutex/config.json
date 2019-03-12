@@ -32,8 +32,17 @@
         "dataformat": "sixd_kp_instances",
         "path": "/datasets/occluded-linemod-augmented",
         "sequences": {
-            "train": [
-                "train_unoccl/ape",
+            "train1a": [
+                "train_unoccl/can"
+            ],
+            "train1b": [
+                "train_unoccl/duck"
+            ],
+            "train1c": [
+                "train_unoccl/glue",
+                "train_synthetic/seq"
+            ],
+            "train2": [
                 "train_unoccl/can",
                 "train_unoccl/cat",
                 "train_unoccl/driller",
@@ -42,7 +51,10 @@
                 "train_unoccl/glue",
                 "train_unoccl/holepuncher"
             ],
-            "train2": [
+            "train3": [
+                "train_occl/ape"
+            ],
+            "train4": [
                 "train_aug/ape",
                 "train_aug/can",
                 "train_aug/cat",
