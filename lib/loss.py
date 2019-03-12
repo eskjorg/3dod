@@ -19,9 +19,20 @@ class LossHandler:
         self._layers = get_layers(self._configs.config_name)
         self._losses = defaultdict(list)
 
-        self._ce_loss = nn.CrossEntropyLoss(ignore_index=IGNORE_IDX_CLS).to(get_device())
-        self._bce_loss = self._get_bce_loss()
-        self._l1_loss = nn.L1Loss(reduction='none').to(get_device())
+        self._loss_function_dict = self._get_loss_functions(self._layers)
+
+    def _get_loss_functions(self, layers):
+        loss_function_dict = {}
+        for layer_name, layer_spec in self._layers.items():
+            if layer_spec['loss'] == 'CE':
+                loss_function_dict[layer_name] = nn.CrossEntropyLoss(ignore_index=IGNORE_IDX_CLS).to(get_device())
+            elif layer_spec['loss'] == 'BCE':
+                loss_function_dict[layer_name] = self._get_bce_loss()
+            elif layer_spec['loss'] == 'L1':
+                loss_function_dict[layer_name] = nn.L1Loss(reduction='none').to(get_device())
+            else:
+                raise NotImplementedError("{} loss not implemented.".format(layer_spec['loss']))
+        return loss_function_dict
 
     def _get_bce_loss(self):
         bce_layers = [layer_name for layer_name, layer in self._layers.items() if layer['loss'] == 'BCE']
@@ -52,11 +63,11 @@ class LossHandler:
             tensor, ln_var = layer_outputs
             if self._layers[layer_name]['loss'] == 'CE':
                 assert lossweight_map is None
-                task_loss = self._ce_loss(tensor, gt_map[:, 0])
+                task_loss = self._loss_function_dict[layer_name](tensor, gt_map[:, 0])
             elif self._layers[layer_name]['loss'] == 'BCE':
                 assert layer_name == 'clsnonmutex'
                 assert lossweight_map is None
-                task_loss = self._bce_loss(tensor, gt_map)
+                task_loss = self._loss_function_dict[layer_name](tensor, gt_map)
                 mask_loss_applied = gt_map.ne(IGNORE_IDX_CLSNONMUTEX)
                 # mask_loss_applied = torch.abs(gt_map - IGNORE_IDX_CLSNONMUTEX) > 1e-6
                 task_loss = task_loss * mask_loss_applied.float()
@@ -86,7 +97,7 @@ class LossHandler:
 
                     # If norm < eps, projection is avoided, since direction is undefined.
                     # Instead, average ln_var is applied in both x & y direction.
-                    task_loss_perm[:,no_dir] = self._l1_loss(pred_perm[:,no_dir], gt_perm[:,no_dir])
+                    task_loss_perm[:,no_dir] = self._loss_function_dict[layer_name](pred_perm[:,no_dir], gt_perm[:,no_dir])
                     avg_ln_var = ln_var_perm[:,no_dir].mean(dim=0)
                     task_loss_perm[:,no_dir] = task_loss_perm[:,no_dir] * exp(-avg_ln_var) + avg_ln_var
 
@@ -99,14 +110,14 @@ class LossHandler:
                     pred2 = torch.sum(pred_perm[:,has_dir]*axis2, dim=0)
                     gt1 = torch.sum(gt_perm[:,has_dir]*axis1, dim=0)
                     gt2 = torch.sum(gt_perm[:,has_dir]*axis2, dim=0)
-                    task_loss_perm[0,has_dir] = self._l1_loss(pred1, gt1) * exp(-ln_var_perm[0,has_dir]) + ln_var_perm[0,has_dir]
-                    task_loss_perm[1,has_dir] = self._l1_loss(pred2, gt2) * exp(-ln_var_perm[1,has_dir]) + ln_var_perm[1,has_dir]
+                    task_loss_perm[0,has_dir] = self._loss_function_dict[layer_name](pred1, gt1) * exp(-ln_var_perm[0,has_dir]) + ln_var_perm[0,has_dir]
+                    task_loss_perm[1,has_dir] = self._loss_function_dict[layer_name](pred2, gt2) * exp(-ln_var_perm[1,has_dir]) + ln_var_perm[1,has_dir]
 
                     # Permute back
                     task_loss = task_loss_perm.permute(1,0,2,3)
 
                 else:
-                    task_loss = self._l1_loss(tensor, gt_map)
+                    task_loss = self._loss_function_dict[layer_name](tensor, gt_map)
                     task_loss = task_loss * exp(-ln_var) + ln_var
 
                 task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
