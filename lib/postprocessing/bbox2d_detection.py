@@ -60,6 +60,8 @@ class Runner(RunnerIf):
                        for key, mask in frame_outputs.items()}
         result_dict['confidence'] = result_dict['cls'][:, class_index]
         result_dict['cls'] = [self._class_map.label_from_id(class_index)] * len(indices)
+        if 'zdepth' in result_dict:
+            result_dict['zdepth'] = result_dict['zdepth'].squeeze(axis=1)
         if 'corners' in result_dict:
             result_dict['corners'] = result_dict['corners'].reshape(-1, 2, 8, order='F')
         if 'keypoints' in result_dict:
