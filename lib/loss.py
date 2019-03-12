@@ -30,12 +30,17 @@ class LossHandler:
             return None
         assert IGNORE_IDX_CLS == 1
         assert len(bce_layers) == 1 and bce_layers[0] == 'clsnonmutex'
-        nbr_classes = len(self._class_map.get_ids())
-        # weight = torch.ones((nbr_classes,))
-        img_height, img_width = self._configs.data.img_dims
-        IMBALANCE = img_height*img_width/float(PATCH_SIZE**2) # Background is more common
-        # IMBALANCE = 10000.0 # Background is more common
-        pos_weight = IMBALANCE * torch.ones((nbr_classes, *self._configs.target_dims))
+
+        if self._layers['clsnonmutex']['ignore_bg']:
+            # No considerable class imbalance if background is ignored
+            pos_weight = None
+        else:
+            nbr_classes = len(self._class_map.get_ids())
+            # weight = torch.ones((nbr_classes,))
+            img_height, img_width = self._configs.data.img_dims
+            IMBALANCE = img_height*img_width/float(PATCH_SIZE**2) # Background is more common
+            # IMBALANCE = 10000.0 # Background is more common
+            pos_weight = IMBALANCE * torch.ones((nbr_classes, *self._configs.target_dims))
         return nn.BCEWithLogitsLoss(
             # weight = weight,
             pos_weight = pos_weight,

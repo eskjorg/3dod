@@ -27,7 +27,7 @@ class GtMapsGenerator:
                 assert layer_name != "cls"
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
             generator = Generator(self._configs, self._metadata, self._class_map, calib=calibration, fill_values=fill_values)
-            if seg is not None and len(unannotated_class_ids) > 0:
+            if layer_name == 'clsnonmutex' and not self._layers['clsnonmutex']['ignore_bg'] and len(unannotated_class_ids) > 0:
                 # fullres binary mask
                 fg_mask_fullres = (seg > 0).unsqueeze(0)
                 downsampled = torch.nn.functional.avg_pool2d(
@@ -39,6 +39,20 @@ class GtMapsGenerator:
                 fg_mask = downsampled > 0.7
                 # Initialize all channels with background wherever there is actually an object annotated:
                 generator._map[fg_mask.repeat(len(self._class_map.get_ids()), 1, 1)] = 0
+            elif layer_name == 'clsnonmutex' and self._layers['clsnonmutex']['ignore_bg']:
+                for group_id in self._class_map.get_group_ids():
+                    # fullres binary mask
+                    fg_mask_fullres = (seg == group_id+1).unsqueeze(0)
+                    downsampled = torch.nn.functional.avg_pool2d(
+                        fg_mask_fullres.type(torch.float32),
+                        self._configs.network.output_stride,
+                        stride=self._configs.network.output_stride,
+                    )
+                    # lowres mask, requiring 70% foreground pixels
+                    fg_mask = downsampled > 0.7
+                    # Initialize all keypoints with background wherever their corresponding object is annotated:
+                    class_ids = np.array([self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)])
+                    generator._map[class_ids-2][fg_mask.repeat(NBR_KEYPOINTS, 1, 1)] = 0
             for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
                 if cls_id_filter is not None and obj.cls not in cls_id_filter:
                     # Discard instance if head is dedicated only to other class labels
@@ -58,17 +72,19 @@ class GtMapsGenerator:
                 # Separate GT map for every class
                 for cls_id in self._class_map.get_ids():
                     class_label = self._class_map.label_from_id(cls_id)
-                    gt_maps['{}_{}'.format(layer_name, class_label)] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=[cls_id], seg=None)
+                    gt_maps['{}_{}'.format(layer_name, class_label)] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=[cls_id], seg=seg)
             else:
                 # Single GT map - shared among all classes
                 fill_values = None
-                if layer_name == 'clsnonmutex' and len(unannotated_class_ids) > 0:
+                if layer_name == 'clsnonmutex' and self._layers['clsnonmutex']['ignore_bg']:
+                    fill_values = IGNORE_IDX_CLSNONMUTEX
+                elif layer_name == 'clsnonmutex' and len(unannotated_class_ids) > 0:
                     # print("fill: {}".format(IGNORE_IDX_CLSNONMUTEX))
                     # Avoid using background as negative example - it may hold unannotated objects
                     fill_values = [None] * len(self._class_map.get_ids())
                     for class_id in unannotated_class_ids:
                         fill_values[class_id - 2] = IGNORE_IDX_CLSNONMUTEX
-                gt_maps[layer_name] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None, fill_values=fill_values, seg=seg if layer_name == 'clsnonmutex' else None)
+                gt_maps[layer_name] = generate_map_for_head(layer_name, obj_coords_full, obj_coords_supp, cls_id_filter=None, fill_values=fill_values, seg=seg)
         return gt_maps
 
     def _get_coordinates(self, objects, shrink_factor=1):
@@ -98,9 +114,11 @@ class GeneratorIf(metaclass=ABCMeta):
         self._map = torch.empty(self._get_num_maps(), *configs.target_dims)
         if fill_values is None:
             self._map.fill_(self.fill_value)
-        else:
+        elif hasattr(fill_values, '__iter__'):
             fill_values = [self.fill_value if val is None else val for val in fill_values]
             self._map[:,:,:] = torch.tensor(fill_values).reshape((-1,1,1))
+        else:
+            self._map.fill_(fill_values)
 
     def _downsample_keypoint_detectability(self, keypoint_detectability):
         # Easily decimated to output resolution

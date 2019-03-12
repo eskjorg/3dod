@@ -2,7 +2,8 @@
     "clsnonmutex": {
         "n_layers": 20,
         "loss": "BCE",
-        "loss_weight": 1.0
+        "loss_weight": 1.0,
+        "ignore_bg": false
     },
     "keypoint": {
         "n_layers": 2,
