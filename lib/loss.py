@@ -25,7 +25,7 @@ class LossHandler:
         loss_function_dict = {}
         for layer_name, layer_spec in self._layers.items():
             if layer_spec['loss'] == 'CE':
-                loss_function_dict[layer_name] = nn.CrossEntropyLoss(ignore_index=IGNORE_IDX_CLS).to(get_device())
+                loss_function_dict[layer_name] = self._get_ce_loss(layer_name)
             elif layer_spec['loss'] == 'BCE':
                 loss_function_dict[layer_name] = self._get_bce_loss(layer_name)
             elif layer_spec['loss'] == 'L1':
@@ -33,6 +33,17 @@ class LossHandler:
             else:
                 raise NotImplementedError("{} loss not implemented.".format(layer_spec['loss']))
         return loss_function_dict
+
+    def _get_ce_loss(self, layer_name):
+        if layer_name == 'clsgroup':
+            group_ids = self._class_map.get_group_ids()
+            weight = torch.zeros((len(group_ids)+2,))
+            weight[0] = 1.0
+            weight[group_ids] = self._layers[layer_name]['fg_upweight_factor']
+            weight /= torch.sum(weight[[0]+group_ids])
+        else:
+            weight = None
+        return nn.CrossEntropyLoss(weight=weight, ignore_index=IGNORE_IDX_CLS).to(get_device())
 
     def _get_bce_loss(self, layer_name):
         assert IGNORE_IDX_CLS == 1

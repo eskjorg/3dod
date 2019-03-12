@@ -42,7 +42,7 @@ class GtMapsGenerator:
             elif layer_name == 'clsnonmutex' and self._layers['clsnonmutex']['ignore_bg']:
                 for group_id in self._class_map.get_group_ids():
                     # fullres binary mask
-                    fg_mask_fullres = (seg == group_id+1).unsqueeze(0)
+                    fg_mask_fullres = (seg == group_id).unsqueeze(0)
                     downsampled = torch.nn.functional.avg_pool2d(
                         fg_mask_fullres.type(torch.float32),
                         self._configs.network.output_stride,
@@ -53,15 +53,25 @@ class GtMapsGenerator:
                     # Initialize all keypoints with background wherever their corresponding object is annotated:
                     class_ids = np.array([self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)])
                     generator._map[class_ids-2][fg_mask.repeat(NBR_KEYPOINTS, 1, 1)] = 0
-            for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
-                if cls_id_filter is not None and obj.cls not in cls_id_filter:
-                    # Discard instance if head is dedicated only to other class labels
-                    continue
+            if layer_name == 'clsgroup':
+                def decimate_centered(tensor, ds_factor):
+                    assert len(tensor.shape) == 2
+                    assert tensor.shape[0] % ds_factor == 0
+                    assert tensor.shape[1] % ds_factor == 0
+                    # If ds_factor is odd: selects points in center of new "pixels".
+                    # If ds_factor is even: round up location from center.
+                    return tensor[ds_factor//2::ds_factor, ds_factor//2::ds_factor]
+                generator._map[0,:,:] = decimate_centered(seg, self._configs.network.output_stride)
+            else:
+                for obj, supp, full in zip(annotations, obj_coords_supp, obj_coords_full):
+                    if cls_id_filter is not None and obj.cls not in cls_id_filter:
+                        # Discard instance if head is dedicated only to other class labels
+                        continue
 
-                if layer_name == "cls":
-                    generator.add_obj(obj, full, IGNORE_IDX_CLS)
-                if obj.cls is not IGNORE_IDX_CLS:
-                    generator.add_obj(obj, supp)
+                    if layer_name == "cls":
+                        generator.add_obj(obj, full, IGNORE_IDX_CLS)
+                    if obj.cls is not IGNORE_IDX_CLS:
+                        generator.add_obj(obj, supp)
             return generator.get_map()
 
         gt_maps = {}
@@ -214,8 +224,20 @@ class ClsnonmutexGenerator(GeneratorIf):
         else:
             self._map[obj_annotation.cls-2, ymin: ymax, xmin: xmax] = 1.0
 
+class ClsgroupGenerator(GeneratorIf):
+    """GT map class generator."""
+    @property
+    def fill_value(self):
+        return 0  # Background class
+
+    def _get_num_maps(self):
+        return 1
+
+    def add_obj(self, *args, **kwargs):
+        raise NotImplementedError()
+
     def get_map(self):
-        return self._map
+        return self._map.long()
 
 
 class Bbox2dGenerator(GeneratorIndex):

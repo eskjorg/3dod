@@ -100,6 +100,10 @@ class Visualizer:
         kp_ln_b_maps_dict = {task_name: tensor2numpy(task_output[1], sample, upsample_and_permute=False) for task_name, task_output in cnn_outs.items() if task_name.startswith('keypoint')}
         visibility_maps_lowres = sigmoid(tensor2numpy(cnn_outs['clsnonmutex'][0], sample))
         visibility_maps_highres = sigmoid(tensor2numpy(cnn_outs['clsnonmutex'][0], sample, upsample_and_permute=True))
+        group_logit_maps_lowres = sigmoid(tensor2numpy(cnn_outs['clsgroup'][0], sample))
+        group_logit_maps_highres = sigmoid(tensor2numpy(cnn_outs['clsgroup'][0], sample, upsample_and_permute=True))
+        seg_map_lowres = group_logit_maps_lowres.argmax(0)
+        seg_map_highres = group_logit_maps_highres.argmax(0)
 
         if mode in (TRAIN, VAL):
             # And corresponding ground truth
@@ -205,6 +209,15 @@ class Visualizer:
         figwidth = 15
         figheight = figheight_fullres * (figwidth / figwidth_fullres)
 
+
+        # Suppress visibility maps outside of segmentation
+        for group_id in self._class_map.get_group_ids():
+            class_ids = np.array([self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)])
+            for kp_idx in range(NBR_KEYPOINTS):
+                class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
+                visibility_maps_lowres[class_id-2,:,:][seg_map_lowres != group_id] = 0.0
+                visibility_maps_highres[class_id-2,:,:][seg_map_highres != group_id] = 0.0
+
         for group_id in self._class_map.get_group_ids():
             class_ids = [self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)]
             group_label = self._class_map.group_label_from_group_id(group_id)
@@ -229,11 +242,28 @@ class Visualizer:
                     '12': 'holepuncher',
                 }
                 return lookup[label]
+
             bbox2d = expand_bbox(anno_group_lookup[group_id].bbox2d, 3.0) if group_id in anno_group_lookup else None
+
+            # Regular size image + pose
             plot_img(axes_array[0,0], img, 'Pose')
             plot_poses(axes_array[0,0], [group_id], annotations, detections)
+
+            # Close-up image + pose
             plot_img(axes_array[0,1], img, 'Pose close-up', bbox2d=bbox2d)
             plot_poses(axes_array[0,1], [group_id], annotations, detections)
+
+            # Segmentation
+            heatmap_color = np.array([1.0, 0.0, 1.0])
+            heatmap = blend_rgb(img, get_uniform_color(heatmap_color), seg_map_highres == group_id)
+            plot_img(axes_array[0,2], heatmap, 'Segmentation output')
+
+            # BG-Segmentation
+            heatmap_color = np.array([1.0, 0.0, 1.0])
+            heatmap = blend_rgb(img, get_uniform_color(heatmap_color), seg_map_highres == 0)
+            plot_img(axes_array[0,3], heatmap, 'BG Segmentation output')
+
+
             for kp_idx in range(NBR_KEYPOINTS):
                 class_id = class_ids[kp_idx]
                 kp_color = np.array(pyplot.cm.tab20.colors[kp_idx])

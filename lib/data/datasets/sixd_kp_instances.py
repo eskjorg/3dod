@@ -164,7 +164,7 @@ class SixdDataset(Dataset):
             if group_label not in self._class_map._group_label2group_id_dict.keys():
                 continue
             group_id = self._class_map.group_id_from_group_label(group_label)
-            seg[instance_seg == instance_idx] = group_id+1
+            seg[instance_seg == instance_idx] = group_id
         return seg
 
     def _read_annotations(self, dir_path, img_ind, calib, instance_seg, vtx_idx_map):
@@ -281,7 +281,8 @@ class ClassMap:
         # group_labels_str = ['09'] # duck
         # group_labels_str = ['01', '05', '06', '09'] # ape, can, cat, duck
 
-        group_ids = list(range(0, len(group_labels_str)))
+        # In network, 0 and 1 are reserved for background and don't_care
+        group_ids = list(range(2, len(group_labels_str)+2))
         self._group_label2group_id_dict = dict(list(zip(group_labels_str, group_ids)))
         self._group_id2group_label_dict = dict(list(zip(group_ids, group_labels_str)))
 
