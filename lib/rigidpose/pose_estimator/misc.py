@@ -2,16 +2,12 @@ import os
 import json
 import math
 import numpy as np
-from pose_estimator.gencode import *
+from lib.rigidpose.pose_estimator.gencode import *
 
-def normalize(u_unnorm):
-    # TODO: Pass camera calibration as argument
-    K = get_camera_calibration_matrix()
+def normalize(u_unnorm, K):
     return np.dot(np.linalg.inv(K), u_unnorm)
 
-def denormalize(u_norm):
-    # TODO: Pass camera calibration as argument
-    K = get_camera_calibration_matrix()
+def denormalize(u_norm, K):
     return np.dot(K, u_norm)
 
 def pflat(x):

@@ -7,10 +7,9 @@ from PIL import Image
 
 import time
 
-from utils import write_pose
-from pose_estimator.visionary_resection import resec3pts
-from pose_estimator.gencode import *
-from pose_estimator.misc import *
+from lib.rigidpose.pose_estimator.visionary_resection import resec3pts
+from lib.rigidpose.pose_estimator.gencode import *
+from lib.rigidpose.pose_estimator.misc import *
 
 clock_flag = False
 
@@ -18,6 +17,7 @@ class PoseEstimator():
     def __init__(
             self,
             configs,
+            K, # Calibration
             U0, # 3D correspondence points
             u_unnorm, # 2D correspondence pixels
             Uanno0, # Mesh vertices
@@ -51,9 +51,11 @@ class PoseEstimator():
 
         self.verbose = verbose
 
+        self.K = K
+
         self.U0 = pextend(U0)
         self.u_unnorm = u_unnorm
-        self.um = normalize(pextend(u_unnorm))[0:2,:]
+        self.um = normalize(pextend(u_unnorm), K)[0:2,:]
         self.w = w
 
         self.alpha_rho = alpha_rho
@@ -122,7 +124,7 @@ class PoseEstimator():
         if clock_flag:
             print("{:>15} time: {}".format("derivatives", time.time()-t0))
 
-        # TODO: Pass camera calibration as argument
+        # TODO: Use self.K camera calibration:
         mean_pixel_reproj_err = 0.5*(meta['camera_calibration']['f_x']+meta['camera_calibration']['f_y']) * np.mean(np.sqrt(np.sum(np.reshape(resanno, (2,-1), order='F')**2, axis=0)))
 
         # Gradient step should be independent of number of mesh vertices
@@ -132,7 +134,7 @@ class PoseEstimator():
 
         return self.dloss_dU, self.dloss_dw, self.loss, mean_pixel_reproj_err
 
-    def plot(self, prefix=''):
+    def plot(self, K, prefix=''):
         from matplotlib import pyplot as plt
         def scatter(u, fname):
             plt.figure()
@@ -143,21 +145,18 @@ class PoseEstimator():
         outdir = '../evaluation/out/tmp'
         os.makedirs(outdir, exist_ok=True)
 
-        write_pose(os.path.join(outdir, '{}_Panno.txt'.format(prefix)), self.Panno[:,0:3], self.Panno[:,3,np.newaxis])
-        write_pose(os.path.join(outdir, '{}_P_pred.txt'.format(prefix)), self.P_pred[:,0:3], self.P_pred[:,3,np.newaxis])
+        # write_pose(os.path.join(outdir, '{}_Panno.txt'.format(prefix)), self.Panno[:,0:3], self.Panno[:,3,np.newaxis])
+        # write_pose(os.path.join(outdir, '{}_P_pred.txt'.format(prefix)), self.P_pred[:,0:3], self.P_pred[:,3,np.newaxis])
 
         scatter(self.u_unnorm, '{}_2d.png'.format(prefix))
-        scatter(denormalize(pflat(np.dot(self.Panno, self.U0)))[0:2,:], '{}_reproj_obs_anno.png'.format(prefix))
-        scatter(denormalize(pflat(np.dot(self.P_pred, self.U0)))[0:2,:], '{}_reproj_obs_pred.png'.format(prefix))
-        scatter(denormalize(pflat(np.dot(self.Panno, self.Uanno0)))[0:2,:], '{}_reproj_mesh_anno.png'.format(prefix))
-        scatter(denormalize(pflat(np.dot(self.P_pred, self.Uanno0)))[0:2,:], '{}_reproj_mesh_pred.png'.format(prefix))
+        scatter(denormalize(pflat(np.dot(self.Panno, self.U0)), K)[0:2,:], '{}_reproj_obs_anno.png'.format(prefix))
+        scatter(denormalize(pflat(np.dot(self.P_pred, self.U0)), K)[0:2,:], '{}_reproj_obs_pred.png'.format(prefix))
+        scatter(denormalize(pflat(np.dot(self.Panno, self.Uanno0)), K)[0:2,:], '{}_reproj_mesh_anno.png'.format(prefix))
+        scatter(denormalize(pflat(np.dot(self.P_pred, self.Uanno0)), K)[0:2,:], '{}_reproj_mesh_pred.png'.format(prefix))
         # assert False
 
-def draw_3d_bounding_box(out_path, img, poses_gt, poses_est, correct_flags, fig_transform=None):
+def draw_3d_bounding_box(out_path, img, K, poses_gt, poses_est, correct_flags, fig_transform=None):
     assert set(poses_est.keys()) == set(correct_flags.keys())
-
-    # TODO: Pass camera calibration as argument
-    K = get_camera_calibration_matrix()
 
     # Save to file instead of interactive plotting
     # plt.ioff() # Not needed if using Agg backend (set above), since that does not support interactive pltting anyway
@@ -226,21 +225,25 @@ def draw_3d_bounding_box(out_path, img, poses_gt, poses_est, correct_flags, fig_
 class RANSACException(Exception):
     pass
 
-def ransac(U0, um, nransac, ransacthr, verbose=0):
+def ransac(U0, um, nransac, ransacthr, confidence_vals=None, verbose=0):
     nbest = 0
     ntotal = um.shape[1]
+    if confidence_vals is None:
+        # Uniform
+        confidence_vals = np.ones((ntotal,)) / ntotal
     for i in range(nransac):
-        ind = np.random.permutation(ntotal)
-        ind = ind[0:3]
+        ind = np.random.choice(ntotal, 3, p=confidence_vals)
 
         cameras = resec3pts(pextend(um[:,ind]), U0[:,ind], coord_change=True)
         for P in cameras:
             u = pflat(np.dot(P, U0))
-            res = np.sum((u[0:2,:] - um)**2, axis=0)
-            ninliers = np.sum(res < ransacthr**2)
-            if ninliers > nbest:
+            res_norm = np.norm(u[0:2,:] - um, axis=0)
+            inlier_scores = res_norm < ransacthr
+            # inlier_score = np.sum(inlier_scores)
+            inlier_score = np.sum(confidence_vals * inlier_scores)
+            if inlier_score > nbest:
                 Pransac = P
-                nbest = ninliers
+                nbest = inlier_score
 
     if not nbest > 0:
         raise RANSACException()
