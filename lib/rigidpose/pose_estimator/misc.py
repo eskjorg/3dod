@@ -4,42 +4,15 @@ import math
 import numpy as np
 from pose_estimator.gencode import *
 
-with open(os.path.join('..', 'local_conf.json'), 'r') as f:
-    local_conf = json.load(f)
-with open(os.path.join('..', 'meta.json'), 'r') as f:
-    meta = json.load(f)
-
-def get_camera_calibration_matrix():
-    K = np.array([
-        [meta['camera_calibration']['f_x'], 0.0                              , meta['camera_calibration']['p_x']],
-        [                              0.0, meta['camera_calibration']['f_y'], meta['camera_calibration']['p_y']],
-        [                              0.0,                               0.0,                               1.0],
-    ])
-    return K
-
 def normalize(u_unnorm):
+    # TODO: Pass camera calibration as argument
     K = get_camera_calibration_matrix()
     return np.dot(np.linalg.inv(K), u_unnorm)
 
 def denormalize(u_norm):
+    # TODO: Pass camera calibration as argument
     K = get_camera_calibration_matrix()
     return np.dot(K, u_norm)
-
-def xyz_read(filename):
-    with open(filename) as f:
-        xyz_rows = np.array([[float(token) for token in row.strip().split()] for row in f])
-    assert len(xyz_rows.shape) == 2
-    assert xyz_rows.shape[1] == 3
-    xyz_cols = xyz_rows.T
-    return xyz_cols
-
-def get_mesh_dict():
-    meshes = {};
-    for obj in meta['objects']:
-        if meta['objects'][obj]['mesh_id'] is not None:
-            # Mesh exists for object
-            meshes[obj] = xyz_read(os.path.join(local_conf['xyz_models_path'], '{:03}.xyz'.format(meta['objects'][obj]['mesh_id'])))
-    return meshes
 
 def pflat(x):
     a, n = x.shape

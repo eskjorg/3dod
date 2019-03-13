@@ -12,19 +12,15 @@ from pose_estimator.visionary_resection import resec3pts
 from pose_estimator.gencode import *
 from pose_estimator.misc import *
 
-with open(os.path.join('..', 'meta.json'), 'r') as f:
-    meta = json.load(f)
-
-mesh_dict = get_mesh_dict()
-
 clock_flag = False
 
 class PoseEstimator():
     def __init__(
             self,
-            U0,
-            u_unnorm,
-            obj,
+            configs,
+            U0, # 3D correspondence points
+            u_unnorm, # 2D correspondence pixels
+            Uanno0, # Mesh vertices
             verbose=0,
             w=None,
             alpha_rho=-1.0,
@@ -34,6 +30,8 @@ class PoseEstimator():
             lambda0=1e5,
             max_refine_iters=200,
         ):
+        self._configs = configs
+
         assert len(u_unnorm.shape) == 2
         assert len(U0.shape) == 2
         assert u_unnorm.shape[0] == 2
@@ -56,7 +54,6 @@ class PoseEstimator():
         self.U0 = pextend(U0)
         self.u_unnorm = u_unnorm
         self.um = normalize(pextend(u_unnorm))[0:2,:]
-        self.obj = obj
         self.w = w
 
         self.alpha_rho = alpha_rho
@@ -67,7 +64,7 @@ class PoseEstimator():
         self.max_refine_iters = max_refine_iters
 
         # Mesh vertices
-        self.Uanno0 = pextend(mesh_dict[obj])
+        self.Uanno0 = pextend(Uanno0)
 
     def pose_forward(self):
         # INITIAL RANSAC ESTIMATE
@@ -125,6 +122,7 @@ class PoseEstimator():
         if clock_flag:
             print("{:>15} time: {}".format("derivatives", time.time()-t0))
 
+        # TODO: Pass camera calibration as argument
         mean_pixel_reproj_err = 0.5*(meta['camera_calibration']['f_x']+meta['camera_calibration']['f_y']) * np.mean(np.sqrt(np.sum(np.reshape(resanno, (2,-1), order='F')**2, axis=0)))
 
         # Gradient step should be independent of number of mesh vertices
@@ -145,25 +143,20 @@ class PoseEstimator():
         outdir = '../evaluation/out/tmp'
         os.makedirs(outdir, exist_ok=True)
 
-        write_pose(os.path.join(outdir, '{}{}_Panno.txt'.format(prefix, self.obj)), self.Panno[:,0:3], self.Panno[:,3,np.newaxis])
-        write_pose(os.path.join(outdir, '{}{}_P_pred.txt'.format(prefix, self.obj)), self.P_pred[:,0:3], self.P_pred[:,3,np.newaxis])
+        write_pose(os.path.join(outdir, '{}_Panno.txt'.format(prefix)), self.Panno[:,0:3], self.Panno[:,3,np.newaxis])
+        write_pose(os.path.join(outdir, '{}_P_pred.txt'.format(prefix)), self.P_pred[:,0:3], self.P_pred[:,3,np.newaxis])
 
-        # # Do correspondences map to each other?
-        # for idx in [0, self.ntotal//2, self.ntotal-1]:
-        #     scatter(self.u_unnorm[:,idx,np.newaxis], '{}_{}_2d.png'.format(self.obj, idx))
-        #     scatter(denormalize(pflat(np.dot(self.Panno, self.U0)))[0:2,idx,np.newaxis], '{}_{}_reproj.png'.format(self.obj, idx))
-
-        scatter(self.u_unnorm, '{}{}_2d.png'.format(prefix, self.obj))
-        # scatter(denormalize(pextend(self.um))[0:2, :], '{}{}_2d_denorm.png'.format(prefix, self.obj))
-        scatter(denormalize(pflat(np.dot(self.Panno, self.U0)))[0:2,:], '{}{}_reproj_obs_anno.png'.format(prefix, self.obj))
-        scatter(denormalize(pflat(np.dot(self.P_pred, self.U0)))[0:2,:], '{}{}_reproj_obs_pred.png'.format(prefix, self.obj))
-        scatter(denormalize(pflat(np.dot(self.Panno, self.Uanno0)))[0:2,:], '{}{}_reproj_mesh_anno.png'.format(prefix, self.obj))
-        scatter(denormalize(pflat(np.dot(self.P_pred, self.Uanno0)))[0:2,:], '{}{}_reproj_mesh_pred.png'.format(prefix, self.obj))
+        scatter(self.u_unnorm, '{}_2d.png'.format(prefix))
+        scatter(denormalize(pflat(np.dot(self.Panno, self.U0)))[0:2,:], '{}_reproj_obs_anno.png'.format(prefix))
+        scatter(denormalize(pflat(np.dot(self.P_pred, self.U0)))[0:2,:], '{}_reproj_obs_pred.png'.format(prefix))
+        scatter(denormalize(pflat(np.dot(self.Panno, self.Uanno0)))[0:2,:], '{}_reproj_mesh_anno.png'.format(prefix))
+        scatter(denormalize(pflat(np.dot(self.P_pred, self.Uanno0)))[0:2,:], '{}_reproj_mesh_pred.png'.format(prefix))
         # assert False
 
 def draw_3d_bounding_box(out_path, img, poses_gt, poses_est, correct_flags, fig_transform=None):
     assert set(poses_est.keys()) == set(correct_flags.keys())
 
+    # TODO: Pass camera calibration as argument
     K = get_camera_calibration_matrix()
 
     # Save to file instead of interactive plotting
@@ -185,6 +178,7 @@ def draw_3d_bounding_box(out_path, img, poses_gt, poses_est, correct_flags, fig_
     ax.autoscale(enable=False)
 
     for obj in set(poses_gt.keys()) | set(poses_est.keys()):
+        # TODO: pass bounding box as argument
         bounds = meta['objects'][obj]['bounds']
         corners = np.zeros((3, 8))
 
@@ -350,75 +344,3 @@ def compute_derivatives(Uanno, umanno, U, um, w, x, alpha_rho, c, verbose=0):
     dlossdU /= ntotal
     dlossdw /= ntotal
     return dlossdU, dlossdw
-
-# def estimate_pose_test_interface(u_unnorm, U, obj):
-#     assert len(u_unnorm.shape) == 2
-#     assert len(U.shape) == 2
-#     assert u_unnorm.shape[0] == 2
-#     assert U.shape[0] == 3
-#     assert u_unnorm.shape[1] == U.shape[1]
-#     mesh = mesh_dict[obj]
-#     first = False # Legacy
-#     prefix = "" # Legacy
-#     # NOTE: u_unnorm should be in order x, y already, due to pytorch convention.
-#     # TODO: Normalize u
-#     outdir = '/tmp/pose'
-#     if first and os.path.exists(outdir):
-#         print("Removing dir")
-#         for fname in os.listdir(outdir):
-#             os.remove(os.path.join(outdir, fname))
-#         first = False
-#     else:
-#         print("Not removing dir")
-#     os.makedirs(outdir, exist_ok=True)
-# 
-#     # plt.figure()
-#     # plt.imshow(img)
-#     # plt.savefig(os.path.join(outdir, '{}{}_img.jpg'.format(prefix, obj)))
-# 
-#     plt.figure()
-#     plt.scatter(u_unnorm[1,:], 480-u_unnorm[0,:])
-#     plt.xlim((0, 640))
-#     plt.ylim((0, 480))
-#     plt.savefig(os.path.join(outdir, '{}{}_2d.png'.format(prefix, obj)))
-# 
-#     plt.figure()
-#     plt.xlim((-0.13, 0.13))
-#     plt.ylim((-0.13, 0.13))
-#     plt.scatter(U[0,:], U[1,:])
-#     plt.savefig(os.path.join(outdir, '{}{}_z_3d.png'.format(prefix, obj)))
-# 
-#     plt.figure()
-#     plt.xlim((-0.13, 0.13))
-#     plt.ylim((-0.13, 0.13))
-#     plt.scatter(U[1,:], U[2,:])
-#     plt.savefig(os.path.join(outdir, '{}{}_x_3d.png'.format(prefix, obj)))
-# 
-#     plt.figure()
-#     plt.xlim((-0.13, 0.13))
-#     plt.ylim((-0.13, 0.13))
-#     plt.scatter(U[0,:], U[2,:])
-#     plt.savefig(os.path.join(outdir, '{}{}_y_3d.png'.format(prefix, obj)))
-# 
-#     plt.figure()
-#     plt.xlim((-0.13, 0.13))
-#     plt.ylim((-0.13, 0.13))
-#     plt.scatter(mesh[0,:], mesh[1,:])
-#     plt.savefig(os.path.join(outdir, '{}{}_z_mesh.png'.format(prefix, obj)))
-# 
-#     plt.figure()
-#     plt.xlim((-0.13, 0.13))
-#     plt.ylim((-0.13, 0.13))
-#     plt.scatter(mesh[1,:], mesh[2,:])
-#     plt.savefig(os.path.join(outdir, '{}{}_x_mesh.png'.format(prefix, obj)))
-# 
-#     plt.figure()
-#     plt.xlim((-0.13, 0.13))
-#     plt.ylim((-0.13, 0.13))
-#     plt.scatter(mesh[0,:], mesh[2,:])
-#     plt.savefig(os.path.join(outdir, '{}{}_y_mesh.png'.format(prefix, obj)))
-# 
-#     # Axes3D.scatter
-#     x_pred = None
-#     ddU = None
-#     return x_pred, ddU
