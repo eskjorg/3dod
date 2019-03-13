@@ -195,8 +195,8 @@ class Visualizer:
 
                     nbr_sampled = min(15, nbr_confident)
 
-                    # Sample based on estimated visibility
-                    p = visib_vec / np.sum(visib_vec)
+                    # # Sample based on estimated visibility
+                    # p = visib_vec / np.sum(visib_vec)
 
                     # Sample based on confidence
                     kp_avg_std_vec = 0.5*sum([kp_std1_vec, kp_std2_vec])

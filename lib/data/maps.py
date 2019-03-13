@@ -26,7 +26,7 @@ class GtMapsGenerator:
             if cls_id_filter is not None:
                 assert layer_name != "cls"
             Generator = getattr(sys.modules[__name__], layer_name.capitalize() + 'Generator')
-            generator = Generator(self._configs, self._metadata, self._class_map, calib=calibration, fill_values=fill_values)
+            generator = Generator(self._configs, self._metadata, self._class_map, calib=calibration, fill_values=fill_values, device='cpu')
             if layer_name == 'clsnonmutex' and not self._layers['clsnonmutex']['ignore_bg'] and len(unannotated_class_ids) > 0:
                 # fullres binary mask
                 fg_mask_fullres = (seg > 0).unsqueeze(0)
@@ -164,9 +164,13 @@ class GeneratorIndex(GeneratorIf):
     def _gen_index_map(self):
         img_height, img_width = self._configs.data.img_dims
         stride = self._configs.network.output_stride
-        map_height = ceil(img_height / stride)
-        map_width = ceil(img_width / stride)
+        assert img_height % stride == 0
+        assert img_width % stride == 0
+        map_height = img_height // stride
+        map_width = img_width // stride
         return torch.from_numpy(stride * np.indices((map_height, map_width), dtype=np.float32))
+        # alignment_compensation = self._configs.network.output_stride / 2 - 0.5
+        # return torch.from_numpy(stride * np.indices((map_height, map_width), dtype=np.float32)) + alignment_compensation
 
     def decode(self, tensor):
         tensor[0::2, :] += self._index_map[1]
