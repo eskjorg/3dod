@@ -33,7 +33,7 @@ class CheckpointHandler:
             file_name = 'best_model.pth.tar'
             torch.save(state_dict, os.path.join(self._checkpoint_dir, file_name))
         backup_epoch = self._configs.training.backup_nth_epoch
-        if backup_epoch != 0 and epoch % backup_epoch:
+        if backup_epoch != 0 and epoch % backup_epoch == 0:
             file_name = 'epoch{0:03d}.pth.tar'.format(epoch)
             torch.save(state_dict, os.path.join(self._checkpoint_dir, file_name))
         # Always save latest
