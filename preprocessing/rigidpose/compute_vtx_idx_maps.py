@@ -1,0 +1,121 @@
+import sys
+import os
+sys.path.append('../..')
+#sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__))))
+
+import shutil
+import yaml
+from lib.rigidpose.sixd_toolkit.pysixd import inout
+from lib.utils import listdir_nohidden
+from scipy.spatial.distance import cdist
+import numpy as np
+import png
+from PIL import Image
+
+SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists'
+
+
+# Load models
+models_info = inout.load_yaml(os.path.join(SIXD_PATH, 'models', 'models_info.yml'))
+models = {}
+for obj_id in models_info:
+    models[obj_id] = inout.load_ply(os.path.join(SIXD_PATH, 'models', 'obj_{:02}.ply'.format(obj_id)))
+    print("Obj {}: {} vertices, {} faces.".format(obj_id, len(models[obj_id]['pts']), len(models[obj_id]['faces'])))
+
+def find_nearest_neighbors(ref_points, point_cloud):
+    """
+    For each reference point, find its corresponding index in the point cloud.
+    """
+    distance_matrix = cdist(ref_points, point_cloud, metric='euclidean')
+    return np.argmin(distance_matrix, axis=1)
+
+def project_to_surface(self, obj_id):
+    distances = np.linalg.norm(self.models[obj_id]['pts'] - keypoint[np.newaxis,:], axis=1)
+    closest_vtx_idx = np.argmin(distances)
+    # Overwrite keypoints with closest vertices:
+    return self.models[obj_id]['pts'][closest_vtx_idx_list,:]
+
+def read_yaml(path):
+    with open(path, 'r') as f:
+        return yaml.load(f, Loader=yaml.CLoader)
+
+def read_png(filename, dtype=None, nbr_channels=3):
+    with open(filename, 'rb') as f:
+        data = png.Reader(f).read()[2]
+        if dtype is not None:
+            img = np.vstack(map(dtype, data))
+        else:
+            img = np.vstack(data)
+    shape = img.shape
+    assert shape[1] % nbr_channels == 0
+    img = np.reshape(img, (shape[0], shape[1]//nbr_channels, nbr_channels))
+    return img
+
+
+SUBSETS = [subset for subset in listdir_nohidden(SIXD_PATH) if subset.startswith('train') or subset.startswith('test')]
+
+for subset in SUBSETS:
+    if subset not in [
+        'train_synthetic',
+        #'train_unoccl',
+        #'train_occl',
+        #'test_occl',
+    ]:
+        continue
+    seqs = listdir_nohidden(os.path.join(SIXD_PATH, subset))
+    #if subset == 'train_unoccl':
+    #    seqs = ['driller']
+    #elif subset == 'train_occl':
+    #    seqs = ['ape']
+    #elif subset == 'test_occl':
+    #    seqs = ['benchviseblue']
+    for seq in seqs:
+        rgb_dir = os.path.join(SIXD_PATH, subset, seq, 'rgb')
+        instance_seg_dir = os.path.join(SIXD_PATH, subset, seq, 'instance_seg')
+        corr_dir = os.path.join(SIXD_PATH, subset, seq, 'obj')
+        #normals_dir = os.path.join(SIXD_PATH, subset, seq, 'normals')
+        vtx_idx_dir = os.path.join(SIXD_PATH, subset, seq, 'vtx_idx')
+
+        if os.path.exists(vtx_idx_dir):
+            shutil.rmtree(vtx_idx_dir)
+        os.makedirs(vtx_idx_dir)
+
+        gts = read_yaml(os.path.join(SIXD_PATH, subset, seq, 'gt.yml'))
+
+        fnames = list(sorted(listdir_nohidden(rgb_dir)))
+        for j, fname in enumerate(fnames):
+            img_idx = int(fname.split('.')[0])
+
+            if (j+1) % 10 == 0:
+                print("subset {}, seq {}, frame {}/{}".format(subset, seq, j+1, len(fnames)))
+
+            instance_seg_path = os.path.join(instance_seg_dir, fname)
+            corr_path = os.path.join(corr_dir, fname)
+            #normals_path = os.path.join(normals_dir, fname)
+            vtx_idx_path = os.path.join(vtx_idx_dir, fname)
+
+            # Read segmentation & correspondence map
+            corr_map = read_png(corr_path, dtype=np.int16, nbr_channels=3).astype('float64')
+            instance_seg = np.array(Image.open(instance_seg_path))
+
+            img_height, img_width = instance_seg.shape
+
+            # Vertex index map
+            vtx_idx_map = np.zeros((img_height, img_width), dtype='uint32')
+
+            instance_idx = 0
+            for gt in gts[img_idx]:
+                instance_idx += 1
+
+                mask = instance_seg == instance_idx
+                surface_pts = corr_map[mask,:]
+
+                obj_id = gt['obj_id']
+                nbr_kp = len(models_info[obj_id]['kp_x'])
+
+                # Lookup closest vertices to surface points
+                vtx_idx_map[mask] = find_nearest_neighbors(surface_pts, models[obj_id]['pts'])
+
+            #assert vtx_idx_map.max() < 2**16
+            #Image.fromarray(vtx_idx_map.astype(np.uint16)).save(vtx_idx_path)
+            Image.fromarray(vtx_idx_map.astype(np.uint32)).save(vtx_idx_path)
