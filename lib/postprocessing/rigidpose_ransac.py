@@ -248,18 +248,25 @@ class Runner(RunnerIf):
                 if nbr_confident == 0:
                     continue
 
-                visib_vec = visibility_map[mask_confident].flatten()
-                idx_x_vec = index_map[1,:,:][mask_confident].flatten()
-                idx_y_vec = index_map[0,:,:][mask_confident].flatten()
-                kp_x_vec = idx_x_vec + kp_maps_dict[key][0,:,:][mask_confident].flatten()
-                kp_y_vec = idx_y_vec + kp_maps_dict[key][1,:,:][mask_confident].flatten()
+                # visib_vec = visibility_map[mask_confident].flatten()
+                # idx_x_vec = index_map[1,:,:][mask_confident].flatten()
+                # idx_y_vec = index_map[0,:,:][mask_confident].flatten()
+                kp_x_vec = (index_map[1,:,:] + kp_maps_dict[key]) [0,:,:][mask_confident].flatten()
+                kp_y_vec = (index_map[0,:,:] + kp_maps_dict[key]) [1,:,:][mask_confident].flatten()
                 kp_x_ln_b_vec = kp_ln_b_maps_dict[key][0,:,:][mask_confident].flatten()
                 kp_y_ln_b_vec = kp_ln_b_maps_dict[key][1,:,:][mask_confident].flatten()
                 # Laplace distribution, going from log(b) to b, to sigma=sqrt(2)*b
-                kp_std1_vec = math.sqrt(2) * torch.exp(kp_x_ln_b_vec)
-                kp_std2_vec = math.sqrt(2) * torch.exp(kp_y_ln_b_vec)
+                # kp_std1_vec = math.sqrt(2) * torch.exp(kp_x_ln_b_vec)
+                # kp_std2_vec = math.sqrt(2) * torch.exp(kp_y_ln_b_vec)
 
-                # kp_avg_std_vec = 0.5*sum([kp_std1_vec, kp_std2_vec])
+                MAX_NBR_SAMPLES = 100
+                if nbr_confident > MAX_NBR_SAMPLES:
+                    _, top_confident = torch.topk(kp_x_ln_b_vec+kp_y_ln_b_vec, k=MAX_NBR_SAMPLES, largest=False, sorted=False)
+                    kp_x_vec = kp_x_vec[top_confident]
+                    kp_y_vec = kp_y_vec[top_confident]
+                    kp_x_ln_b_vec = kp_x_ln_b_vec[top_confident]
+                    kp_y_ln_b_vec = kp_y_ln_b_vec[top_confident]
+
                 # center_likelihood_vec = (0.5 / torch.exp(kp_x_ln_b_vec)) * (0.5 / torch.exp(kp_y_ln_b_vec))
 
                 # Could not happen, right..?
