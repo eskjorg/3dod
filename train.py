@@ -1,8 +1,6 @@
 """Main training script."""
 import torch
-
 from apex import amp
-amp_handle = amp.init()
 
 import lib.setup
 from lib.checkpoint import CheckpointHandler
@@ -26,9 +24,9 @@ class Trainer():
         self._result_saver = ResultSaver(configs)
         self._loss_handler = LossHandler(configs, self.__class__.__name__)
         self._checkpoint_handler = CheckpointHandler(configs)
-        self._model = self._checkpoint_handler.init(Model(configs))
-        self._optimizer = torch.optim.Adam(self._model.parameters(),
-                                           lr=configs.training.learning_rate)
+        model = self._checkpoint_handler.init(Model(configs))
+        optimizer = torch.optim.Adam(model.parameters(), lr=configs.training.learning_rate)
+        self._model, self._optimizer = amp.initialize(model, optimizer, opt_level="O1")
         self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
         self._post_proc = PostProc(configs)
         self._visualizer = Visualizer(configs)
@@ -49,7 +47,7 @@ class Trainer():
             loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)
             if mode == TRAIN:
                 self._optimizer.zero_grad()
-                with amp_handle.scale_loss(loss, self._optimizer) as scaled_loss:
+                with amp.scale_loss(loss, self._optimizer) as scaled_loss:
                     scaled_loss.backward()
                 self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
