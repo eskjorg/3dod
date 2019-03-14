@@ -111,9 +111,7 @@ def project_3d_pts(pts_3d_objframe, p_matrix, loc, rot_y=None, rot_matrix=None):
     return pts_2d[:2] / pts_2d[2]
 
 def construct_3d_box(size_hwl):
-    """
-    Returns 3D points of bounding box corners, given parameters.
-    """
+    """Return 3D points of bounding box corners, given parameters."""
     h2, w2, l2 = 0.5 * size_hwl
     # Using nuScenes ordering  # TLF  TRF  BRF  BLF  TLR  TRR  BRR  BLR
     pts_3d_objframe = np.array([[ l2,  l2,  l2,  l2, -l2, -l2, -l2, -l2],

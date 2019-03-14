@@ -2,7 +2,7 @@
 import os
 from collections import namedtuple
 import numpy as np
-import torch
+from torch import Tensor
 from torch.utils.data import Dataset, Subset
 
 from lib.constants import VELODYNE, LABEL_2, CALIB, IGNORE_IDX_CLS
@@ -81,8 +81,8 @@ class KittiObjectDataset(Dataset):
                 labels[1:] = map(float, labels[1:])
                 truncation = labels[1]
                 occlusion = labels[2]
-                size=torch.Tensor(labels[8:11])
-                location=torch.Tensor(labels[11:14])
+                size = Tensor(labels[8:11])
+                location = Tensor(labels[11:14])
                 location[1] -= size[0] / 2
                 rotation = labels[14]
                 if rotation == -10 or \
@@ -92,7 +92,7 @@ class KittiObjectDataset(Dataset):
                 annotations.append(Annotation(cls=self._class_map.id_from_label(object_class),
                                               truncation=truncation, occlusion=occlusion,
                                               alpha=labels[3],
-                                              bbox2d=torch.Tensor(labels[4:8]),
+                                              bbox2d=Tensor(labels[4:8]),
                                               size=size, location=location,
                                               rot_y=rotation))
         return annotations

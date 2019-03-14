@@ -10,7 +10,7 @@
     },
     "visualization": {
         "gt": ["bbox2d"],
-        "det": ["bbox2d", "corners", "zdepth"]
+        "det": ["bbox2d", "corners", "zdepth", "confidence"]
     },
     "postprocessing": {
         "methods": [
@@ -49,7 +49,7 @@
         },
         "val": {
             "batch_size": 32,
-            "shuffle": false,
+            "shuffle": true,
             "num_workers": 16
         },
         "test": {

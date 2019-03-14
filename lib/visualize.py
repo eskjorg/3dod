@@ -53,6 +53,16 @@ class Visualizer:
                 getattr(self, "_plot_" + feature)(axes, detection, calib=calib, annotation_flag=False, fill=False)
         self._writer.add_figure(mode, fig, index)
 
+    def _plot_confidence(self, axes, obj, **kwargs):
+        _, _, xmax, ymax = obj.bbox2d
+        axes.text(x=xmax, y=ymax,
+                  s='conf={0:.2f}'.format(obj.confidence),
+                  fontdict={'family': 'monospace',
+                            'color':  'white',
+                            'size': 'small'},
+                  bbox={'color': 'black', 'alpha': 0.5})
+
+
     def _plot_bbox2d(self, axes, obj, calib, annotation_flag, **kwargs):
         x1, y1, x2, y2 = obj.bbox2d
         color = self._class_map.get_color(obj.cls)
@@ -104,4 +114,4 @@ class Visualizer:
                   fontdict={'family': 'monospace',
                             'color':  'white',
                             'size': 'small'},
-                  bbox={'color': 'black'})
+                  bbox={'color': 'black', 'alpha': 0.5})
