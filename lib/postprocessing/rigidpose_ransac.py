@@ -14,6 +14,29 @@ from lib.postprocessing import RunnerIf
 from lib.rigidpose.pose_estimator import ransac, normalize, RANSACException, resec3pts, pflat, pextend
 import pyopengv
 
+def invert_eucl(eucl):
+    return np.concatenate([eucl[:,:3].T, -eucl[:,:3].T@eucl[:,[3]]], axis=1)
+
+def p3p_kneip(u, U):
+    viewing_rays = u / np.linalg.norm(u, axis=0)
+    cameras = pyopengv.absolute_pose_p3p_kneip(viewing_rays.T, U.T)
+    cameras = [invert_eucl(cam) for cam in cameras if np.all(np.isfinite(cam))]
+    return cameras
+
+def opengv_ransac(u, U):
+    viewing_rays = u / np.linalg.norm(u, axis=0)
+    method_name = 'KNEIP' # This is the default
+    # method_name = 'EPNP'
+    cam = pyopengv.absolute_pose_ransac(viewing_rays.T, U.T, method_name, 0.02, iterations=1000, probability=0.99)
+    cam = invert_eucl(cam)
+    return cam if np.all(np.isfinite(cam)) else None
+
+def epnp(u, U):
+    viewing_rays = u / np.linalg.norm(u, axis=0)
+    cam = pyopengv.absolute_pose_epnp(viewing_rays.T, U.T)
+    cam = invert_eucl(cam)
+    return cam if np.all(np.isfinite(cam)) else None
+
 class GroupedCorrespondenceSet():
     def __init__(self, K):
         self.K = K
@@ -80,7 +103,7 @@ def normalize_vec(vec):
     return vec / sum(vec)
 
 class RansacEstimator():
-    def __init__(self, corr_set, nransac=1000, ransacthr=0.02, confidence_based_sampling=True):
+    def __init__(self, corr_set, nransac=100, ransacthr=0.02, confidence_based_sampling=True):
         self.corr_set = corr_set
         self.corr_set.pack()
         self.nransac = nransac
@@ -91,9 +114,16 @@ class RansacEstimator():
         u_reproj = pflat(np.dot(P, self.corr_set.U))
         return np.linalg.norm(u_reproj[0:2,:] - self.corr_set.u[:2,:], axis=0)
 
-    # def _score_samples_likelihood(self, P):
-    #     u_reproj = pflat(np.dot(P, self.corr_set.U))
-    #     return np.linalg.norm(u_reproj[0:2,:] - self.corr_set.u, axis=0)
+    def evaluate_hypothesis(self, P):
+        # Reprojection error
+        scores = self._score_samples_reproj(P)
+        inlier_mask = scores < self.ransacthr
+        if self.confidence_based_sampling:
+            fraction_inliers = np.sum(self.corr_set.sample_confidences * inlier_mask) / np.sum(self.corr_set.sample_confidences)
+        else:
+            fraction_inliers = np.sum(inlier_mask) / self.corr_set.nbr_samples
+
+        return inlier_mask, fraction_inliers
 
     def _sample_minimal_set(self):
         if self.confidence_based_sampling:
@@ -106,30 +136,28 @@ class RansacEstimator():
     def estimate(self):
         if self.corr_set.nbr_groups < 4:
             raise RANSACException("Found correspondence for {} keypoints only.".format(self.corr_set.nbr_groups))
+
+        best_iteration = -1
+        inlier_mask = np.zeros((self.corr_set.nbr_samples,), dtype=bool)
         fraction_inliers = 0
         for i in range(self.nransac):
             ind = self._sample_minimal_set()
-            cameras = resec3pts(self.corr_set.u[:,ind], self.corr_set.U[:,ind], coord_change=True)
+            cameras = p3p_kneip(self.corr_set.u[:,ind], self.corr_set.U[:,ind])
+            # cameras = resec3pts(self.corr_set.u[:,ind], self.corr_set.U[:,ind], coord_change=True)
+
+            if i > best_iteration + 15 and best_iteration >= 0:
+                # Stop prematurely if further improvement seems unlikely
+                break
             for P in cameras:
-                # Reprojection error
-                scores = self._score_samples_reproj(P)
-                inlier_mask = scores < self.ransacthr
-                if self.confidence_based_sampling:
-                    curr_fraction_inliers = np.sum(self.corr_set.sample_confidences * inlier_mask) / np.sum(self.corr_set.sample_confidences)
-                else:
-                    curr_fraction_inliers = np.sum(inlier_mask) / self.corr_set.nbr_samples
-
-                # Likelihood
-                # scores = self._score_samples_likelihood(P)
-                # curr_fraction_inliers = np.sum(scores < self.ransacthr)
-
+                inlier_mask, curr_fraction_inliers = self.evaluate_hypothesis(P)
                 if curr_fraction_inliers > fraction_inliers:
                     Pransac = P
                     fraction_inliers = curr_fraction_inliers
+                    best_iteration = i
 
         if not fraction_inliers > 0:
             raise RANSACException("No inliers found")
-        return Pransac, fraction_inliers
+        return Pransac, inlier_mask, fraction_inliers, i
 
 class Runner(RunnerIf):
     def __init__(self, configs):
@@ -217,8 +245,8 @@ class Runner(RunnerIf):
                 confidence_based_sampling=True,
             )
             try:
-                ransac_pose, fraction_inliers = ransac_estimator.estimate()
-                print(fraction_inliers)
+                ransac_pose, inlier_set, fraction_inliers, niter = ransac_estimator.estimate()
+                print("Object {}: Inlier fraction: {:.4f}, Iterations: {}".format(group_label, fraction_inliers, niter))
             except RANSACException as e:
                 print("No solution found through RANSAC.")
                 print(e)
