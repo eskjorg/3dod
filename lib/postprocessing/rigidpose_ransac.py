@@ -116,18 +116,49 @@ class RansacEstimator():
         self.ransacthr = ransacthr
         self.confidence_based_sampling = confidence_based_sampling
 
-    def _score_samples_reproj(self, P):
+    def _reproj_residuals(self, P):
         u_reproj = pflat(np.dot(P, self.corr_set.U))
-        return np.linalg.norm(u_reproj[0:2,:] - self.corr_set.u[:2,:], axis=0)
+        return u_reproj[0:2,:] - self.corr_set.u[:2,:]
+
+    def _score_samples_reproj(self, P):
+        return np.linalg.norm(self._reproj_residuals(P), axis=0)
+
+    def _score_samples_nll(self, P):
+        log_likelihoods = -np.abs(self._reproj_residuals(P)) / self.corr_set.b_per_sample - np.log(2*self.corr_set.b_per_sample)
+        return -np.exp(np.sum(log_likelihoods, axis=0))
+
+    def _score_samples_probmass_tails(self, P):
+        """
+        Calculates the probability mass for the likelihood function of each sample outside of the x / y intervals [-res_x, res_x] / [-res_y, res_y]
+        """
+        # Difference of CDFs in x & y direction
+        probmass_coordwise = np.exp(-np.abs(self._reproj_residuals(P)) / self.corr_set.b_per_sample)
+        probmass = np.prod(probmass_coordwise, axis=0)
+        return probmass
 
     def evaluate_hypothesis(self, P):
-        # Reprojection error
-        scores = self._score_samples_reproj(P)
-        inlier_mask = scores < self.ransacthr
-        if self.confidence_based_sampling:
-            fraction_inliers = np.sum(self.corr_set.sample_confidences * inlier_mask) / np.sum(self.corr_set.sample_confidences)
+        LIKELIHOOD_FLAG = False
+        if not LIKELIHOOD_FLAG:
+            # Reprojection error
+            scores = self._score_samples_reproj(P)
+            inlier_mask = scores < self.ransacthr
+            if self.confidence_based_sampling:
+                fraction_inliers = np.sum(self.corr_set.sample_confidences * inlier_mask) / np.sum(self.corr_set.sample_confidences)
+            else:
+                fraction_inliers = np.sum(inlier_mask) / self.corr_set.nbr_samples
         else:
-            fraction_inliers = np.sum(inlier_mask) / self.corr_set.nbr_samples
+            # # Likelihood
+            # self.ransacthr = -0.5
+            # scores = self._score_samples_nll(P)
+            # print(np.mean(scores))
+            # inlier_mask = scores < self.ransacthr
+            # fraction_inliers = np.sum(scores < self.ransacthr) / self.corr_set.nbr_samples
+
+            # Likelihood probability mass at tails
+            self.ransacthr = 0.3 # 30 % confidence
+            scores = self._score_samples_probmass_tails(P)
+            inlier_mask = scores < self.ransacthr
+            fraction_inliers = np.sum(scores < self.ransacthr) / self.corr_set.nbr_samples
 
         return inlier_mask, fraction_inliers
 
@@ -143,6 +174,7 @@ class RansacEstimator():
         if self.corr_set.nbr_groups < 4:
             raise RANSACException("Found correspondence for {} keypoints only.".format(self.corr_set.nbr_groups))
 
+        Pransac = None
         best_iteration = -1
         inlier_mask = np.zeros((self.corr_set.nbr_samples,), dtype=bool)
         fraction_inliers = 0
@@ -156,7 +188,7 @@ class RansacEstimator():
                 break
             for P in cameras:
                 inlier_mask, curr_fraction_inliers = self.evaluate_hypothesis(P)
-                if curr_fraction_inliers > fraction_inliers:
+                if np.sum(inlier_mask) >= 4 and curr_fraction_inliers > fraction_inliers:
                     Pransac = P
                     fraction_inliers = curr_fraction_inliers
                     best_iteration = i
