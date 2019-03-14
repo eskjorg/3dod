@@ -204,7 +204,7 @@ class DetectorKeypointSelector(KeypointSelector):
             else:
                 frames = sorted(np.random.choice(nbr_frames, self.opts['NBR_FRAMES_SAMPLED_PER_SEQ']))
             for frame_idx in frames:
-                print("Frame: {}, objects: {}".format(frame_idx, list(map(lambda x: x['obj_id'], gt[frame_idx]))))
+                print("Seq: {}, frame: {}, objects: {}".format(seq, frame_idx, list(map(lambda x: x['obj_id'], gt[frame_idx]))))
                 K = info[frame_idx]['cam_K']
                 # Unnecessary:
                 # R_w2c = info['cam_R_w2c'] if 'cam_R_w2c' in info else np.eye(3)
@@ -220,15 +220,15 @@ class DetectorKeypointSelector(KeypointSelector):
 
                 # NOTE: Detector applied on RGB (or is it BGR?) image, i.e. not grayscale. Not sure what the implications of this are.
                 all_keypoints = self.detector.detect(img)
+                print("Found {} feature points (keypoint candidates)".format(len(all_keypoints)))
 
                 # print("Total #keypoints: {}".format(len(all_keypoints)))
 
                 # Loop over all object instances
                 for instance in gt[frame_idx]:
                     if instance['obj_id'] not in self.models_info_backup.keys():
+                        print("Discarding object: {}'.format(instance['obj_id'])'")
                         continue
-                    # if self.opts['MODEL_FILTER'] is not None and instance['obj_id'] not in self.opts['MODEL_FILTER']:
-                    #     continue
 
                     if instance['obj_id'] in instance_counts:
                         instance_counts[instance['obj_id']] += 1
@@ -261,6 +261,9 @@ class DetectorKeypointSelector(KeypointSelector):
 
                         # NOTE: Using bbox eliminates need for rendering segmentations. Some keypoints might be outside object, but hopefully these effects are negligible with statistics from enough frames.
                         if x < xmin or x > xmax or y < ymin or y > ymax:
+                            # print("Projects outside bounding box (does not belong to object):")
+                            # print(x, xmin, xmax)
+                            # print(y, ymin, ymax)
                             continue
                         keypoints.append(kp)
 
@@ -473,10 +476,19 @@ class FarthestPointSamplingKeypointSelector(KeypointSelector):
                 kp_dict[obj_id] = np.concatenate((kp_dict[obj_id], new_kp[np.newaxis,:]), axis=0)
         return kp_dict
 
-STORE_KEYPOINTS = True
-STORE_PLOTS = True
-# STORE_KEYPOINTS = False
-# STORE_PLOTS = False
+if LINEMOD_FLAG:
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists'
+    SUBSET = 'train_unoccl'
+else:
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video'
+    SUBSET = 'data'
+
+if not DRY_RUN:
+    STORE_KEYPOINTS = True
+    STORE_PLOTS = True
+else:
+    STORE_KEYPOINTS = False
+    STORE_PLOTS = False
 
 PROJECT_TO_SURFACE = True # Replace keypoints with closest vertices
 FIND_NORMALS = True # Assuming keypoints close to surface. Evaluates normal at closest vertex.
@@ -494,8 +506,7 @@ opts = {
     'SCATTER_VMIN': 0.0,
     'SCATTER_VMAX': 10.0,
     'SCORE_EXP': 1.0,
-    # 'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/bop-unzipped/hinterstoisser', # Path to a BOP-SIXD dataset
-    'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2b_rerendered', # Path to a BOP-SIXD dataset
+    'DATA_PATH': SIXD_PATH,
 }
 opts.update({
     'DIFFERENTIATE_ON_KP_RESPONSE': False,
@@ -503,24 +514,19 @@ opts.update({
     # 'DIST_TH': 1e-2, # meters
     'MAX_DIST_MM_FROM_KP_TO_SURFACE': 3.0,
     'FEATURE_SCALE_FACTOR': 1e-1,
-    'NBR_FRAMES_SAMPLED_PER_SEQ': 100,
+    'NBR_FRAMES_SAMPLED_PER_SEQ': 100 if LINEMOD_FLAG else 5,#10,
     'LP_SIGMA_MM': 40.0,
     'LP_DISTMAT_SUBSET_SIZE': 1000,
     'DEPTH_DIFF_TH': 1e-2, # meters
-    # 'TRAIN_SUBDIR': 'train', # Images in this subdir will be used to collect keypoint statistics
-    'TRAIN_SUBDIR': 'train_unoccl', # Images in this subdir will be used to collect keypoint statistics
-    # 'MODEL_FILTER': None,
-    # 'TRAIN_SUBDIR': 'train_aug', # Images in this subdir will be used to collect keypoint statistics
-    # 'MODEL_FILTER': [1,4,5,6,7,8,9,10],
-    # 'MODEL_FILTER': [6],
+    'TRAIN_SUBDIR': SUBSET, # Images in this subdir will be used to collect keypoint statistics
 })
 kp_selector = DetectorKeypointSelector(opts)
 initial_keypoints = kp_selector.select_keypoints(initial_keypoints=None)
 
 
 opts = {
-    'MARKERSIZE': 10,
-    # 'MARKERSIZE': 50,
+    # 'MARKERSIZE': 10,
+    'MARKERSIZE': 30,
     'MAX_NBR_VTX_SCATTERPLOT': 500,
     'NBR_KEYPOINTS': 20,
     'SCORES_COLORED_IN_SCATTERPLOT': False,
@@ -529,8 +535,7 @@ opts = {
     'SCATTER_VMIN': 0.0,
     'SCATTER_VMAX': 10.0,
     'SCORE_EXP': 1.0,
-    # 'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/bop-unzipped/hinterstoisser', # Path to a BOP-SIXD dataset
-    'DATA_PATH': '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2b_rerendered', # Path to a BOP-SIXD dataset
+    'DATA_PATH': SIXD_PATH,
 }
 kp_selector = FarthestPointSamplingKeypointSelector(opts)
 
