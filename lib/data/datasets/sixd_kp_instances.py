@@ -132,19 +132,19 @@ class SixdDataset(Dataset):
         return Sample(annotations, data, gt_maps, calibration, index)
 
     def _read_data(self, dir_path, img_ind):
-        path = join(dir_path, 'rgb', str(img_ind).zfill(4) + '.png')
+        path = join(dir_path, 'rgb', str(img_ind).zfill(6) + '.png')
         image = read_image_to_pt(path, load_type=cv.IMREAD_COLOR, normalize_flag=True)
         max_h, max_w = self._configs.data.img_dims
         return image[:, :max_h, :max_w]
 
     def _read_instance_seg(self, dir_path, img_ind):
-        path = join(dir_path, 'instance_seg', str(img_ind).zfill(4) + '.png')
+        path = join(dir_path, 'instance_seg', str(img_ind).zfill(6) + '.png')
         instance_seg = read_seg_to_pt(path)
         max_h, max_w = self._configs.data.img_dims
         return instance_seg[:max_h, :max_w]
 
     def _read_vtx_idx_map(self, dir_path, img_ind):
-        path = join(dir_path, 'vtx_idx', str(img_ind).zfill(4) + '.png')
+        path = join(dir_path, 'vtx_idx', str(img_ind).zfill(6) + '.png')
         vtx_idx_map = Image.open(path)
         vtx_idx_map = np.array(vtx_idx_map)
         max_h, max_w = self._configs.data.img_dims

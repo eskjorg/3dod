@@ -23,6 +23,18 @@ from scipy.spatial.distance import cdist, pdist, squareform
 from abc import ABC, abstractmethod
 
 
+DRY_RUN = True
+LINEMOD_FLAG = True
+
+
+def format_frame_idx(frame_idx):
+    # if LINEMOD_FLAG:
+    if False:
+        return '{:04}.png'.format(frame_idx)
+    else:
+        return '{:06}.png'.format(frame_idx)
+
+
 class KeypointSelector(ABC):
 
     def __init__(self, opts):
@@ -199,12 +211,12 @@ class DetectorKeypointSelector(KeypointSelector):
                 # t_w2c = info['cam_t_w2c'] if 'cam_t_w2c' in info else np.zeros((3,1))
                 # info['depth_scale'] also unnecessary, no need to read/scale depth images
 
-                img = cv2.imread(os.path.join(self.opts['DATA_PATH'], self.opts['TRAIN_SUBDIR'], seq, 'rgb', '{:04}.png'.format(frame_idx)))
+                img = cv2.imread(os.path.join(self.opts['DATA_PATH'], self.opts['TRAIN_SUBDIR'], seq, 'rgb', format_frame_idx(frame_idx)))
 
                 # NOTE: Rendering segmentations requires either one of:
                 #           Modifying C++ renderer to read BOP annotations
                 #           Modify BOP python renderer's shaders to produce seg (hopefully not too hard to reuse shader code from C++ renderer)
-                # seg = cv2.imread(os.path.join(self.opts['DATA_PATH'], self.opts['TRAIN_SUBDIR'], seq, 'seg', '{:04}.png'.format(frame_idx)))
+                # seg = cv2.imread(os.path.join(self.opts['DATA_PATH'], self.opts['TRAIN_SUBDIR'], seq, 'seg', format_frame_idx(frame_idx)))
 
                 # NOTE: Detector applied on RGB (or is it BGR?) image, i.e. not grayscale. Not sure what the implications of this are.
                 all_keypoints = self.detector.detect(img)
