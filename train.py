@@ -27,7 +27,7 @@ class Trainer():
         model = self._checkpoint_handler.init(Model(configs))
         optimizer = torch.optim.Adam(model.parameters(), lr=configs.training.learning_rate)
         self._model, self._optimizer = amp.initialize(model, optimizer, opt_level="O1")
-        self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optimizer, mode='max')
+        self._lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max')
         self._post_proc = PostProc(configs)
         self._visualizer = Visualizer(configs)
 

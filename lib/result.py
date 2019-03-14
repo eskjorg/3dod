@@ -134,7 +134,7 @@ class ResultSaver:
             if (np.array(size) > np.array([0.5, 0.2, 0.1])).all():
                 lines_to_write.append(write_line)
             else:
-                print('Warning, negative size: Skipping writing')
+                print('Warning, small or negative size: Skipping writing')
         with open(os.path.join(save_dir, '%06d.txt' % int(frame_id)), 'w') as file:
             file.writelines(lines_to_write)
 
