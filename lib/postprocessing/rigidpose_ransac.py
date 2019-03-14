@@ -44,7 +44,7 @@ class GroupedCorrespondenceSet():
         self.grouped_idx_lists = []
         self.u = np.empty((3, 0))
         self.U = np.empty((4, 0))
-        self.sample_confidences = np.empty((0,))
+        self.b_per_sample = np.empty((2, 0,))
 
     @property
     def nbr_samples(self):
@@ -53,6 +53,10 @@ class GroupedCorrespondenceSet():
     @property
     def nbr_groups(self):
         return len(self.grouped_idx_lists)
+
+    @property
+    def sample_confidences(self):
+        return self._packed['sample_confidences']
 
     @property
     def u_grouped(self):
@@ -73,22 +77,24 @@ class GroupedCorrespondenceSet():
     def pack(self):
         u_grouped = [self.u[:, idx_list] for idx_list in self.grouped_idx_lists]
         U_grouped = [self.U[:, idx_list] for idx_list in self.grouped_idx_lists]
-        sample_confidences_grouped = [self.sample_confidences[idx_list] for idx_list in self.grouped_idx_lists]
+        sample_confidences = 0.25 / np.prod(self.b_per_sample, axis=0)
+        sample_confidences_grouped = [sample_confidences[idx_list] for idx_list in self.grouped_idx_lists]
         group_confidences = [sample_confidences_in_group.max() for sample_confidences_in_group in sample_confidences_grouped]
         self._packed = {
             'u_grouped': u_grouped,
             'U_grouped': U_grouped,
+            'sample_confidences': sample_confidences,
             'sample_confidences_grouped': sample_confidences_grouped,
             'group_confidences': group_confidences,
         }
 
-    def add_correspondence_group(self, group_id, keypoint, u_unnorm, sample_confidences):
+    def add_correspondence_group(self, group_id, keypoint, u_unnorm, b):
         """
         Adds a group of unnormalized 2D points u corresponding to the given keypoint
         group_id            - int
         keypoint            - array (3,)
         u_unnorm            - array (2, N)
-        sample_confidences  - array (N,)
+        b                   - array (2, N)
         """
         curr_nbr_samples = self.nbr_samples
         nbr_samples_added = u_unnorm.shape[1]
@@ -96,7 +102,7 @@ class GroupedCorrespondenceSet():
         self.group_ids.append(group_id)
         self.grouped_idx_lists.append(list(range(curr_nbr_samples, curr_nbr_samples+nbr_samples_added)))
         self.u = np.concatenate([self.u, u], axis=1)
-        self.sample_confidences = np.concatenate([self.sample_confidences, sample_confidences], axis=0)
+        self.b_per_sample = np.concatenate([self.b_per_sample, b], axis=1)
         self.U = np.concatenate([self.U, pextend(np.tile(keypoint[:,np.newaxis], (1, nbr_samples_added)))], axis=1)
 
 def normalize_vec(vec):
@@ -221,12 +227,13 @@ class Runner(RunnerIf):
                 kp_std1_vec = math.sqrt(2) * torch.exp(kp_x_ln_b_vec)
                 kp_std2_vec = math.sqrt(2) * torch.exp(kp_y_ln_b_vec)
 
-                kp_avg_std_vec = 0.5*sum([kp_std1_vec, kp_std2_vec])
-                center_likelihood_vec = (0.5 / torch.exp(kp_x_ln_b_vec)) * (0.5 / torch.exp(kp_y_ln_b_vec))
+                # kp_avg_std_vec = 0.5*sum([kp_std1_vec, kp_std2_vec])
+                # center_likelihood_vec = (0.5 / torch.exp(kp_x_ln_b_vec)) * (0.5 / torch.exp(kp_y_ln_b_vec))
 
-                if not center_likelihood_vec.max() > 0.0:
-                    print("Discarding group - no samples with confidence > 0.0")
-                    continue
+                # Could not happen, right..?
+                # if not center_likelihood_vec.max() > 0.0:
+                #     print("Discarding group - no samples with confidence > 0.0")
+                #     continue
 
                 corr_set.add_correspondence_group(
                     kp_idx,
@@ -235,7 +242,11 @@ class Runner(RunnerIf):
                         kp_x_vec.cpu().numpy(),
                         kp_y_vec.cpu().numpy(),
                     ]),
-                    center_likelihood_vec.cpu().numpy(),
+                    np.vstack([
+                        torch.exp(kp_x_ln_b_vec).cpu().numpy(),
+                        torch.exp(kp_y_ln_b_vec).cpu().numpy(),
+                    ]),
+                    # center_likelihood_vec.cpu().numpy(),
                 )
 
             ransac_estimator = RansacEstimator(
