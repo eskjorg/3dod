@@ -14,8 +14,15 @@ import numpy as np
 import shutil
 
 
-SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2bb_instance_idx_fix'
-SUBSETS = [subset for subset in listdir_nohidden(SIXD_PATH) if subset.startswith('train') or subset.startswith('test')]
+DRY_RUN = False
+LINEMOD_FLAG = False
+
+if LINEMOD_FLAG:
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2bb_instance_idx_fix'
+    SUBSETS = [subset for subset in listdir_nohidden(SIXD_PATH) if subset.startswith('train') or subset.startswith('test')]
+else:
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video'
+    SUBSETS = ['data']
 
 
 def write_pose_tud(pose_path, R, t):
@@ -46,12 +53,12 @@ def read_yaml(path):
 models_info = read_yaml(os.path.join(SIXD_PATH, 'models', 'models_info.yml'))
 
 for subset in SUBSETS:
-    for seq in listdir_nohidden(os.path.join(SIXD_PATH, subset)):
-        render_instance_seg = False if subset == 'train_aug' else True
+    for seq in sorted(listdir_nohidden(os.path.join(SIXD_PATH, subset))):
+        render_instance_seg = False if LINEMOD_FLAG and subset == 'train_aug' else True
         render_corr = True
-        render_normals = True
-        render_depth = True
-        render_rgb = True
+        render_normals = True if LINEMOD_FLAG else False
+        render_depth = True if LINEMOD_FLAG else False
+        render_rgb = True if LINEMOD_FLAG else False
 
         rgb_dir = os.path.join(SIXD_PATH, subset, seq, 'rgb')
         instance_seg_dir = os.path.join(SIXD_PATH, subset, seq, 'instance_seg')
@@ -60,26 +67,27 @@ for subset in SUBSETS:
         depth_rendered_dir = os.path.join(SIXD_PATH, subset, seq, 'depth_rendered')
         rgb_rendered_dir = os.path.join(SIXD_PATH, subset, seq, 'rgb_rendered')
 
-        if render_instance_seg:
-            if os.path.exists(instance_seg_dir):
-                shutil.rmtree(instance_seg_dir)
-            os.makedirs(instance_seg_dir)
-        if render_corr:
-            if os.path.exists(corr_dir):
-                shutil.rmtree(corr_dir)
-            os.makedirs(corr_dir)
-        if render_normals:
-            if os.path.exists(normals_dir):
-                shutil.rmtree(normals_dir)
-            os.makedirs(normals_dir)
-        if render_depth:
-            if os.path.exists(depth_rendered_dir):
-                shutil.rmtree(depth_rendered_dir)
-            os.makedirs(depth_rendered_dir)
-        if render_rgb:
-            if os.path.exists(rgb_rendered_dir):
-                shutil.rmtree(rgb_rendered_dir)
-            os.makedirs(rgb_rendered_dir)
+        if not DRY_RUN:
+            if render_instance_seg:
+                if os.path.exists(instance_seg_dir):
+                    shutil.rmtree(instance_seg_dir)
+                os.makedirs(instance_seg_dir)
+            if render_corr:
+                if os.path.exists(corr_dir):
+                    shutil.rmtree(corr_dir)
+                os.makedirs(corr_dir)
+            if render_normals:
+                if os.path.exists(normals_dir):
+                    shutil.rmtree(normals_dir)
+                os.makedirs(normals_dir)
+            if render_depth:
+                if os.path.exists(depth_rendered_dir):
+                    shutil.rmtree(depth_rendered_dir)
+                os.makedirs(depth_rendered_dir)
+            if render_rgb:
+                if os.path.exists(rgb_rendered_dir):
+                    shutil.rmtree(rgb_rendered_dir)
+                os.makedirs(rgb_rendered_dir)
 
         gts = read_yaml(os.path.join(SIXD_PATH, subset, seq, 'gt.yml'))
 
@@ -97,9 +105,10 @@ for subset in SUBSETS:
             rgb_rendered_path = os.path.join(rgb_rendered_dir, fname) if render_rgb else '/dev/null'
 
             tmp_pose_dir = '/tmp/tmp_poses_for_rendering'
-            if os.path.exists(tmp_pose_dir):
-                shutil.rmtree(tmp_pose_dir)
-            os.makedirs(tmp_pose_dir)
+            if not DRY_RUN:
+                if os.path.exists(tmp_pose_dir):
+                    shutil.rmtree(tmp_pose_dir)
+                os.makedirs(tmp_pose_dir)
 
             instance_idx_list = []
             pose_path_list = []
@@ -143,7 +152,8 @@ for subset in SUBSETS:
             # print(cmd)
             # assert False
 
-            exit_code = os.system(cmd)
-            if exit_code != 0:
-                print("Fail!")
-                sys.exit(exit_code)
+            if not DRY_RUN:
+                exit_code = os.system(cmd)
+                if exit_code != 0:
+                    print("Fail!")
+                    sys.exit(exit_code)
