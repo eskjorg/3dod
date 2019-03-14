@@ -2,7 +2,7 @@
 import sys
 from abc import ABCMeta, abstractmethod
 
-from math import ceil
+from math import ceil, sin, cos
 import numpy as np
 import torch
 
@@ -176,6 +176,17 @@ class SizeGenerator(GeneratorIf):
 
     def decode(self, tensor):
         return tensor.exp()
+
+
+class AlphaGenerator(GeneratorIf):
+    """GT map AlphaGenerator."""
+    def _get_num_maps(self):
+        return 2
+
+    def add_obj(self, obj_annotation, map_coords):
+        xmin, ymin, xmax, ymax = map_coords
+        self._map[0, ymin: ymax, xmin: xmax] = sin(obj_annotation.alpha)
+        self._map[1, ymin: ymax, xmin: xmax] = cos(obj_annotation.alpha)
 
 
 class CornersGenerator(GeneratorIndex):

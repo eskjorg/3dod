@@ -106,6 +106,9 @@ class ResultSaver:
 
         lines_to_write = []
         for detection in frame_detections:
+            alpha = detection.get('alpha', -10)
+            if isinstance(alpha, np.ndarray) and alpha.shape == (2,):
+                alpha = np.arctan2(*alpha)
             bbox2d = self._clip_bbox(detection.bbox2d)
             size = detection.get('size', [-1] * 3)
             location = detection.get('location', [-1000] * 3)
@@ -115,7 +118,7 @@ class ResultSaver:
                           '{x:=.4g} {y:=.4g} {z:=.4g} {rotation_y:=.3g} '
                           '{score:=.6f}\n'.
                           format(cls=detection.cls,
-                                 alpha=detection.get('alpha', -10),
+                                 alpha=alpha,
                                  left=bbox2d[0],
                                  top=bbox2d[1],
                                  right=bbox2d[2],
