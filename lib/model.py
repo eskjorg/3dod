@@ -87,7 +87,8 @@ class LayerWeights(nn.Module):
         self.register_parameter('weighting', nn.Parameter(torch.zeros(n_weights)))
 
     def forward(self, x):
-        return self.weighting
+        # Scale for increased learning rate
+        return 100 * self.weighting
 
 class ZeroHead(nn.Module):
     def forward(self, x):

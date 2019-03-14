@@ -6,7 +6,8 @@
     "bbox2d": {
         "n_layers": 4,
         "cls_specific_heads": false,
-        "loss": "L1"
+        "loss": "L1",
+        "loss_weight": 10.0
     },
     "zdepth": {
         "n_layers": 1,
@@ -21,6 +22,7 @@
     "corners": {
         "n_layers": 16,
         "cls_specific_heads": false,
-        "loss": "L1"
+        "loss": "L1",
+        "loss_weight": 1.0
     }
 }

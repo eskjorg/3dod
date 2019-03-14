@@ -2,6 +2,9 @@
     "logging": {
         "save_nuscenes_format": true
     },
+    "training": {
+        "weighting_mode": "layer_wise"
+    },
     "evaluation": {
         "score": "mean_ap"
     },
