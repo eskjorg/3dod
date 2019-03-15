@@ -127,11 +127,30 @@ class Visualizer:
         def grayscale2rgb(grayscale):
             return np.tile(grayscale[:,:,np.newaxis], (1,1,3))
 
+        def expand_bbox(bbox2d, resize_factor):
+            x1, y1, x2, y2 = bbox2d
+            center_x = 0.5*(x1+x2)
+            center_y = 0.5*(y1+y2)
+            return (
+                max(-0.5,                                  center_x + resize_factor*(x1 - center_x)),
+                max(-0.5,                                  center_y + resize_factor*(y1 - center_y)),
+                min(-0.5 + self._configs.data.img_dims[1], center_x + resize_factor*(x2 - center_x)),
+                min(-0.5 + self._configs.data.img_dims[0], center_y + resize_factor*(y2 - center_y)),
+            )
+
         img = np.moveaxis(image_tensor.numpy(), 0, -1)
         # img = grayscale2rgb(rgb2grayscale(rgb))
 
-        def plot_img(ax, img, title):
-            ax.axis('off')
+        def plot_img(ax, img, title, bbox2d=None):
+            if bbox2d is None:
+                ax.axis('on')
+                ax.set_xlim(-0.5,                                  -0.5 + self._configs.data.img_dims[1])
+                ax.set_ylim(-0.5 + self._configs.data.img_dims[0], -0.5)
+            else:
+                x1, y1, x2, y2 = bbox2d
+                ax.set_xlim(x1, x2)
+                ax.set_ylim(y2, y1)
+            ax.autoscale(enable=False)
             ax.imshow(img)
             ax.set_title(title)
 
@@ -202,8 +221,10 @@ class Visualizer:
                     '12': 'holepuncher',
                 }
                 return lookup[label]
-            plot_img(axes_array[0,0], img, 'Image')
-            plot_img(axes_array[0,1], img, 'Pose')
+            bbox2d = expand_bbox(anno_group_lookup[group_id].bbox2d, 2.0) if group_id in anno_group_lookup else None
+            plot_img(axes_array[0,0], img, 'Pose')
+            plot_poses(axes_array[0,0], [group_id], annotations, detections)
+            plot_img(axes_array[0,1], img, 'Pose close-up', bbox2d=bbox2d)
             plot_poses(axes_array[0,1], [group_id], annotations, detections)
             for kp_idx in range(NBR_KEYPOINTS):
                 class_id = class_ids[kp_idx]
@@ -217,7 +238,7 @@ class Visualizer:
                 lambda_map = 0.6*gt_visibility_map_highres
                 heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
                 heatmap[:100,:100,:] = kp_color
-                plot_img(axes_array[kp_idx+1,0], heatmap, 'Keypoint {:02d} - GT'.format(kp_idx))
+                plot_img(axes_array[kp_idx+1,0], heatmap, 'Keypoint {:02d} - GT'.format(kp_idx), bbox2d=bbox2d)
 
                 # GT position
                 if class_id in anno_lookup:
@@ -231,7 +252,7 @@ class Visualizer:
                 lambda_map = 0.6*visibility_map_highres
                 heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
                 heatmap[:100,:100,:] = kp_color
-                plot_img(axes_array[kp_idx+1,1], heatmap, 'Keypoint {:02d} - Pred'.format(kp_idx))
+                plot_img(axes_array[kp_idx+1,1], heatmap, 'Keypoint {:02d} - Pred'.format(kp_idx), bbox2d=bbox2d)
 
                 # Pred position
                 likelihood_map = np.zeros(self._configs.data.img_dims)
@@ -319,7 +340,7 @@ class Visualizer:
                 # lambda_map = np.clip(likelihood_map/0.7, 0.0, 1.0)
                 heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
                 heatmap[:100,:100,:] = kp_color
-                plot_img(axes_array[kp_idx+1,2], heatmap, 'Keypoint {:02d} - Uncertainty'.format(kp_idx))
+                plot_img(axes_array[kp_idx+1,2], heatmap, 'Keypoint {:02d} - Uncertainty'.format(kp_idx), bbox2d=bbox2d)
 
 
 
