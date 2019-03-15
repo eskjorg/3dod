@@ -16,6 +16,8 @@ from tensorboardX import SummaryWriter
 from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, NBR_KEYPOINTS, PATCH_SIZE, GT_TYPE, CNN_TYPE, DET_TYPE
 from lib.constants import TV_MEAN, TV_STD
 from lib.utils import project_3d_pts, construct_3d_box, get_metadata, get_class_map
+from lib.rigidpose.pose_estimator import pflat
+
 
 class Visualizer:
     """Visualizer."""
@@ -37,15 +39,40 @@ class Visualizer:
     def report_score(self, epoch, score, mode):
         self._writer.add_scalar('score/{}'.format(mode), score, epoch)
 
+    def plot_bbox3d(self, ax, K, R, t, x_bounds, y_bounds, z_bounds, **kwargs):
+        if len(t.shape) == 1:
+            t = t[:,None]
+        corners = np.zeros((3, 8))
+
+        corners[:,0] = [x_bounds[1], y_bounds[1], z_bounds[1]]
+        corners[:,1] = [x_bounds[0], y_bounds[1], z_bounds[1]]
+        corners[:,2] = [x_bounds[0], y_bounds[0], z_bounds[1]]
+        corners[:,3] = [x_bounds[1], y_bounds[0], z_bounds[1]]
+        corners[:,4] = [x_bounds[1], y_bounds[1], z_bounds[0]]
+        corners[:,5] = [x_bounds[0], y_bounds[1], z_bounds[0]]
+        corners[:,6] = [x_bounds[0], y_bounds[0], z_bounds[0]]
+        corners[:,7] = [x_bounds[1], y_bounds[0], z_bounds[0]]
+
+        corner_colors = ['k', 'w', 'r', 'g', 'y', 'c', 'm', 'b']
+
+        U = pflat(K @ (R @ corners + t))
+        xs = np.array([[U[0,0], U[0, 1], U[0, 2], U[0,3], U[0,4], U[0,5], U[0,6], U[0,7], U[0,0], U[0,1], U[0,2], U[0,3]], [U[0,1], U[0, 2], U[0,3], U[0,0], U[0,5], U[0,6], U[0,7], U[0,4], U[0,4], U[0,5], U[0,6], U[0,7]]])
+        ys = np.array([[U[1,0], U[1,1], U[1,2], U[1,3], U[1,4], U[1,5], U[1,6], U[1,7], U[1,0], U[1,1], U[1,2], U[1,3]], [U[1,1], U[1,2], U[1,3], U[1,0], U[1,5], U[1,6], U[1,7], U[1,4], U[1,4], U[1,5], U[1,6], U[1,7]]])
+        ax.plot([xs[0,:], xs[1,:]], [ys[0,:], ys[1,:]], **kwargs)
+        corner_plot_args = []
+        for pt, col in zip(U.T, corner_colors):
+            corner_plot_args += [pt[0], pt[1], col+'.']
+        ax.plot(*corner_plot_args)
+
     def save_images(self, batch, cnn_outs, output, mode, index, sample=-1):
         if not any(self._configs.visualization.values()):
             return
-        calib = batch.calibration[sample]
+        K = batch.calibration[sample][:,:3]
         image_tensor = normalize(batch.input[sample], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
         frame_id = batch.id[sample]
 
-        # # Pick one sample from batch of detections / whatever comes from postprocessing modules
-        # detections = output[frame_id]
+        # Pick one sample from batch of detections / whatever comes from postprocessing modules
+        detections = output[frame_id]
 
         # Pick one sample from batch of ground truth annotations
         annotations = batch.annotation[sample]
@@ -103,6 +130,39 @@ class Visualizer:
         img = np.moveaxis(image_tensor.numpy(), 0, -1)
         # img = grayscale2rgb(rgb2grayscale(rgb))
 
+        def plot_img(ax, img, title):
+            ax.axis('off')
+            ax.imshow(img)
+            ax.set_title(title)
+
+        anno_lookup = dict(zip([anno.cls for anno in annotations], annotations))
+
+        def plot_poses(ax, group_ids, annotation, detection):
+            for group_id in group_ids:
+                group_label = self._class_map.group_label_from_group_id(group_id)
+                # All keypoints share the same pose annotation - choose the first existing one
+                for kp_idx in range(NBR_KEYPOINTS):
+                    class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
+                    if class_id in anno_lookup:
+                        anno = anno_lookup[class_id]
+                        self.plot_bbox3d(ax, K, anno.rotation, anno.location.numpy(), *self._metadata['objects'][group_label]['bbox3d'], color='b', linestyle='-', linewidth=1)
+                        break
+                if group_id in detections:
+                    det = detections[group_id]
+                    self.plot_bbox3d(ax, K, det['P_ransac'][:,:3], det['P_ransac'][:,3], *self._metadata['objects'][group_label]['bbox3d'], color='g', linestyle=':', linewidth=1)
+
+        fig, axes_array = pyplot.subplots(
+            nrows=1,
+            ncols=1,
+            figsize=[img.shape[1] / PYPLOT_DPI, img.shape[0] / PYPLOT_DPI],
+            squeeze=False,
+            dpi=PYPLOT_DPI,
+            tight_layout=True,
+        )
+        plot_img(axes_array[0,0], img, 'Pose')
+        plot_poses(axes_array[0,0], self._class_map.get_group_ids(), annotations, detections)
+        self._writer.add_figure(mode, fig, index)
+
         nrows = NBR_KEYPOINTS + 1
         ncols = 4
 
@@ -114,15 +174,9 @@ class Visualizer:
         figwidth = 15
         figheight = figheight_fullres * (figwidth / figwidth_fullres)
 
-        def plot_img(axes, img, title):
-            axes.axis('off')
-            axes.imshow(img)
-            axes.set_title(title)
-
-        anno_lookup = dict(zip([anno.cls for anno in annotations], annotations))
-
         for group_id in self._class_map.get_group_ids():
             class_ids = [self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)]
+            group_label = self._class_map.group_label_from_group_id(group_id)
 
             fig, axes_array = pyplot.subplots(
                 nrows=nrows,
@@ -145,6 +199,8 @@ class Visualizer:
                 }
                 return lookup[label]
             plot_img(axes_array[0,0], img, 'Image')
+            plot_img(axes_array[0,1], img, 'Pose')
+            plot_poses(axes_array[0,1], [group_id], annotations, detections)
             for kp_idx in range(NBR_KEYPOINTS):
                 class_id = class_ids[kp_idx]
                 kp_color = np.array(pyplot.cm.tab20.colors[kp_idx])
@@ -275,4 +331,4 @@ class Visualizer:
             #     wspace = 0.0,
             #     hspace = 0.0,
             # )
-            self._writer.add_figure('{}_{}'.format(mode, process_group_label(self._class_map.group_label_from_group_id(group_id))), fig, index)
+            self._writer.add_figure('{}_{}'.format(mode, process_group_label(group_label)), fig, index)

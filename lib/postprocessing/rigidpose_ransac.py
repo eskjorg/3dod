@@ -295,12 +295,16 @@ class Runner(RunnerIf):
                 confidence_based_sampling=True,
             )
             try:
-                ransac_pose, inlier_set, fraction_inliers, niter = ransac_estimator.estimate()
+                P_ransac, inlier_set, fraction_inliers, niter = ransac_estimator.estimate()
                 print("Object {}: Inlier fraction: {:.4f}, Iterations: {}".format(group_label, fraction_inliers, niter))
             except RANSACException as e:
                 print("No solution found through RANSAC.")
                 print(e)
-                ransac_pose = None
-            frame_results[group_label] = {
-                'ransac_pose': ransac_pose,
+                P_ransac = None
+            if P_ransac is None:
+                continue
+            frame_results[group_id] = {
+                'P_ransac': P_ransac,
             }
+
+        return frame_results

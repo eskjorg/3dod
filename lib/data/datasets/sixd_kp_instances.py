@@ -32,8 +32,12 @@ def get_metadata(configs):
             obj_anno[prefix + '_y'],
             obj_anno[prefix + '_z'],
         ])
+    def get_bbox3d(min_bounds, diff):
+        max_bounds = min_bounds + diff
+        return np.hstack([min_bounds[:,None], max_bounds[:,None]])
     return {
         'objects': {'{:02}'.format(obj_label): {
+            'bbox3d': get_bbox3d(rows2array(obj_anno, 'min'), rows2array(obj_anno, 'size')),
             'keypoints': rows2array(obj_anno, 'kp'),
             'kp_normals': rows2array(obj_anno, 'kp_normals'),
         } for obj_label, obj_anno in models_info.items()},
