@@ -127,12 +127,13 @@ class RansacEstimator():
         log_likelihoods = -np.abs(self._reproj_residuals(P)) / self.corr_set.b_per_sample - np.log(2*self.corr_set.b_per_sample)
         return -np.exp(np.sum(log_likelihoods, axis=0))
 
-    def _score_samples_probmass_tails(self, P):
+    def _score_samples_confidence_level(self, P):
         """
-        Calculates the probability mass for the likelihood function of each sample outside of the x / y intervals [-res_x, res_x] / [-res_y, res_y]
+        Calculates the probability mass for the likelihood function of each sample in the x / y intervals [-res_x, res_x] / [-res_y, res_y].
+        This probability mass corresponds to the confidence level required for the sample to be included in the corresponding confidence interval.
         """
         # Difference of CDFs in x & y direction
-        probmass_coordwise = np.exp(-np.abs(self._reproj_residuals(P)) / self.corr_set.b_per_sample)
+        probmass_coordwise = 1 - np.exp(-np.abs(self._reproj_residuals(P)) / self.corr_set.b_per_sample)
         probmass = np.prod(probmass_coordwise, axis=0)
         return probmass
 
