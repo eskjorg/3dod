@@ -136,17 +136,21 @@ class Visualizer:
             ax.set_title(title)
 
         anno_lookup = dict(zip([anno.cls for anno in annotations], annotations))
+        anno_group_lookup = {}
+        for group_id in self._class_map.get_group_ids():
+            # All keypoints share the same pose annotation - choose the first existing one
+            for kp_idx in range(NBR_KEYPOINTS):
+                class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
+                if class_id in anno_lookup:
+                    anno_group_lookup[group_id] = anno_lookup[class_id]
+                    break
 
         def plot_poses(ax, group_ids, annotation, detection):
             for group_id in group_ids:
                 group_label = self._class_map.group_label_from_group_id(group_id)
-                # All keypoints share the same pose annotation - choose the first existing one
-                for kp_idx in range(NBR_KEYPOINTS):
-                    class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
-                    if class_id in anno_lookup:
-                        anno = anno_lookup[class_id]
-                        self.plot_bbox3d(ax, K, anno.rotation, anno.location.numpy(), *self._metadata['objects'][group_label]['bbox3d'], color='b', linestyle='-', linewidth=1)
-                        break
+                if group_id in anno_group_lookup:
+                    anno = anno_group_lookup[group_id]
+                    self.plot_bbox3d(ax, K, anno.rotation, anno.location.numpy(), *self._metadata['objects'][group_label]['bbox3d'], color='b', linestyle='-', linewidth=1)
                 if group_id in detections:
                     det = detections[group_id]
                     self.plot_bbox3d(ax, K, det['P_ransac'][:,:3], det['P_ransac'][:,3], *self._metadata['objects'][group_label]['bbox3d'], color='g', linestyle=':', linewidth=1)
