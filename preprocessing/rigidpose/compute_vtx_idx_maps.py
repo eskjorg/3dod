@@ -1,33 +1,50 @@
 import sys
 import os
-sys.path.append('../..')
-#sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__))))
+# sys.path.append('../..')
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))) # Relative to module, but cannot be used in notebooks
 
 import shutil
 import yaml
 from lib.rigidpose.sixd_toolkit.pysixd import inout
 from lib.utils import listdir_nohidden
 from scipy.spatial.distance import cdist
+from scipy.spatial import cKDTree
 import numpy as np
 import png
 from PIL import Image
 
-SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists'
+
+DRY_RUN = True
+LINEMOD_FLAG = False
+
+if LINEMOD_FLAG:
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists'
+else:
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video'
 
 
 # Load models
 models_info = inout.load_yaml(os.path.join(SIXD_PATH, 'models', 'models_info.yml'))
 models = {}
+kd_trees = {}
 for obj_id in models_info:
     models[obj_id] = inout.load_ply(os.path.join(SIXD_PATH, 'models', 'obj_{:02}.ply'.format(obj_id)))
+    kd_trees[obj_id] = cKDTree(models[obj_id]['pts'])
     print("Obj {}: {} vertices, {} faces.".format(obj_id, len(models[obj_id]['pts']), len(models[obj_id]['faces'])))
 
-def find_nearest_neighbors(ref_points, point_cloud):
+def find_nearest_neighbors_naive(ref_points, point_cloud):
     """
     For each reference point, find its corresponding index in the point cloud.
     """
     distance_matrix = cdist(ref_points, point_cloud, metric='euclidean')
     return np.argmin(distance_matrix, axis=1)
+
+def find_nearest_neighbors_kdtree(ref_points, kd_tree):
+    """
+    For each reference point, find its corresponding index in the point cloud.
+    """
+    dists, closest_indices = kd_tree.query(ref_points, k=1, eps=0, p=2)
+    return closest_indices
 
 def project_to_surface(self, obj_id):
     distances = np.linalg.norm(self.models[obj_id]['pts'] - keypoint[np.newaxis,:], axis=1)
@@ -52,16 +69,17 @@ def read_png(filename, dtype=None, nbr_channels=3):
     return img
 
 
-SUBSETS = [subset for subset in listdir_nohidden(SIXD_PATH) if subset.startswith('train') or subset.startswith('test')]
+# SUBSETS = [subset for subset in listdir_nohidden(SIXD_PATH) if subset.startswith('train') or subset.startswith('test')]
+SUBSETS = ['data']
 
 for subset in SUBSETS:
-    if subset not in [
-        'train_synthetic',
-        #'train_unoccl',
-        #'train_occl',
-        #'test_occl',
-    ]:
-        continue
+    # if subset not in [
+    #     'train_synthetic',
+    #     #'train_unoccl',
+    #     #'train_occl',
+    #     #'test_occl',
+    # ]:
+    #     continue
     seqs = listdir_nohidden(os.path.join(SIXD_PATH, subset))
     #if subset == 'train_unoccl':
     #    seqs = ['driller']
@@ -76,9 +94,10 @@ for subset in SUBSETS:
         #normals_dir = os.path.join(SIXD_PATH, subset, seq, 'normals')
         vtx_idx_dir = os.path.join(SIXD_PATH, subset, seq, 'vtx_idx')
 
-        if os.path.exists(vtx_idx_dir):
-            shutil.rmtree(vtx_idx_dir)
-        os.makedirs(vtx_idx_dir)
+        if not DRY_RUN:
+            if os.path.exists(vtx_idx_dir):
+                shutil.rmtree(vtx_idx_dir)
+            os.makedirs(vtx_idx_dir)
 
         gts = read_yaml(os.path.join(SIXD_PATH, subset, seq, 'gt.yml'))
 
@@ -114,8 +133,12 @@ for subset in SUBSETS:
                 nbr_kp = len(models_info[obj_id]['kp_x'])
 
                 # Lookup closest vertices to surface points
-                vtx_idx_map[mask] = find_nearest_neighbors(surface_pts, models[obj_id]['pts'])
+                vtx_idx_map[mask] = find_nearest_neighbors_naive(surface_pts, models[obj_id]['pts'])
+                print(vtx_idx_map[mask])
+                vtx_idx_map[mask] = find_nearest_neighbors_kdtree(surface_pts, kd_trees[obj_id])
+                print(vtx_idx_map[mask])
 
-            #assert vtx_idx_map.max() < 2**16
-            #Image.fromarray(vtx_idx_map.astype(np.uint16)).save(vtx_idx_path)
-            Image.fromarray(vtx_idx_map.astype(np.uint32)).save(vtx_idx_path)
+            if not DRY_RUN:
+                # assert vtx_idx_map.max() < 2**16
+                # Image.fromarray(vtx_idx_map.astype(np.uint16)).save(vtx_idx_path)
+                Image.fromarray(vtx_idx_map.astype(np.uint32)).save(vtx_idx_path)

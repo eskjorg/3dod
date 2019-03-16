@@ -1,14 +1,23 @@
 import sys
 import os
-sys.path.append('../..')
-#sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__))))
+# sys.path.append('../..')
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))) # Relative to module, but cannot be used in notebooks
 
 import yaml
 import gdist
 from lib.rigidpose.sixd_toolkit.pysixd import inout
 import numpy as np
+from scipy.spatial import cKDTree
 
-SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists'
+
+DRY_RUN = True
+LINEMOD_FLAG = False
+
+if LINEMOD_FLAG:
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists'
+else:
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video'
+
 
 # Load models
 models_info = inout.load_yaml(os.path.join(SIXD_PATH, 'models', 'models_info.yml'))
@@ -18,11 +27,25 @@ for obj_id in models_info:
     print("Obj {}: {} vertices, {} faces.".format(obj_id, len(models[obj_id]['pts']), len(models[obj_id]['faces'])))
 
 
-def find_closest_vtx(x, y, z, vertices):
-    assert vertices.shape[1] == 3
-    distances = np.linalg.norm(vertices - np.array([[x, y, z]]), axis=1)
-    vtx_idx = np.argmin(distances)
-    return vtx_idx
+def find_nearest_neighbors_naive(ref_points, point_cloud):
+    """
+    For each reference point, find its corresponding index in the point cloud.
+    """
+    distance_matrix = cdist(ref_points, point_cloud, metric='euclidean')
+    return np.argmin(distance_matrix, axis=1)
+
+def find_nearest_neighbors_kdtree(ref_points, kd_tree):
+    """
+    For each reference point, find its corresponding index in the point cloud.
+    """
+    dists, closest_indices = kd_tree.query(ref_points, k=1, eps=0, p=2)
+    return closest_indices
+
+# def find_closest_vtx(x, y, z, vertices):
+#     assert vertices.shape[1] == 3
+#     distances = np.linalg.norm(vertices - np.array([[x, y, z]]), axis=1)
+#     vtx_idx = np.argmin(distances)
+#     return vtx_idx
 
 def compute_gdists_on_models(models, models_info):
     gdists = {}
@@ -31,9 +54,15 @@ def compute_gdists_on_models(models, models_info):
         obj_cnt += 1
         nbr_vtx = model['pts'].shape[0]
         nbr_kp = len(models_info[obj_id]['kp_x'])
+        kd_tree = cKDTree(model['pts'])
         gdists[obj_id] = {}
         for kp_idx, kp_coords in enumerate(zip(models_info[obj_id]['kp_x'], models_info[obj_id]['kp_y'], models_info[obj_id]['kp_z'])):
-            kp_vtx_idx = find_closest_vtx(*kp_coords, model['pts'])
+            kp_vtx_idx = find_nearest_neighbors_naive(np.array([kp_coords]), model['pts'])[0,:]
+            print(kp_vtx_idx)
+            kp_vtx_idx = find_nearest_neighbors_kdtree(np.array([kp_coords]), kd_tree)[0,:]
+            print(kp_vtx_idx)
+            print("")
+            # kp_vtx_idx = find_closest_vtx(*kp_coords, model['pts'])
             print("Obj {}/{}: {}, keypoint {}/{}".format(obj_cnt, len(models), obj_id, kp_idx+1, nbr_kp))
             gdists[obj_id][kp_idx] = gdist.compute_gdist(
                 model['pts'].astype(np.float64),
@@ -58,6 +87,7 @@ def compute_gdists_on_models(models, models_info):
 gdists = compute_gdists_on_models(models, models_info)
 
 
-# Store gdists as yaml
-with open(os.path.join(SIXD_PATH, 'models', 'gdists.yml'), 'w') as f:
-    yaml.dump(gdists, f, Dumper=yaml.CDumper)
+if not DRY_RUN:
+    # Store gdists as yaml
+    with open(os.path.join(SIXD_PATH, 'models', 'gdists.yml'), 'w') as f:
+        yaml.dump(gdists, f, Dumper=yaml.CDumper)
