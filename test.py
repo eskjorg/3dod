@@ -31,11 +31,14 @@ class Tester():
 
     def test(self):
         self._model.eval()
+        cnt = 0
         for batch_id, batch in enumerate(self._data_loader.gen_batches(TEST)):
             outputs_cnn = self._run_model(batch.input)
             results = self._post_proc.run(batch, outputs_cnn)
             self._result_saver.save(results, TEST)
-            self._visualizer.save_images(batch, outputs_cnn, results, TEST, index=batch_id)
+            for sample_idx in range(len(batch.id)):
+                self._visualizer.save_images(batch, outputs_cnn, results, TEST, index=cnt, sample=sample_idx)
+                cnt += 1
             self._logger.info('Inference done for Batch {id:<5d}'.format(id=batch_id))
         self._result_saver.summarize_epoch(TEST)
 
