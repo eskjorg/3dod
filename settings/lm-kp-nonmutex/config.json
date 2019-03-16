@@ -90,7 +90,7 @@
         "val": {
             "batch_size": 8,
             "shuffle": "fixed",
-            "max_nbr_batches": 3,
+            "max_nbr_batches": null,
             "num_workers": 4
         },
         "test": {
