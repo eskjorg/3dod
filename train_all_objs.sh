@@ -7,7 +7,7 @@ TMP_SUFFIX=$(openssl rand -hex 4)
 WS=/tmp/3dod-ws-$TMP_SUFFIX
 rm -rf $WS
 cp -r /home/lucas/research/3dod $WS
-OBJECTS=(ape can cat duck driller eggbox glue holepuncher)
+OBJECTS=(duck can cat driller eggbox glue holepuncher ape)
 
 for OBJ in ${OBJECTS[@]}; do
     echo "Removing experiment /hdd/lucas/out/3dod-experiments/$EXPERIMENT_PREFIX-$OBJ"
