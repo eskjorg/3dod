@@ -28,7 +28,12 @@
     },
     "postprocessing": {
         "methods": [
-        ]
+        ],
+        "methods2": [
+            "rigidpose_ransac"
+        ],
+        "rigidpose_ransac": {
+        }
     },
     "data":{
         "dataformat": "sixd_kp_instances",
