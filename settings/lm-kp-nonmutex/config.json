@@ -81,12 +81,12 @@
         },
         "val": {
             "batch_size": 8,
-            "shuffle": true,
+            "shuffle": "fixed",
             "num_workers": 4
         },
         "test": {
             "batch_size": 8,
-            "shuffle": false,
+            "shuffle": "fixed",
             "num_workers": 4
         }
     }
