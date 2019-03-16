@@ -9,6 +9,7 @@ from matplotlib import pyplot, patches
 import math
 import numpy as np
 
+import torch
 from torch import nn
 from torchvision.transforms.functional import normalize
 from tensorboardX import SummaryWriter
@@ -70,6 +71,7 @@ class Visualizer:
             return
         K = batch.calibration[sample][:,:3]
         image_tensor = normalize(batch.input[sample], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
+        image_tensor = torch.clamp(image_tensor, 0.0, 1.0)
         frame_id = batch.id[sample]
 
         # Pick one sample from batch of detections / whatever comes from postprocessing modules
@@ -147,6 +149,7 @@ class Visualizer:
         # img = grayscale2rgb(rgb2grayscale(rgb))
 
         def plot_img(ax, img, title, bbox2d=None):
+            img = np.clip(img, 0.0, 1.0)
             if bbox2d is None:
                 ax.axis('on')
                 ax.set_xlim(-0.5,                                  -0.5 + self._configs.data.img_dims[1])
