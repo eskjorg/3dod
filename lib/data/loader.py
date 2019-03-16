@@ -29,10 +29,16 @@ class Loader:
         loader_config['dataset'] = dataset
         loader_config['collate_fn'] = collate_batch
         loader_config['pin_memory'] = True
-        loader_config['drop_last'] = True
         loader_config['batch_size'] = data_configs.batch_size
-        loader_config['shuffle'] = data_configs.shuffle
         loader_config['num_workers'] = data_configs.num_workers
+        loader_config['drop_last'] = True
+        if data_configs.shuffle == True:
+            loader_config['shuffle'] = True
+        elif data_configs.shuffle == False:
+            loader_config['shuffle'] = False
+        else:
+            # Should not happen
+            assert False
         return loader_config
 
     def gen_batches(self, mode):
