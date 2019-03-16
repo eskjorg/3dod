@@ -25,15 +25,15 @@ class Loader:
     def _get_loader_config(self, mode):
         dataset = self._dataset_module.get_dataset(self._configs, mode)
         data_configs = getattr(self._configs.loading, mode)
-        return {
-            'dataset': dataset,
-            'collate_fn': collate_batch,
-            'pin_memory': True,
-            'drop_last': True,
-            'batch_size': data_configs.batch_size,
-            'shuffle': data_configs.shuffle,
-            'num_workers': data_configs.num_workers
-        }
+        loader_config = {}
+        loader_config['dataset'] = dataset
+        loader_config['collate_fn'] = collate_batch
+        loader_config['pin_memory'] = True
+        loader_config['drop_last'] = True
+        loader_config['batch_size'] = data_configs.batch_size
+        loader_config['shuffle'] = data_configs.shuffle
+        loader_config['num_workers'] = data_configs.num_workers
+        return loader_config
 
     def gen_batches(self, mode):
         """Return an iterator over batches."""
