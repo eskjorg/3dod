@@ -75,17 +75,17 @@
     },
     "loading": {
         "train": {
-            "batch_size": 4,
+            "batch_size": 8,
             "shuffle": true,
             "num_workers": 4
         },
         "val": {
-            "batch_size": 4,
+            "batch_size": 8,
             "shuffle": true,
             "num_workers": 4
         },
         "test": {
-            "batch_size": 1,
+            "batch_size": 8,
             "shuffle": false,
             "num_workers": 4
         }
