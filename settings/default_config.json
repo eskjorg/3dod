@@ -47,16 +47,19 @@
         "train": {
             "batch_size": 16,
             "shuffle": true,
+            "max_nbr_batches": null,
             "num_workers": 16
         },
         "val": {
             "batch_size": 32,
             "shuffle": false,
+            "max_nbr_batches": null,
             "num_workers": 16
         },
         "test": {
             "batch_size": 1,
             "shuffle": false,
+            "max_nbr_batches": null,
             "num_workers": 16
         }
     }

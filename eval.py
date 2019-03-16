@@ -36,6 +36,9 @@ class Evaluator():
             self._model.eval()
             cnt = 0
             for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
+                # The max number of batches for test is always used in eval script:
+                if self._configs.loading[TEST]['max_nbr_batches'] is not None and batch_id >= self._configs.loading[TEST]['max_nbr_batches']:
+                    break
                 outputs_cnn = self._run_model(batch.input)
                 if mode in (TRAIN, VAL):
                     loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)

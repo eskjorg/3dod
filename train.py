@@ -77,6 +77,8 @@ class Trainer():
         getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
         cnt = 0
         for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
+            if self._configs.loading[mode]['max_nbr_batches'] is not None and batch_id >= self._configs.loading[mode]['max_nbr_batches']:
+                break
             outputs_cnn = self._run_model(batch.input, mode)
             loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)
             if mode == TRAIN:

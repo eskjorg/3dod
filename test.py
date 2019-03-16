@@ -33,6 +33,8 @@ class Tester():
         self._model.eval()
         cnt = 0
         for batch_id, batch in enumerate(self._data_loader.gen_batches(TEST)):
+            if self._configs.loading[TEST]['max_nbr_batches'] is not None and batch_id >= self._configs.loading[TEST]['max_nbr_batches']:
+                break
             outputs_cnn = self._run_model(batch.input)
             results = self._post_proc.run(batch, outputs_cnn)
             self._result_saver.save(results, TEST)
