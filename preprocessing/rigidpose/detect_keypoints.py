@@ -28,12 +28,7 @@ LINEMOD_FLAG = True
 
 
 def format_frame_idx(frame_idx):
-    # if LINEMOD_FLAG:
-    if False:
-        return '{:04}.png'.format(frame_idx)
-    else:
-        return '{:06}.png'.format(frame_idx)
-
+    return '{:06}.png'.format(frame_idx)
 
 class KeypointSelector(ABC):
 
@@ -477,7 +472,7 @@ class FarthestPointSamplingKeypointSelector(KeypointSelector):
         return kp_dict
 
 if LINEMOD_FLAG:
-    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists'
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06'
     SUBSET = 'train_unoccl'
 else:
     SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video'
