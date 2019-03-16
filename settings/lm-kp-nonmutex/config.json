@@ -1,6 +1,8 @@
 {
     "network": {
-        "encoder": "resnet34",
+        "encoder1": "resnet34",
+        "encoder": "resnet34_shallow",
+        "encoder3": "drn_c_26",
         "output_stride": 8,
         "support_region": 1.0
     },
@@ -11,7 +13,7 @@
         "learning_rate": 0.001,
         "weight_decay": {"encoder": 1e-3, "decoder": 1e-3},
         "weighting_mode": "sample_wise",
-        "n_epochs": 100
+        "n_epochs": 30
     },
     "visualization": {
         "gt": [
