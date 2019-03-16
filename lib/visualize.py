@@ -15,6 +15,7 @@ from tensorboardX import SummaryWriter
 
 from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, NBR_KEYPOINTS, PATCH_SIZE, GT_TYPE, CNN_TYPE, DET_TYPE
 from lib.constants import TV_MEAN, TV_STD
+from lib.constants import TRAIN, VAL
 from lib.utils import project_3d_pts, construct_3d_box, get_metadata, get_class_map
 from lib.rigidpose.pose_estimator import pflat
 
@@ -74,8 +75,11 @@ class Visualizer:
         # Pick one sample from batch of detections / whatever comes from postprocessing modules
         detections = output[frame_id]
 
-        # Pick one sample from batch of ground truth annotations
-        annotations = batch.annotation[sample]
+        if mode in (TRAIN, VAL):
+            # Pick one sample from batch of ground truth annotations
+            annotations = batch.annotation[sample]
+        else:
+            annotations = []
 
         sigmoid = lambda x: 1.0 / (1.0 + np.exp(-x))
 
@@ -95,8 +99,9 @@ class Visualizer:
         visibility_maps_lowres = sigmoid(tensor2numpy(cnn_outs['clsnonmutex'][0], sample))
         visibility_maps_highres = sigmoid(tensor2numpy(cnn_outs['clsnonmutex'][0], sample, upsample_and_permute=True))
 
-        # And corresponding ground truth
-        gt_visibility_maps_highres = tensor2numpy(batch.gt_map['clsnonmutex'], sample, upsample_and_permute=True)
+        if mode in (TRAIN, VAL):
+            # And corresponding ground truth
+            gt_visibility_maps_highres = tensor2numpy(batch.gt_map['clsnonmutex'], sample, upsample_and_permute=True)
 
         # Index map
         def get_index_map(img_dims, stride):
@@ -233,17 +238,18 @@ class Visualizer:
                 heatmap_color = np.array([1.0, 0.0, 1.0])
 
 
-                # GT heatmap
-                gt_visibility_map_highres = gt_visibility_maps_highres[class_id-2,:,:]
-                lambda_map = 0.6*gt_visibility_map_highres
-                heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
-                heatmap[:100,:100,:] = kp_color
-                plot_img(axes_array[kp_idx+1,0], heatmap, 'Keypoint {:02d} - GT'.format(kp_idx), bbox2d=bbox2d)
+                if mode in (TRAIN, VAL):
+                    # GT heatmap
+                    gt_visibility_map_highres = gt_visibility_maps_highres[class_id-2,:,:]
+                    lambda_map = 0.6*gt_visibility_map_highres
+                    heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
+                    heatmap[:100,:100,:] = kp_color
+                    plot_img(axes_array[kp_idx+1,0], heatmap, 'Keypoint {:02d} - GT'.format(kp_idx), bbox2d=bbox2d)
 
-                # GT position
-                if class_id in anno_lookup:
-                    gt_color = 'red' if anno_lookup[class_id].self_occluded or anno_lookup[class_id].occluded else 'blue'
-                    axes_array[kp_idx+1,0].add_patch(patches.Circle(anno_lookup[class_id].keypoint, radius=4, color=gt_color, edgecolor='black'))
+                    # GT position
+                    if class_id in anno_lookup:
+                        gt_color = 'red' if anno_lookup[class_id].self_occluded or anno_lookup[class_id].occluded else 'blue'
+                        axes_array[kp_idx+1,0].add_patch(patches.Circle(anno_lookup[class_id].keypoint, radius=4, color=gt_color, edgecolor='black'))
 
 
 

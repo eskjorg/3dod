@@ -35,7 +35,7 @@ class Tester():
             outputs_cnn = self._run_model(batch.input)
             results = self._post_proc.run(batch, outputs_cnn)
             self._result_saver.save(results, TEST)
-            self._visualizer.save_images(batch, results, TEST, index=batch_id)
+            self._visualizer.save_images(batch, outputs_cnn, results, TEST, index=batch_id)
             self._logger.info('Inference done for Batch {id:<5d}'.format(id=batch_id))
         self._result_saver.summarize_epoch(TEST)
 
@@ -52,6 +52,8 @@ def main(setup):
 
     configs = get_configs(args.config_name)
     configs += vars(args)
+    if args.train_seqs is not None:
+        configs['data']['sequences']['train'] = args.train_seqs.split(',')
     tester = Tester(configs)
     tester.test()
 
