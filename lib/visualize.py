@@ -229,7 +229,7 @@ class Visualizer:
                     '12': 'holepuncher',
                 }
                 return lookup[label]
-            bbox2d = expand_bbox(anno_group_lookup[group_id].bbox2d, 2.0) if group_id in anno_group_lookup else None
+            bbox2d = expand_bbox(anno_group_lookup[group_id].bbox2d, 3.0) if group_id in anno_group_lookup else None
             plot_img(axes_array[0,0], img, 'Pose')
             plot_poses(axes_array[0,0], [group_id], annotations, detections)
             plot_img(axes_array[0,1], img, 'Pose close-up', bbox2d=bbox2d)
