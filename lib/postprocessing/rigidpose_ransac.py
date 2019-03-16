@@ -144,7 +144,7 @@ class RansacEstimator():
             scores = self._score_samples_reproj(P)
             inlier_mask = scores < self.ransacthr
             if self.confidence_based_sampling:
-                fraction_inliers = np.sum(self.corr_set.sample_confidences * inlier_mask) / np.sum(self.corr_set.sample_confidences)
+                fraction_inliers = np.sum(self.corr_set.sample_confidences[inlier_mask]) / np.sum(self.corr_set.sample_confidences)
             else:
                 fraction_inliers = np.sum(inlier_mask) / self.corr_set.nbr_samples
         else:
@@ -153,13 +153,15 @@ class RansacEstimator():
             # scores = self._score_samples_nll(P)
             # print(np.mean(scores))
             # inlier_mask = scores < self.ransacthr
-            # fraction_inliers = np.sum(scores < self.ransacthr) / self.corr_set.nbr_samples
+            # fraction_inliers = np.sum(inlier_mask) / self.corr_set.nbr_samples
 
             # Likelihood probability mass at tails
+            # self.ransacthr = 0.01 # 1 % confidence
+            # self.ransacthr = 0.05 # 5 % confidence
             self.ransacthr = 0.3 # 30 % confidence
-            scores = self._score_samples_probmass_tails(P)
+            scores = self._score_samples_confidence_level(P)
             inlier_mask = scores < self.ransacthr
-            fraction_inliers = np.sum(scores < self.ransacthr) / self.corr_set.nbr_samples
+            fraction_inliers = np.sum(inlier_mask) / self.corr_set.nbr_samples
 
         return inlier_mask, fraction_inliers
 
@@ -193,6 +195,19 @@ class RansacEstimator():
                     Pransac = P
                     fraction_inliers = curr_fraction_inliers
                     best_iteration = i
+
+        # # EPnP on inliers
+        # if np.sum(inlier_mask) < 4:
+        #     fraction_inliers_epnp = 0
+        # else:
+        #     P_epnp = epnp(self.corr_set.u[:,inlier_mask], self.corr_set.U[:,inlier_mask])
+        #     fraction_inliers_epnp = self.evaluate_hypothesis(P_epnp)[1] if P_epnp is not None else 0
+        # 
+        # # OpenGV RANSAC on all correspondences
+        # P_opengv_ransac = opengv_ransac(self.corr_set.u, self.corr_set.U)
+        # fraction_inliers_opengv_ransac = self.evaluate_hypothesis(P_opengv_ransac)[1] if P_opengv_ransac is not None else 0
+        # 
+        # print(fraction_inliers, fraction_inliers_opengv_ransac, fraction_inliers_epnp)
 
         if not fraction_inliers > 0:
             raise RANSACException("No inliers found")
