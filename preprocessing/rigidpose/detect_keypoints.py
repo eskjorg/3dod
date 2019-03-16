@@ -25,6 +25,7 @@ from abc import ABC, abstractmethod
 
 DRY_RUN = True
 LINEMOD_FLAG = True
+APPEND_WITH_FPS = True
 
 
 def format_frame_idx(frame_idx):
@@ -519,29 +520,32 @@ kp_selector = DetectorKeypointSelector(opts)
 initial_keypoints = kp_selector.select_keypoints(initial_keypoints=None)
 
 
-opts = {
-    # 'MARKERSIZE': 10,
-    'MARKERSIZE': 30,
-    'MAX_NBR_VTX_SCATTERPLOT': 500,
-    'NBR_KEYPOINTS': 20,
-    'SCORES_COLORED_IN_SCATTERPLOT': False,
-    'MIN_VTX_SCORE_GMM': None,
-    'MIN_VTX_SCORE_SCATTERPLOT': None,
-    'SCATTER_VMIN': 0.0,
-    'SCATTER_VMAX': 10.0,
-    'SCORE_EXP': 1.0,
-    'DATA_PATH': SIXD_PATH,
-}
-kp_selector = FarthestPointSamplingKeypointSelector(opts)
+if not APPEND_WITH_FPS:
+    kp_dict = initial_keypoints
+else:
+    opts = {
+        # 'MARKERSIZE': 10,
+        'MARKERSIZE': 30,
+        'MAX_NBR_VTX_SCATTERPLOT': 500,
+        'NBR_KEYPOINTS': 20,
+        'SCORES_COLORED_IN_SCATTERPLOT': False,
+        'MIN_VTX_SCORE_GMM': None,
+        'MIN_VTX_SCORE_SCATTERPLOT': None,
+        'SCATTER_VMIN': 0.0,
+        'SCATTER_VMAX': 10.0,
+        'SCORE_EXP': 1.0,
+        'DATA_PATH': SIXD_PATH,
+    }
+    kp_selector = FarthestPointSamplingKeypointSelector(opts)
 
-# Select features
-# kp_dict = kp_selector.select_keypoints()
-kp_dict = kp_selector.select_keypoints(initial_keypoints=initial_keypoints)
-if PROJECT_TO_SURFACE:
-    kp_dict = kp_selector.project_to_surface(kp_dict)
-normals_dict = kp_selector.find_normals(kp_dict) if FIND_NORMALS else None
-if STORE_KEYPOINTS:
-    kp_selector.store_keypoints(kp_dict, normals_dict=normals_dict)
+    # Select features
+    # kp_dict = kp_selector.select_keypoints()
+    kp_dict = kp_selector.select_keypoints(initial_keypoints=initial_keypoints)
+    if PROJECT_TO_SURFACE:
+        kp_dict = kp_selector.project_to_surface(kp_dict)
+    normals_dict = kp_selector.find_normals(kp_dict) if FIND_NORMALS else None
+    if STORE_KEYPOINTS:
+        kp_selector.store_keypoints(kp_dict, normals_dict=normals_dict)
 
 # Or read features from file
 # kp_dict = kp_selector.load_keypoints(kp_selector.read_models_info(from_backup=False))
