@@ -89,7 +89,7 @@
         },
         "val": {
             "batch_size": 8,
-            "shuffle": "fixed",
+            "shuffle": true,
             "max_nbr_batches": null,
             "num_workers": 4
         },

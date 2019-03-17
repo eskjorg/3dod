@@ -36,8 +36,7 @@ class Evaluator():
             self._model.eval()
             cnt = 0
             for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
-                # The max number of batches for test is always used in eval script:
-                if self._configs.loading[TEST]['max_nbr_batches'] is not None and batch_id >= self._configs.loading[TEST]['max_nbr_batches']:
+                if self._configs.loading[mode]['max_nbr_batches'] is not None and batch_id >= self._configs.loading[mode]['max_nbr_batches']:
                     break
                 outputs_cnn = self._run_model(batch.input)
                 if mode in (TRAIN, VAL):
@@ -64,6 +63,13 @@ def main(setup):
 
     configs = get_configs(args.config_name)
     configs += vars(args)
+
+    # NOTE: The loading options for TEST is used also for TRAIN & VAL during evaluation.
+    configs['loading'][TRAIN]['shuffle'] = configs['loading'][TEST]['shuffle']
+    configs['loading'][VAL]['shuffle'] = configs['loading'][TEST]['shuffle']
+    configs['loading'][TRAIN]['max_nbr_batches'] = configs['loading'][TEST]['max_nbr_batches']
+    configs['loading'][VAL]['max_nbr_batches'] = configs['loading'][TEST]['max_nbr_batches']
+
     if args.train_seqs is not None:
         configs['data']['sequences']['train'] = args.train_seqs.split(',')
     evaluator = Evaluator(configs)
