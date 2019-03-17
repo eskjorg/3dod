@@ -41,6 +41,7 @@ class GroupedCorrespondenceSet():
     def __init__(self, K):
         self.K = K
         self.group_ids = []
+        self._group_id2group_idx_dict = {}
         self.grouped_idx_lists = []
         self.u = np.empty((3, 0))
         self.U = np.empty((4, 0))
@@ -74,6 +75,23 @@ class GroupedCorrespondenceSet():
     def group_confidences(self):
         return self._packed['group_confidences']
 
+    def group_id2group_idx(self, group_id):
+        return self._group_id2group_idx_dict[group_id]
+
+    def nbr_samples_in_group(self, group_id):
+        group_idx = self.group_id2group_idx(group_id)
+        return len(self.grouped_idx_lists[group_idx])
+
+    def sample_idx2group_id_and_idx_within_group(self, sample_idx):
+        offset = 0
+        for group_idx, group_id in enumerate(self.group_ids):
+            if sample_idx < offset + self.nbr_samples_in_group(group_id):
+                idx_within_group = sample_idx - offset
+                return group_id, idx_within_group
+            offset += self.nbr_samples_in_group(group_id)
+        # Should not be able to happen:
+        assert False
+
     def pack(self):
         u_grouped = [self.u[:, idx_list] for idx_list in self.grouped_idx_lists]
         U_grouped = [self.U[:, idx_list] for idx_list in self.grouped_idx_lists]
@@ -97,9 +115,11 @@ class GroupedCorrespondenceSet():
         b                   - array (2, N)
         """
         curr_nbr_samples = self.nbr_samples
+        curr_nbr_groups = self.nbr_groups
         nbr_samples_added = u_unnorm.shape[1]
         u = normalize(pextend(u_unnorm), self.K)
         self.group_ids.append(group_id)
+        self._group_id2group_idx_dict[group_id] = curr_nbr_groups
         self.grouped_idx_lists.append(list(range(curr_nbr_samples, curr_nbr_samples+nbr_samples_added)))
         self.u = np.concatenate([self.u, u], axis=1)
         self.b_per_sample = np.concatenate([self.b_per_sample, b], axis=1)
