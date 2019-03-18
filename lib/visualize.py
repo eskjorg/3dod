@@ -189,7 +189,8 @@ class Visualizer:
                     self.plot_bbox3d(ax, K, anno.rotation, anno.location.numpy(), *self._metadata['objects'][group_label]['bbox3d'], color='b', linestyle='-', linewidth=1)
                 if group_id in detections:
                     det = detections[group_id]
-                    self.plot_bbox3d(ax, K, det['P_ransac'][:,:3], det['P_ransac'][:,3], *self._metadata['objects'][group_label]['bbox3d'], color='g', linestyle=':', linewidth=1)
+                    if det['ransac'] is not None:
+                        self.plot_bbox3d(ax, K, det['ransac']['P'][:,:3], det['ransac']['P'][:,3], *self._metadata['objects'][group_label]['bbox3d'], color='g', linestyle=':', linewidth=1)
 
         fig, axes_array = pyplot.subplots(
             nrows=1,
@@ -395,8 +396,19 @@ class Visualizer:
                 # lambda_map = np.clip(likelihood_map/0.7, 0.0, 1.0)
                 heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
                 heatmap[:100,:100,:] = kp_color
-                plot_img(axes_array[kp_idx+1,2], heatmap, 'Keypoint {:02d} - Uncertainty'.format(kp_idx), bbox2d=bbox2d)
+                # plot_img(axes_array[kp_idx+1,2], heatmap, 'Keypoint {:02d} - Uncertainty'.format(kp_idx), bbox2d=bbox2d)
+                plot_img(axes_array[kp_idx+1,2], heatmap, 'Keypoint {:02d} - Uncertainty'.format(kp_idx), bbox2d=None)
 
+                if detections[group_id]['ransac'] is not None and kp_idx in detections[group_id]['ransac']['best_minimal_set']:
+                    corr_idx_within_kp_group = detections[group_id]['ransac']['best_minimal_set'][kp_idx]
+                    x = detections[group_id]['keypoints'][kp_idx]['kp_x_vec'][corr_idx_within_kp_group]
+                    y = detections[group_id]['keypoints'][kp_idx]['kp_y_vec'][corr_idx_within_kp_group]
+                    # print(kp_idx, x, y)
+                    # axes_array[kp_idx+1,2].add_patch(patches.Circle([x, y], radius=10, color='red', edgecolor='black'))
+                    axes_array[kp_idx+1,2].plot([x], [y], 'x', markersize=10, color='green')
+                else:
+                    # print(kp_idx, False, False)
+                    pass
 
 
 
