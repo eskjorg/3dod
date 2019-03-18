@@ -88,7 +88,10 @@ class Visualizer:
         def tensor2numpy(tensor, sample_idx, upsample_and_permute=False):
             tensor = tensor.detach()
             if upsample_and_permute:
-                tensor = nn.Upsample(size=self._configs.data.img_dims,mode='nearest')(tensor)
+                if tensor.dtype == torch.long:
+                    tensor = nn.Upsample(size=self._configs.data.img_dims,mode='nearest')(tensor.double()).long()
+                else:
+                    tensor = nn.Upsample(size=self._configs.data.img_dims,mode='nearest')(tensor)
             tensor = tensor[sample_idx,:,:,:]
             array = tensor.cpu().numpy()
             # if upsample_and_permute:
@@ -108,6 +111,8 @@ class Visualizer:
         if mode in (TRAIN, VAL):
             # And corresponding ground truth
             gt_visibility_maps_highres = tensor2numpy(batch.gt_map['clsnonmutex'], sample, upsample_and_permute=True)
+            gt_seg_map_lowres = tensor2numpy(batch.gt_map['clsgroup'], sample)[0,:,:]
+            gt_seg_map_highres = tensor2numpy(batch.gt_map['clsgroup'], sample, upsample_and_permute=True)[0,:,:]
 
         # Index map
         def get_index_map(img_dims, stride):
@@ -225,8 +230,10 @@ class Visualizer:
             class_ids = np.array([self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)])
             for kp_idx in range(NBR_KEYPOINTS):
                 class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
-                visibility_maps_lowres[class_id-2,:,:][seg_map_lowres != group_id] = 0.0
-                visibility_maps_highres[class_id-2,:,:][seg_map_highres != group_id] = 0.0
+                # visibility_maps_lowres[class_id-2,:,:][seg_map_lowres != group_id] = 0.0
+                # visibility_maps_highres[class_id-2,:,:][seg_map_highres != group_id] = 0.0
+                visibility_maps_lowres[class_id-2,:,:][gt_seg_map_lowres != group_id] = 0.0
+                visibility_maps_highres[class_id-2,:,:][gt_seg_map_highres != group_id] = 0.0
 
         for group_id in self._class_map.get_group_ids():
             class_ids = [self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)]
@@ -270,9 +277,8 @@ class Visualizer:
 
             # BG-Segmentation
             heatmap_color = np.array([1.0, 0.0, 1.0])
-            heatmap = blend_rgb(img, get_uniform_color(heatmap_color), seg_map_highres == 0)
-            plot_img(axes_array[0,3], heatmap, 'BG Segmentation output')
-
+            heatmap = blend_rgb(img, get_uniform_color(heatmap_color), gt_seg_map_highres == group_id)
+            plot_img(axes_array[0,3], heatmap, 'GT Segmentation')
 
             for kp_idx in range(NBR_KEYPOINTS):
                 class_id = class_ids[kp_idx]

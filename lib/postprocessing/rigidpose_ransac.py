@@ -259,6 +259,18 @@ class Runner(RunnerIf):
         kp_ln_b_maps_dict = {task_name: task_output[1][frame_index].detach() for task_name, task_output in cnn_outs.items() if task_name.startswith('keypoint')}
         visibility_maps = self._sigmoid(cnn_outs['clsnonmutex'][0][frame_index].detach())
 
+        group_logit_maps = self._sigmoid(cnn_outs['clsgroup'][0][frame_index].detach())
+        seg_map = group_logit_maps.argmax(0)
+        gt_seg_map = batch.gt_map['clsgroup'][frame_index][0,:,:]
+
+        # Suppress visibility maps outside of segmentation
+        for group_id in self._class_map.get_group_ids():
+            class_ids = np.array([self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)])
+            for kp_idx in range(NBR_KEYPOINTS):
+                class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
+                # visibility_maps[class_id-2,:,:][seg_map != group_id] = 0.0
+                visibility_maps[class_id-2,:,:][gt_seg_map != group_id] = 0.0
+
         # Intrinsic camera parameters
         K = batch.calibration[frame_index][:,:3]
 
