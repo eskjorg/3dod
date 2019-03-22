@@ -57,8 +57,8 @@ class GtMapsGenerator:
         obj_coords = []
         target_dims = self._configs.target_dims
         def get_coord_convex(coord1, coord2, max_limit):
-            coord = coord1 * (1 + shrink_factor) / 2 + \
-                    coord2 * (1 - shrink_factor) / 2
+            coord = coord1 * (1 + np.sqrt(shrink_factor)) / 2 + \
+                    coord2 * (1 - np.sqrt(shrink_factor)) / 2
             return  int(max(0, min(max_limit, coord)))
         for obj in objects:
             xmin, ymin, xmax, ymax = obj.bbox2d / self._configs.network.output_stride
