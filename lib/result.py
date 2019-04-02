@@ -1,7 +1,9 @@
 """Save results to disk."""
 import os
 import json
+import pickle
 import numpy as np
+import scipy.io
 
 from pyquaternion import Quaternion
 
@@ -17,7 +19,8 @@ class ResultSaver:
     """ResultSaver."""
     def __init__(self, configs):
         self._configs = configs
-        self._epoch_results = None
+        self._epoch_detections = []
+        self._epoch_results_nuscenes = None
 
         self._result_dir = os.path.join(configs.experiment_path, 'detections')
         os.makedirs(self._result_dir, exist_ok=True)
@@ -27,9 +30,12 @@ class ResultSaver:
             self._init_results()
 
     def _init_results(self):
-        self._epoch_results = {sample['token']: [] for sample in self._nusc.sample}
+        self._epoch_results_nuscenes = {sample['token']: [] for sample in self._nusc.sample}
 
     def save(self, detections, mode):
+        if self._configs.logging.save_matlab_format or self._configs.logging.save_pickle:
+            for frame_id, frame_detections in detections.items():
+                self._epoch_detections.append(frame_detections)
         if self._configs.logging.save_nuscenes_format:
             for data_token, frame_detections in detections.items():
                 self.save_nuscenes_format(data_token, frame_detections)
@@ -38,12 +44,20 @@ class ResultSaver:
                 self.save_frame_kitti(frame_id, frame_detections, mode)
 
     def summarize_epoch(self, mode):
-        if self._configs.data.dataformat != 'nuscenes':
-            return None  # TODO: implement evaluation for other datasets
-        result_path = self.write_to_file()
-        eval_set = 'teaser_' + mode
-        if mode == 'test':  # TODO: until full dataset released
-            eval_set = 'teaser_val'
+        print('Saving epoch results')
+        # Pickle
+        if self._configs.logging.save_pickle:
+            with open(os.path.join(self._result_dir, 'detections.pkl'), 'wb') as file:
+                pickle.dump(self._epoch_detections, file)
+        # Matlab
+        if self._configs.logging.save_matlab_format:
+            scipy.io.savemat(file_name=os.path.join(self._result_dir, 'detections.mat'),
+                             mdict={'epoch_detections': self._epoch_detections},
+                             do_compression=True)
+        # nuScenes
+        if not self._configs.logging.save_nuscenes_format:
+            return 0  # TODO: implement evaluation for other datasets
+        result_path = self.write_to_file_nuscenes()
         output_dir = os.path.join(self._result_dir, 'nuscenes_eval')
         nusc_eval = NuScenesEval(nusc=self._nusc,
                                  config=config_factory('cvpr_2019'),
@@ -54,10 +68,10 @@ class ResultSaver:
         score = all_metrics[self._configs.evaluation.score]
         return score
 
-    def write_to_file(self):
+    def write_to_file_nuscenes(self):
         result_path = os.path.join(self._result_dir, 'nuscenes_results.json')
         with open(result_path, 'w') as file:
-            json.dump(self._epoch_results, file, indent=4)
+            json.dump(self._epoch_results_nuscenes, file, indent=4)
         self._init_results()
         return result_path
 
@@ -82,7 +96,7 @@ class ResultSaver:
                 "attribute_name": ""
             }
             sample_results.append(sample_result)
-        self._epoch_results[sample_token] = sample_results
+        self._epoch_results_nuscenes[sample_token] = sample_results
 
     def get_nusc_global_pose(self, box, sample_data):
         box = Box(center=box['location'],

@@ -39,7 +39,9 @@
     "logging": {
         "avg_window_size": 25,
         "save_kitti_format": false,
-        "save_nuscenes_format": false
+        "save_nuscenes_format": false,
+        "save_matlab_format": false,
+        "save_pickle": false
     },
     "loading": {
         "train": {

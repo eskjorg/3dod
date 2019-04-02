@@ -5,7 +5,8 @@
         "support_region": 0.2
     },
     "logging": {
-        "save_kitti_format": true
+        "save_kitti_format": true,
+        "save_pickle": true
     },
     "training": {
         "weighting_mode": "sample_wise"
