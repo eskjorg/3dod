@@ -8,6 +8,7 @@ import gdist
 from lib.rigidpose.sixd_toolkit.pysixd import inout
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.spatial.distance import cdist
 
 
 DRY_RUN = True
@@ -27,12 +28,12 @@ for obj_id in models_info:
     print("Obj {}: {} vertices, {} faces.".format(obj_id, len(models[obj_id]['pts']), len(models[obj_id]['faces'])))
 
 
-def find_nearest_neighbors_naive(ref_points, point_cloud):
-    """
-    For each reference point, find its corresponding index in the point cloud.
-    """
-    distance_matrix = cdist(ref_points, point_cloud, metric='euclidean')
-    return np.argmin(distance_matrix, axis=1)
+# def find_nearest_neighbors_naive(ref_points, point_cloud):
+#     """
+#     For each reference point, find its corresponding index in the point cloud.
+#     """
+#     distance_matrix = cdist(ref_points, point_cloud, metric='euclidean')
+#     return np.argmin(distance_matrix, axis=1)
 
 def find_nearest_neighbors_kdtree(ref_points, kd_tree):
     """
@@ -57,10 +58,10 @@ def compute_gdists_on_models(models, models_info):
         kd_tree = cKDTree(model['pts'])
         gdists[obj_id] = {}
         for kp_idx, kp_coords in enumerate(zip(models_info[obj_id]['kp_x'], models_info[obj_id]['kp_y'], models_info[obj_id]['kp_z'])):
-            kp_vtx_idx = find_nearest_neighbors_naive(np.array([kp_coords]), model['pts'])[0,:]
-            print(kp_vtx_idx)
-            kp_vtx_idx = find_nearest_neighbors_kdtree(np.array([kp_coords]), kd_tree)[0,:]
-            print(kp_vtx_idx)
+            # kp_vtx_idx = find_nearest_neighbors_naive(np.array([kp_coords]), model['pts'])[0]
+            # print(kp_vtx_idx)
+            kp_vtx_idx = find_nearest_neighbors_kdtree(np.array([kp_coords]), kd_tree)[0]
+            # print(kp_vtx_idx)
             print("")
             # kp_vtx_idx = find_closest_vtx(*kp_coords, model['pts'])
             print("Obj {}/{}: {}, keypoint {}/{}".format(obj_cnt, len(models), obj_id, kp_idx+1, nbr_kp))
