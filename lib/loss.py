@@ -20,22 +20,27 @@ class LossHandler:
 
         self._ce_loss = nn.CrossEntropyLoss(ignore_index=IGNORE_IDX_CLS).to(get_device())
         self._l1_loss = nn.L1Loss(reduction='none').to(get_device())
+        self._l2_loss = nn.MSELoss(reduction='none').to(get_device())
 
     def calc_loss(self, gt_maps, outputs_cnn):
         def calc_task_loss(layer_name, layer_outputs, gt_map):
             tensor, ln_var = layer_outputs
-            if self._layers[layer_name]['loss'] == 'CE':
+            loss_type = self._layers[layer_name]['loss']
+            if loss_type == 'CE':
                 task_loss = self._ce_loss(tensor, gt_map[:, 0])
-            elif self._layers[layer_name]['loss'] == 'L1':
+                return task_loss
+            elif loss_type == 'L1':
                 task_loss = self._l1_loss(tensor, gt_map)
-                if len(ln_var.shape) == 1:
-                    ln_var = ln_var.unsqueeze(-1).unsqueeze(-1)
-                task_loss = task_loss * exp(-ln_var) + ln_var
-                task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
-                # clamp below is a trick to avoid 0 / 0 = NaN, and instead perform 0 / 1 = 0. Works because denominator will be either 0 or >= 1 (sum of boolean -> non-negative int).
-                task_loss = task_loss.sum() / clamp(gt_map.ne(IGNORE_IDX_REG).sum(), min=1)
+            elif loss_type == 'L2':
+                task_loss = self._l2_loss(tensor, gt_map)
             else:
                 raise NotImplementedError("{} loss not implemented.".format(self._layers[layer_name]['loss']))
+            if len(ln_var.shape) == 1:
+                ln_var = ln_var.unsqueeze(-1).unsqueeze(-1)
+            task_loss = (task_loss + 0.02) * exp(-ln_var) + ln_var
+            task_loss = task_loss * gt_map.ne(IGNORE_IDX_REG).float()
+            # clamp below is a trick to avoid 0 / 0 = NaN, and instead perform 0 / 1 = 0. Works because denominator will be either 0 or >= 1 (sum of boolean -> non-negative int).
+            task_loss = task_loss.sum() / clamp(gt_map.ne(IGNORE_IDX_REG).sum(), min=1)
             return task_loss
         loss = 0
         for layer_name, layer_outputs in outputs_cnn.items():
