@@ -8,8 +8,9 @@ from pyquaternion import Quaternion
 import matplotlib
 matplotlib.use('Agg')  # Overriding nuscenes backend
 
-from nuscenes.eval.eval_utils import category_to_detection_name
-from nuscenes.eval.nuscenes_eval import NuScenesEval
+from nuscenes.eval.detection.utils import category_to_detection_name
+from nuscenes.eval.detection.evaluate import NuScenesEval
+from nuscenes.eval.detection.config import config_factory
 from nuscenes.utils.data_classes import Box
 
 class ResultSaver:
@@ -45,8 +46,9 @@ class ResultSaver:
             eval_set = 'teaser_val'
         output_dir = os.path.join(self._result_dir, 'nuscenes_eval')
         nusc_eval = NuScenesEval(nusc=self._nusc,
+                                 config=config_factory('cvpr_2019'),
                                  result_path=result_path,
-                                 eval_set=eval_set,
+                                 eval_set=mode if mode != 'test' else 'val',
                                  output_dir=output_dir)
         all_metrics = nusc_eval.run_eval()
         score = all_metrics[self._configs.evaluation.score]
@@ -74,10 +76,10 @@ class ResultSaver:
                 "translation": location.tolist(),
                 "size": abs(detection['size']).tolist(),
                 "rotation": rotation.normalised.elements.tolist(),
-                "velocity": 3 * [float('nan')],
+                "velocity": 2 * [float('nan')],
                 "detection_name": category_to_detection_name(detection['cls']),
                 "detection_score": float(detection['confidence']),
-                "attribute_scores": 8 * [-1]
+                "attribute_name": ""
             }
             sample_results.append(sample_result)
         self._epoch_results[sample_token] = sample_results

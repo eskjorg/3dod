@@ -6,6 +6,7 @@ from matplotlib.pyplot import cm
 import torch
 
 from nuscenes.utils.geometry_utils import BoxVisibility, view_points
+from nuscenes.utils.splits import create_splits_logs
 
 from lib.constants import TRAIN, VAL, IGNORE_IDX_CLS
 from lib.data.loader import Sample
@@ -35,7 +36,7 @@ class NuscenesDataset(torch.utils.data.Dataset):
 
     def _init_data_tokens(self):
         tokens = []
-        split_logs = self._configs.split[self._mode]
+        split_logs = create_splits_logs(split=self._mode, nusc=self._nusc)
         channels = self._configs.channels
         def is_keyframe(sample_data, sample):
             channel = sample_data['channel']
