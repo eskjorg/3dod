@@ -3,7 +3,7 @@
 from importlib import import_module
 import torch
 from torch import nn
-from lib.utils import get_layers
+from lib.utils import get_layers, get_device
 
 class Model(nn.Module):
     """Neural network module."""
@@ -78,7 +78,9 @@ class MultiTaskHead(nn.Sequential):
 
 class WeightedHead(nn.ModuleList):
     def forward(self, x):
-        return [module(x) for module in self]
+        tensor = self[0](x)
+        ln_var = self[1](x) * 0.1  # Scale for slower learning rate
+        return tensor, ln_var
 
 
 class LayerWeights(nn.Module):
@@ -88,8 +90,8 @@ class LayerWeights(nn.Module):
 
     def forward(self, x):
         # Scale for increased learning rate
-        return 100 * self.weighting
+        return 400 * self.weighting
 
 class ZeroHead(nn.Module):
     def forward(self, x):
-        return torch.Tensor([0])
+        return torch.Tensor([0]).to(get_device(), non_blocking=True)
