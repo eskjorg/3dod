@@ -48,42 +48,45 @@ def find_nearest_neighbors_kdtree(ref_points, kd_tree):
 #     vtx_idx = np.argmin(distances)
 #     return vtx_idx
 
+def compute_gdists_on_model(obj_id, models, models_info):
+    model = models[obj_id]
+    nbr_vtx = model['pts'].shape[0]
+    nbr_kp = len(models_info[obj_id]['kp_x'])
+    kd_tree = cKDTree(model['pts'])
+    obj_gdists = {}
+    for kp_idx, kp_coords in enumerate(zip(models_info[obj_id]['kp_x'], models_info[obj_id]['kp_y'], models_info[obj_id]['kp_z'])):
+        # kp_vtx_idx = find_nearest_neighbors_naive(np.array([kp_coords]), model['pts'])[0]
+        # print(kp_vtx_idx)
+        kp_vtx_idx = find_nearest_neighbors_kdtree(np.array([kp_coords]), kd_tree)[0]
+        # print(kp_vtx_idx)
+        print("")
+        # kp_vtx_idx = find_closest_vtx(*kp_coords, model['pts'])
+        print("Obj {}, keypoint {}/{}".format(obj_id, kp_idx+1, nbr_kp))
+        obj_gdists[kp_idx] = gdist.compute_gdist(
+            model['pts'].astype(np.float64),
+            model['faces'].astype(np.int32),
+            source_indices = np.array([kp_vtx_idx], np.int32),
+            #target_indices = np.array(list(range(nbr_vtx)), np.int32),
+            #max_distance = 100.0,
+        )
+#        colors = gdist_to_kp_per_vtx[:,np.newaxis]
+#        colors = 255.999*(1.0-colors/np.max(colors))
+#        models[obj_id]['colors'][:,:] = colors.astype('uint8')
+#        inout.save_ply(
+#            '/tmp/test.ply',
+#            models[obj_id]['pts'],
+#            pts_colors = models[obj_id]['colors'],
+#            pts_normals = models[obj_id]['normals'],
+#            faces = models[obj_id]['faces'],
+#        )
+#        break
+    return obj_gdists
+
 def compute_gdists_on_models(models, models_info):
     gdists = {}
-    obj_cnt = 0
-    for obj_id, model in models.items():
-        obj_cnt += 1
-        nbr_vtx = model['pts'].shape[0]
-        nbr_kp = len(models_info[obj_id]['kp_x'])
-        kd_tree = cKDTree(model['pts'])
-        gdists[obj_id] = {}
-        for kp_idx, kp_coords in enumerate(zip(models_info[obj_id]['kp_x'], models_info[obj_id]['kp_y'], models_info[obj_id]['kp_z'])):
-            # kp_vtx_idx = find_nearest_neighbors_naive(np.array([kp_coords]), model['pts'])[0]
-            # print(kp_vtx_idx)
-            kp_vtx_idx = find_nearest_neighbors_kdtree(np.array([kp_coords]), kd_tree)[0]
-            # print(kp_vtx_idx)
-            print("")
-            # kp_vtx_idx = find_closest_vtx(*kp_coords, model['pts'])
-            print("Obj {}/{}: {}, keypoint {}/{}".format(obj_cnt, len(models), obj_id, kp_idx+1, nbr_kp))
-            gdists[obj_id][kp_idx] = gdist.compute_gdist(
-                model['pts'].astype(np.float64),
-                model['faces'].astype(np.int32),
-                source_indices = np.array([kp_vtx_idx], np.int32),
-                #target_indices = np.array(list(range(nbr_vtx)), np.int32),
-                #max_distance = 100.0,
-            )
-    #        colors = gdist_to_kp_per_vtx[:,np.newaxis]
-    #        colors = 255.999*(1.0-colors/np.max(colors))
-    #        models[obj_id]['colors'][:,:] = colors.astype('uint8')
-    #        inout.save_ply(
-    #            '/tmp/test.ply',
-    #            models[obj_id]['pts'],
-    #            pts_colors = models[obj_id]['colors'],
-    #            pts_normals = models[obj_id]['normals'],
-    #            faces = models[obj_id]['faces'],
-    #        )
-    #        break
-    #    break
+    for obj_id in models.keys():
+        gdists[obj_id] = compute_gdists_on_model(obj_id, models, models_info)
+        break
     return gdists
 gdists = compute_gdists_on_models(models, models_info)
 
