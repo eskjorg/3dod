@@ -249,18 +249,6 @@ class Visualizer:
                 dpi=PYPLOT_DPI,
                 tight_layout=True,
             )
-            def process_group_label(label):
-                lookup = {
-                    '01': 'ape',
-                    '05': 'can',
-                    '06': 'cat',
-                    '08': 'driller',
-                    '09': 'duck',
-                    '10': 'eggbox',
-                    '11': 'glue',
-                    '12': 'holepuncher',
-                }
-                return lookup[label]
 
             bbox2d = expand_bbox(anno_group_lookup[group_id].bbox2d, 3.0) if group_id in anno_group_lookup else None
 
@@ -424,4 +412,4 @@ class Visualizer:
             #     wspace = 0.0,
             #     hspace = 0.0,
             # )
-            self._writer.add_figure('{}_{}'.format(mode, process_group_label(group_label)), fig, index)
+            self._writer.add_figure('{}_{}'.format(mode, group_label), fig, index)

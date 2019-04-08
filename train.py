@@ -128,6 +128,8 @@ def main(setup):
     configs += vars(args)
     if args.train_seqs is not None:
         configs['data']['sequences']['train'] = args.train_seqs.split(',')
+    if args.group_labels is not None:
+        configs['data']['group_labels'] = args.group_labels.split(',')
     trainer = Trainer(configs)
     trainer.train()
 

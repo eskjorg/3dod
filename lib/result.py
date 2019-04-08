@@ -18,18 +18,6 @@ from nuscenes.utils.data_classes import Box
 from lib.utils import get_class_map
 from lib.constants import NBR_KEYPOINTS
 
-def process_group_label(label):
-    lookup = {
-        '01': 'ape',
-        '05': 'can',
-        '06': 'cat',
-        '08': 'driller',
-        '09': 'duck',
-        '10': 'eggbox',
-        '11': 'glue',
-        '12': 'holepuncher',
-    }
-    return lookup[label]
 
 class KeypointEvaluator():
 
@@ -128,7 +116,7 @@ class KeypointEvaluator():
         axes_array[1,1].bar(list(range(NBR_KEYPOINTS+1)), hist, width=0.8, align='center')
         axes_array[1,1].set_xlabel('#False Negatives')
         # axes_array[1,1].set_title('False Negatives')
-        writer.add_figure('{}_{}_{}'.format(self._mode, process_group_label(group_label), 'conf_mat'), fig, 0)
+        writer.add_figure('{}_{}_{}'.format(self._mode, group_label, 'conf_mat'), fig, 0)
 
         fig, axes_array = plt.subplots(
             nrows=1,
@@ -143,7 +131,7 @@ class KeypointEvaluator():
         axes_array[0,1].hist([sample_stats['kp_stats'][kp_idx]['resid_magnitude'] for sample_token, sample_stats in stats.items() for kp_idx in range(NBR_KEYPOINTS) if sample_stats['kp_stats'][kp_idx]['fp'] and sample_stats['kp_stats'][kp_idx]['resid_magnitude'] is not None], bins=30)
         axes_array[0,1].set_xlabel('Residual Magnitude (px)')
         axes_array[0,1].set_title('False Positives')
-        writer.add_figure('{}_{}_{}'.format(self._mode, process_group_label(group_label), 'resid_magnitude'), fig, 0)
+        writer.add_figure('{}_{}_{}'.format(self._mode, group_label, 'resid_magnitude'), fig, 0)
 
         score = 9999999999999.0
         return score

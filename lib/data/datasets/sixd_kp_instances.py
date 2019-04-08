@@ -36,7 +36,7 @@ def get_metadata(configs):
         max_bounds = min_bounds + diff
         return np.hstack([min_bounds[:,None], max_bounds[:,None]])
     return {
-        'objects': {'{:02}'.format(obj_label): {
+        'objects': {obj_anno['readable_label']: {
             'bbox3d': get_bbox3d(rows2array(obj_anno, 'min'), rows2array(obj_anno, 'size')),
             'keypoints': rows2array(obj_anno, 'kp'),
             'kp_normals': rows2array(obj_anno, 'kp_normals'),
@@ -49,29 +49,6 @@ def get_dataset(configs, mode):
 
 
 Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 'keypoint_detectability', 'self_occluded', 'occluded', 'location', 'rotation'])
-
-
-# LINEMOD-specific:
-seq_name2group_label = {
-    'ape': '01',
-    'can': '05',
-    'cat': '06',
-    'driller': '08',
-    'duck': '09',
-    'eggbox': '10',
-    'glue': '11',
-    'holepuncher': '12',
-}
-group_label2seq_name = {
-    '01': 'ape',
-    '05': 'can',
-    '06': 'cat',
-    '08': 'driller',
-    '09': 'duck',
-    '10': 'eggbox',
-    '11': 'glue',
-    '12': 'holepuncher',
-}
 
 
 class SixdDataset(Dataset):
@@ -115,8 +92,7 @@ class SixdDataset(Dataset):
     def _lookup_unannotated_class_ids(self, seq_name):
         subset, seq_name = seq_name.split('/')
         if subset in ['train_unoccl', 'train_aug']:
-            group_label = seq_name2group_label[seq_name]
-            group_id_annotated = self._class_map.group_id_from_group_label(group_label)
+            group_id_annotated = self._class_map.group_id_from_group_label(seq_name)
             return [self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for group_id in self._class_map.get_group_ids() for kp_idx in range(NBR_KEYPOINTS) if group_id != group_id_annotated]
         return []
 
@@ -160,7 +136,7 @@ class SixdDataset(Dataset):
         instance_idx = 0
         for gt in gts:
             instance_idx += 1
-            group_label = self._class_map.format_group_label(gt['obj_id'])
+            group_label = self._class_map.sixd_obj_id2group_label(gt['obj_id'])
             if group_label not in self._class_map._group_label2group_id_dict.keys():
                 continue
             group_id = self._class_map.group_id_from_group_label(group_label)
@@ -175,7 +151,7 @@ class SixdDataset(Dataset):
             instance_idx += 1
             model = self._models[gt['obj_id']]
 
-            group_label = self._class_map.format_group_label(gt['obj_id'])
+            group_label = self._class_map.sixd_obj_id2group_label(gt['obj_id'])
             if group_label not in self._class_map._group_label2group_id_dict.keys():
                 continue
             group_id = self._class_map.group_id_from_group_label(group_label)
@@ -269,17 +245,26 @@ class ClassMap:
     """
     def __init__(self, configs):
         with open(join(configs.data.path, 'models', 'models_info.yml'), 'r') as model_file:
-            group_labels_int = sorted(yaml.load(model_file, Loader=yaml.CLoader).keys())
-        group_labels_str = list(map(self.format_group_label, group_labels_int))
+            self._models_info = yaml.load(model_file, Loader=yaml.CLoader)
+            group_labels_int = sorted(self._models_info.keys())
+        group_labels_str = list(map(self.sixd_obj_id2group_label, group_labels_int))
 
         # LINEMOD-specific:
-        seq_names = [seq_name.split('/')[1] for seq_name in configs.data.sequences.train]
-        group_labels_str = [group_label for group_label in group_labels_str if group_label2seq_name[group_label] in seq_names]
-        # group_labels_str = ['05', '08'] # can & driller
-        # group_labels_str = ['08'] # driller
-        # group_labels_str = ['05'] # can
-        # group_labels_str = ['09'] # duck
-        # group_labels_str = ['01', '05', '06', '09'] # ape, can, cat, duck
+        # seq_names = [seq_name.split('/')[1] for seq_name in configs.data.sequences.train]
+        # group_labels_str = [group_label for group_label in group_labels_str if group_label2seq_name[group_label] in seq_names]
+        # # group_labels_str = ['05', '08'] # can & driller
+        # # group_labels_str = ['08'] # driller
+        # # group_labels_str = ['05'] # can
+        # # group_labels_str = ['09'] # duck
+        # # group_labels_str = ['01', '05', '06', '09'] # ape, can, cat, duck
+        if configs.data.group_labels is not None:
+            assert set(configs.data.group_labels) <= set(group_labels_str)
+            group_labels_str = configs.data.group_labels
+            # TODO: Define metadata of objects annotated in each seq, and filter seqs based on groups
+            # TODO: Define metadata of objects annotated in each seq, and filter seqs based on groups
+            # TODO: Define metadata of objects annotated in each seq, and filter seqs based on groups
+            # TODO: Define metadata of objects annotated in each seq, and filter seqs based on groups
+            # TODO: Define metadata of objects annotated in each seq, and filter seqs based on groups
 
         # In network, 0 and 1 are reserved for background and don't_care
         group_ids = list(range(2, len(group_labels_str)+2))
@@ -312,8 +297,8 @@ class ClassMap:
         return cm.Set3(class_id % 12)
 
     # GROUP ID METHODS ---------------------------------------------------------
-    def format_group_label(self, group_label_int):
-        group_label_str = "{:02d}".format(group_label_int)
+    def sixd_obj_id2group_label(self, sixd_obj_id):
+        group_label_str = self._models_info[sixd_obj_id]['readable_label']
         return group_label_str
 
     def group_id_from_group_label(self, group_label):
