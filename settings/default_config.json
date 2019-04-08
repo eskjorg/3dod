@@ -9,6 +9,7 @@
         "ap": ["2d"]
     },
     "visualization": {
+        "keypoints": false,
         "gt": ["bbox2d"],
         "cnn": [],
         "det": ["bbox2d", "corners", "zdepth"]
@@ -41,7 +42,8 @@
     "logging": {
         "avg_window_size": 25,
         "save_kitti_format": false,
-        "save_nuscenes_format": false
+        "save_nuscenes_format": false,
+        "save_kp_stats": false
     },
     "loading": {
         "train": {

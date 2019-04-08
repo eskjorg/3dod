@@ -67,8 +67,9 @@ class Visualizer:
         ax.plot(*corner_plot_args)
 
     def save_images(self, batch, cnn_outs, output, mode, index, sample=-1):
-        if not any(self._configs.visualization.values()):
+        if not self._configs.visualization.keypoints:
             return
+
         K = batch.calibration[sample][:,:3]
         image_tensor = normalize(batch.input[sample], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
         image_tensor = torch.clamp(image_tensor, 0.0, 1.0)

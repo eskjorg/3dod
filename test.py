@@ -37,7 +37,7 @@ class Tester():
                 break
             outputs_cnn = self._run_model(batch.input)
             results = self._post_proc.run(batch, outputs_cnn)
-            self._result_saver.save(results, TEST)
+            self._result_saver.save(results, TEST, batch)
             for sample_idx in range(len(batch.id)):
                 self._visualizer.save_images(batch, outputs_cnn, results, TEST, index=cnt, sample=sample_idx)
                 cnt += 1

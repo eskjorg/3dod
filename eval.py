@@ -43,7 +43,7 @@ class Evaluator():
                     loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)
                     self._loss_handler.log_batch(0, batch_id, mode)
                 results = self._post_proc.run(batch, outputs_cnn)
-                self._result_saver.save(results, mode)
+                self._result_saver.save(results, mode, batch)
                 for sample_idx in range(len(batch.id)):
                     self._visualizer.save_images(batch, outputs_cnn, results, mode, index=cnt, sample=sample_idx)
                     cnt += 1

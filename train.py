@@ -88,7 +88,7 @@ class Trainer():
                 self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
             results = self._post_proc.run(batch, outputs_cnn)
-            self._result_saver.save(results, mode)
+            self._result_saver.save(results, mode, batch)
             cnt += 1
             # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
             # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!

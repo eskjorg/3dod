@@ -7,7 +7,10 @@
         "support_region": 1.0
     },
     "logging": {
-        "save_kitti_format": false
+        "avg_window_size": 25,
+        "save_kitti_format": false,
+        "save_nuscenes_format": false,
+        "save_kp_stats": false
     },
     "training": {
         "learning_rate": 0.001,
@@ -16,15 +19,7 @@
         "n_epochs": 30
     },
     "visualization": {
-        "gt": [
-            "bbox2d",
-            "keypoints"
-        ],
-        "cnn": [
-            "heatmaps"
-        ],
-        "det": [
-        ]
+        "keypoints": true
     },
     "postprocessing": {
         "methods": [
