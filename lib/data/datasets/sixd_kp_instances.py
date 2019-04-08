@@ -2,6 +2,8 @@
 from os.path import join
 from collections import namedtuple, OrderedDict
 import yaml
+import os
+import glob
 
 import math
 import cv2 as cv
@@ -48,6 +50,15 @@ def get_dataset(configs, mode):
     return SixdDataset(configs, mode)
 
 
+def seq_glob_expand(configs, seq_pattern):
+    """
+    Find multiple sequences from wildcard pattern
+    """
+    seqs = glob.glob(os.path.join(configs.data.path, seq_pattern))
+    seqs = [os.path.relpath(absolute_path, configs.data.path) for absolute_path in seqs]
+    return seqs
+
+
 Annotation = namedtuple('Annotation', ['cls', 'group_id', 'bbox2d', 'keypoint', 'keypoint_detectability', 'self_occluded', 'occluded', 'location', 'rotation'])
 
 
@@ -74,7 +85,8 @@ class SixdDataset(Dataset):
     def _init_sequence_lengths(self):
         sequences = OrderedDict()
         root_path = self._configs.data.path
-        for sequence in self._configs.data.sequences[self._mode]:
+        seqs = [seq for seq_pattern in self._configs.data.sequences[self._mode] for seq in seq_glob_expand(self._configs, seq_pattern)] # Parse & expand glob patterns
+        for sequence in seqs:
             num_images = len(listdir_nohidden(join(root_path, sequence, 'rgb')))
             sequences[sequence] = num_images
         return sequences
