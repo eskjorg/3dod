@@ -26,7 +26,7 @@ def parse_arguments():
     parser.add_argument('--experiment-name', default='3dod_demo',
                         help='name of the execution, will be '
                              'the name of the experiment\'s directory')
-    parser.add_argument('--eval-mode', action='append', default=[VAL, TRAIN, TEST], type=str,
+    parser.add_argument('--eval-mode', action='append', default=[], type=str,
                         help='For eval.py only. Example: "--eval-mode val --eval-mode train" performs evaluation on train & val sets, val set first.')
     parser.add_argument('--train-seqs', default=None, type=str)
 
