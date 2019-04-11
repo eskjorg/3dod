@@ -122,7 +122,8 @@ for subset in SUBSETS:
                 t = np.array(gt['cam_t_m2c']).reshape((3,1))# * 1e-3
                 pose_path = os.path.join(tmp_pose_dir, '{:03d}'.format(instance_idx))
 
-                write_pose_tud(pose_path, R, t)
+                if not DRY_RUN or True:
+                    write_pose_tud(pose_path, R, t)
 
                 instance_idx_list.append(instance_idx)
                 pose_path_list.append(pose_path)
@@ -149,8 +150,6 @@ for subset in SUBSETS:
 
             cmd = ' '.join(cmd_list)
 
-            # print(cmd)
-            # assert False
 
             if not DRY_RUN:
                 exit_code = os.system(cmd)
