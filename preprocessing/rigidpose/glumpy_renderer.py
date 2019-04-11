@@ -28,6 +28,7 @@ class Renderer():
 
     out vec3 vs_color;
     out vec2 vs_texcoord;
+    out vec3 vs_obj_pos;
     out vec3 vs_eye_pos;
     out vec3 vs_light_eye_dir;
     out vec3 vs_normal;
@@ -37,6 +38,7 @@ class Renderer():
         gl_Position = u_mvp * vec4(in_position, 1.0);
         vs_color = in_color;
         vs_texcoord = in_texcoord;
+        vs_obj_pos = in_position;
         vs_eye_pos = (u_mv * vec4(in_position, 1.0)).xyz; // Vertex position in eye frame.
 
         // OpenGL Z axis goes out of the screen, so depths are negative
@@ -51,9 +53,12 @@ class Renderer():
     uniform float u_light_ambient_w;
     uniform sampler2D u_texture_map;
     uniform int u_use_texture;
+    uniform float u_obj_id;
+    uniform float u_instance_id;
 
     in vec3 vs_color;
     in vec2 vs_texcoord;
+    in vec3 vs_obj_pos;
     in vec3 vs_eye_pos;
     in vec3 vs_light_eye_dir;
     in vec3 vs_normal;
@@ -61,6 +66,10 @@ class Renderer():
 
     layout(location = 0) out vec4 out_rgb;
     layout(location = 1) out vec4 out_depth;
+    layout(location = 2) out vec4 out_seg;
+    layout(location = 3) out vec4 out_instance_seg;
+    layout(location = 4) out vec4 out_normal_map;
+    layout(location = 5) out vec4 out_corr_map;
 
     void main() {
         float light_diffuse_w = max(dot(normalize(vs_light_eye_dir), normalize(vs_normal)), 0.0);
@@ -72,6 +81,10 @@ class Renderer():
         else
             out_rgb = vec4(light_w * vs_color, 1.0);
         out_depth = vec4(vs_eye_depth, 0.0, 0.0, 1.0);
+        out_seg = vec4(u_obj_id, 0.0, 0.0, 1.0);
+        out_instance_seg = vec4(u_instance_id, 0.0, 0.0, 1.0);
+        out_normal_map = vec4(vs_normal, 1.0);
+        out_corr_map = vec4(vs_obj_pos, 1.0);
     }
     """
 
@@ -155,15 +168,23 @@ class Renderer():
 
     #-------------------------------------------------------------------------------
     def _create_framebuffer(self):
-
-        # Frame buffer object
         color_buf_rgb = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
         color_buf_depth = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_seg = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_instance_seg = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_normal_map = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_corr_map = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+
         depth_buf = np.zeros((self._shape[0], self._shape[1]), np.float32).view(gloo.DepthTexture)
+
         fbo = gloo.FrameBuffer(
             color = [
                 color_buf_rgb,
                 color_buf_depth,
+                color_buf_seg,
+                color_buf_instance_seg,
+                color_buf_normal_map,
+                color_buf_corr_map,
             ],
             depth = depth_buf,
         )
@@ -194,7 +215,7 @@ class Renderer():
         # gl.glEnable(gl.GL_CULL_FACE)
         # gl.glCullFace(gl.GL_BACK) # Back-facing polygons will be culled
 
-    def _draw(self, program, R, t, obj_id, model, texture_map = None, surf_color = None):
+    def _draw(self, program, R, t, obj_id, instance_id, model, texture_map = None, surf_color = None):
         # Process input data
         #---------------------------------------------------------------------------
         # Make sure vertices and faces are provided in the model
@@ -247,6 +268,8 @@ class Renderer():
         else:
             program['u_use_texture'] = int(False)
             program['u_texture_map'] = np.zeros((1, 1, 4), np.float32)
+        program['u_obj_id'] = obj_id
+        program['u_instance_id'] = instance_id
         program.bind(vertex_buffer)
         program.draw(gl.GL_TRIANGLES, index_buffer)
 
@@ -255,20 +278,35 @@ class Renderer():
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
         gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RGBA, gl.GL_FLOAT, rgb)
         rgb = np.flipud(rgb)
-        # rgb.shape = self._shape[0], self._shape[1], 4
-        # rgb = rgb[::-1, :]
         rgb = np.round(rgb[:, :, :3] * 255).astype(np.uint8) # Convert to [0, 255]
 
         depth = np.zeros((self._shape[0], self._shape[1]), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT1)
         gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RED, gl.GL_FLOAT, depth)
         depth = np.flipud(depth)
-        # depth = depth[::-1, :]
-        # depth = depth[:, :, 0] # Depth is saved in the first channel
 
-        return rgb, depth
+        seg = np.zeros((self._shape[0], self._shape[1]), dtype=np.float32)
+        gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT2)
+        gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RED, gl.GL_FLOAT, seg)
+        seg = np.flipud(seg).astype(np.uint8)
 
-    #-------------------------------------------------------------------------------
+        instance_seg = np.zeros((self._shape[0], self._shape[1]), dtype=np.float32)
+        gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT3)
+        gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RED, gl.GL_FLOAT, instance_seg)
+        instance_seg = np.flipud(instance_seg).astype(np.uint8)
+
+        normal_map = np.zeros((self._shape[0], self._shape[1], 4), dtype=np.float32)
+        gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT4)
+        gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RGBA, gl.GL_FLOAT, normal_map)
+        normal_map = np.flipud(normal_map)
+
+        corr_map = np.zeros((self._shape[0], self._shape[1], 4), dtype=np.float32)
+        gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT5)
+        gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RGBA, gl.GL_FLOAT, corr_map)
+        corr_map = np.flipud(corr_map)
+
+        return rgb, depth, seg, instance_seg, normal_map, corr_map
+
     def render(
         self,
         model_list,
@@ -295,10 +333,6 @@ class Renderer():
         # window = app.Window(config=config, visible=False)
         window = app.Window(visible=False)
 
-        global rgb, depth
-        rgb = None
-        depth = None
-
         program = self._setup_program(self._vertex_shader, self._fragment_shader, ambient_weight)
         fbo = self._create_framebuffer()
         self._prepare_rendering(bg_color)
@@ -306,14 +340,16 @@ class Renderer():
         @window.event
         def on_draw(dt):
             window.clear()
+            instance_id = 0
             for model, R, t, obj_id, texture_map, surf_color in zip(model_list, R_list, t_list, obj_id_list, texture_map_list, surf_color_list):
-                self._draw(program, R, t, obj_id, model, texture_map = texture_map, surf_color = surf_color)
+                instance_id += 1
+                self._draw(program, R, t, obj_id, instance_id, model, texture_map = texture_map, surf_color = surf_color)
 
         app.run(framecount=0) # The on_draw function is called framecount+1 times
-        rgb, depth = self._read_fbo()
+        rgb, depth, seg, instance_seg, normal_map, corr_map = self._read_fbo()
 
         fbo.deactivate()
 
         window.close()
 
-        return rgb, depth
+        return rgb, depth, seg, instance_seg, normal_map, corr_map
