@@ -159,23 +159,21 @@ class Renderer():
             ]) # This row is also standard glPerspective
         return proj.T
 
-    #-------------------------------------------------------------------------------
     def _setup_program(self, color_vertex_shader, color_fragment_code, ambient_weight, glsl_version='330'):
         program = gloo.Program(color_vertex_shader, color_fragment_code, version=glsl_version)
         program['u_light_eye_pos'] = [0, 0, 0] # Camera origin
         program['u_light_ambient_w'] = ambient_weight
         return program
 
-    #-------------------------------------------------------------------------------
     def _create_framebuffer(self):
-        color_buf_rgb = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
-        color_buf_depth = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
-        color_buf_seg = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
-        color_buf_instance_seg = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
-        color_buf_normal_map = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
-        color_buf_corr_map = np.zeros((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_rgb = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_depth = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_seg = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_instance_seg = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_normal_map = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_corr_map = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
 
-        depth_buf = np.zeros((self._shape[0], self._shape[1]), np.float32).view(gloo.DepthTexture)
+        depth_buf = np.empty((self._shape[0], self._shape[1]), np.float32).view(gloo.DepthTexture)
 
         fbo = gloo.FrameBuffer(
             color = [
@@ -192,12 +190,11 @@ class Renderer():
 
         return fbo
 
-    #-------------------------------------------------------------------------------
-    def _prepare_rendering(self, bg_color):
+    def _prepare_rendering(self):
 
         # OpenGL setup
         gl.glEnable(gl.GL_DEPTH_TEST)
-        gl.glClearColor(bg_color[0], bg_color[1], bg_color[2], bg_color[3])
+        gl.glClearColor(0.0, 0.0, 0.0, 0.0)
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
         gl.glViewport(0, 0, self._shape[1], self._shape[0])
 
@@ -246,8 +243,11 @@ class Renderer():
                          ('in_normal', np.float32, 3),
                          ('in_color', np.float32, colors.shape[1]),
                          ('in_texcoord', np.float32, 2)]
-        vertices = np.array(list(zip(model['pts'], model['normals'],
-                                colors, texture_uv)), vertices_type)
+        vertices = np.empty((model['pts'].shape[0],), vertices_type)
+        vertices['in_position'] = model['pts']
+        vertices['in_normal'] = model['normals']
+        vertices['in_color'] = colors
+        vertices['in_texcoord'] = texture_uv
 
         # Model matrix
         mat_model = np.eye(4, dtype=np.float32) # From world frame to eye frame
@@ -315,7 +315,6 @@ class Renderer():
         obj_id_list,
         texture_map_list = None,
         surf_color_list = None,
-        bg_color = (0.0, 0.0, 0.0, 0.0),
         ambient_weight = 0.5,
     ):
         nbr_instances = len(model_list)
@@ -335,7 +334,7 @@ class Renderer():
 
         program = self._setup_program(self._vertex_shader, self._fragment_shader, ambient_weight)
         fbo = self._create_framebuffer()
-        self._prepare_rendering(bg_color)
+        self._prepare_rendering()
 
         @window.event
         def on_draw(dt):
