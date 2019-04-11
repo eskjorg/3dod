@@ -92,6 +92,9 @@ class Renderer():
         self._shape = shape
         self._mat_view = self._get_model_view_transf()
         self._mat_proj = self._compute_calib_proj(K, 0, 0, self._shape[1], self._shape[0], clip_near, clip_far)
+        self._vertex_buffers = {}
+        self._index_buffers = {}
+        self._texture_maps = {}
 
     def _get_model_view_transf(self):
         # View matrix (transforming also the coordinate system from OpenCV to
@@ -212,7 +215,7 @@ class Renderer():
         # gl.glEnable(gl.GL_CULL_FACE)
         # gl.glCullFace(gl.GL_BACK) # Back-facing polygons will be culled
 
-    def _draw(self, program, R, t, obj_id, instance_id, model, texture_map = None, surf_color = None):
+    def _preprocess_object_model(self, obj_id, model, texture_map = None, surf_color = None):
         # Process input data
         #---------------------------------------------------------------------------
         # Make sure vertices and faces are provided in the model
@@ -249,29 +252,32 @@ class Renderer():
         vertices['in_color'] = colors
         vertices['in_texcoord'] = texture_uv
 
+        # Create buffers
+        self._vertex_buffers[obj_id] = vertices.view(gloo.VertexBuffer)
+        self._index_buffers[obj_id] = model['faces'].flatten().astype(np.uint32).view(gloo.IndexBuffer)
+        self._texture_maps[obj_id] = texture_map
+
+    def _draw(self, program, R, t, obj_id, instance_id):
         # Model matrix
         mat_model = np.eye(4, dtype=np.float32) # From world frame to eye frame
         mat_model[:3, :3], mat_model[:3, 3] = R, t.squeeze()
         mat_model = mat_model.T
 
-        # Create buffers
-        vertex_buffer = vertices.view(gloo.VertexBuffer)
-        index_buffer = model['faces'].flatten().astype(np.uint32).view(gloo.IndexBuffer)
-
         # Rendering
         program['u_mv'] = self._compute_model_view(mat_model, self._mat_view)
         program['u_nm'] = self._compute_normal_matrix(mat_model, self._mat_view)
         program['u_mvp'] = self._compute_model_view_proj(mat_model, self._mat_view, self._mat_proj)
-        if texture_map is not None:
+        if self._texture_maps[obj_id] is not None:
             program['u_use_texture'] = int(True)
-            program['u_texture_map'] = texture_map
+            program['u_texture_map'] = self._texture_maps[obj_id]
         else:
             program['u_use_texture'] = int(False)
             program['u_texture_map'] = np.zeros((1, 1, 4), np.float32)
         program['u_obj_id'] = obj_id
         program['u_instance_id'] = instance_id
-        program.bind(vertex_buffer)
-        program.draw(gl.GL_TRIANGLES, index_buffer)
+
+        program.bind(self._vertex_buffers[obj_id])
+        program.draw(gl.GL_TRIANGLES, self._index_buffers[obj_id])
 
     def _read_fbo(self):
         rgb = np.zeros((self._shape[0], self._shape[1], 4), dtype=np.float32)
@@ -309,19 +315,12 @@ class Renderer():
 
     def render(
         self,
-        model_list,
         R_list,
         t_list,
         obj_id_list,
-        texture_map_list = None,
-        surf_color_list = None,
         ambient_weight = 0.5,
     ):
-        nbr_instances = len(model_list)
-        if texture_map_list is None:
-            texture_map_list = [None] * nbr_instances
-        if surf_color_list is None:
-            surf_color_list = [None] * nbr_instances
+        nbr_instances = len(R_list)
 
         # Create window
         # config = app.configuration.Configuration()
@@ -340,9 +339,9 @@ class Renderer():
         def on_draw(dt):
             window.clear()
             instance_id = 0
-            for model, R, t, obj_id, texture_map, surf_color in zip(model_list, R_list, t_list, obj_id_list, texture_map_list, surf_color_list):
+            for R, t, obj_id in zip(R_list, t_list, obj_id_list):
                 instance_id += 1
-                self._draw(program, R, t, obj_id, instance_id, model, texture_map = texture_map, surf_color = surf_color)
+                self._draw(program, R, t, obj_id, instance_id)
 
         app.run(framecount=0) # The on_draw function is called framecount+1 times
         rgb, depth, seg, instance_seg, normal_map, corr_map = self._read_fbo()
