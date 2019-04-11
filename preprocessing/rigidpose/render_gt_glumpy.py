@@ -33,7 +33,8 @@ def read_yaml(path):
 
 models_info = read_yaml(os.path.join(SIXD_PATH, 'models', 'models_info.yml'))
 models = {}
-for obj_id in models_info:
+for j, obj_id in enumerate(sorted(models_info.keys())):
+    print('Loading model {}/{}...'.format(j+1, len(models_info)))
     models[obj_id] = inout.load_ply(os.path.join(SIXD_PATH, 'models', 'obj_{:02}.ply'.format(obj_id)))
 
 for subset in SUBSETS:
@@ -91,6 +92,10 @@ for subset in SUBSETS:
             if (j+1) % 1 == 0:
                 print("subset {}, seq {}, frame {}/{}".format(subset, seq, j+1, len(fnames)))
 
+            renderer = Renderer()
+            for obj_id, model in models.items():
+                renderer._preprocess_object_model(obj_id, models[obj_id])
+
             seg_path = os.path.join(seg_dir, fname) if render_seg else None
             instance_seg_path = os.path.join(instance_seg_dir, fname) if render_instance_seg else None
             corr_path = os.path.join(corr_dir, fname) if render_corr else None
@@ -108,21 +113,15 @@ for subset in SUBSETS:
                 t_list.append(np.array(gt['cam_t_m2c']).reshape((3,1)))
                 model_list.append(models[gt['obj_id']])
 
-            renderer = Renderer(
+            rgb, depth, seg, instance_seg, normal_map, corr_map = renderer.render(
                 [480, 640],
                 np.reshape(info['cam_K'], (3, 3)),
-                clip_near = 100, # mm
-                clip_far = 10000, # mm
-            )
-
-            rgb, depth, seg, instance_seg, normal_map, corr_map = renderer.render(
-                model_list,
                 R_list,
                 t_list,
                 obj_id_list,
-                texture_map_list = None,
-                surf_color_list = None,
                 ambient_weight = 0.8,
+                clip_near = 100, # mm
+                clip_far = 10000, # mm
             )
 
             # if not DRY_RUN:
