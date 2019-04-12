@@ -37,6 +37,12 @@ for j, obj_id in enumerate(sorted(models_info.keys())):
     print('Loading model {}/{}...'.format(j+1, len(models_info)))
     models[obj_id] = inout.load_ply(os.path.join(SIXD_PATH, 'models', 'obj_{:02}.ply'.format(obj_id)))
 
+renderer = Renderer(
+    [480, 640],
+)
+for obj_id, model in models.items():
+    renderer._preprocess_object_model(obj_id, models[obj_id])
+
 for subset in SUBSETS:
     for seq in sorted(listdir_nohidden(os.path.join(SIXD_PATH, subset))):
         render_seg = False if LINEMOD_FLAG and subset == 'train_aug' else True
@@ -92,10 +98,6 @@ for subset in SUBSETS:
             if (j+1) % 1 == 0:
                 print("subset {}, seq {}, frame {}/{}".format(subset, seq, j+1, len(fnames)))
 
-            renderer = Renderer()
-            for obj_id, model in models.items():
-                renderer._preprocess_object_model(obj_id, models[obj_id])
-
             seg_path = os.path.join(seg_dir, fname) if render_seg else None
             instance_seg_path = os.path.join(instance_seg_dir, fname) if render_instance_seg else None
             corr_path = os.path.join(corr_dir, fname) if render_corr else None
@@ -114,7 +116,6 @@ for subset in SUBSETS:
                 model_list.append(models[gt['obj_id']])
 
             rgb, depth, seg, instance_seg, normal_map, corr_map = renderer.render(
-                [480, 640],
                 np.reshape(info['cam_K'], (3, 3)),
                 R_list,
                 t_list,

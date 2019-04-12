@@ -88,11 +88,18 @@ class Renderer():
     }
     """
 
-    def __init__(self):
+    def __init__(self, shape):
+        self._shape = shape
         self._mat_view = self._get_model_view_transf()
         self._vertex_buffers = {}
         self._index_buffers = {}
         self._texture_maps = {}
+        self._window = app.Window(visible=False)
+        self._program = self._setup_program()
+        self._fbo = self._create_framebuffer()
+
+    def __del__(self):
+        self._window.close()
 
     def _get_model_view_transf(self):
         # View matrix (transforming also the coordinate system from OpenCV to
@@ -160,21 +167,19 @@ class Renderer():
             ]) # This row is also standard glPerspective
         return proj.T
 
-    def _setup_program(self, color_vertex_shader, color_fragment_code, ambient_weight, glsl_version='330'):
-        program = gloo.Program(color_vertex_shader, color_fragment_code, version=glsl_version)
-        program['u_light_eye_pos'] = [0, 0, 0] # Camera origin
-        program['u_light_ambient_w'] = ambient_weight
+    def _setup_program(self, glsl_version='330'):
+        program = gloo.Program(self._vertex_shader, self._fragment_shader, version=glsl_version)
         return program
 
-    def _create_framebuffer(self, shape):
-        color_buf_rgb = np.empty((shape[0], shape[1], 4), np.float32).view(gloo.TextureFloat2D)
-        color_buf_depth = np.empty((shape[0], shape[1], 4), np.float32).view(gloo.TextureFloat2D)
-        color_buf_seg = np.empty((shape[0], shape[1], 4), np.float32).view(gloo.TextureFloat2D)
-        color_buf_instance_seg = np.empty((shape[0], shape[1], 4), np.float32).view(gloo.TextureFloat2D)
-        color_buf_normal_map = np.empty((shape[0], shape[1], 4), np.float32).view(gloo.TextureFloat2D)
-        color_buf_corr_map = np.empty((shape[0], shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+    def _create_framebuffer(self):
+        color_buf_rgb = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_depth = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_seg = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_instance_seg = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_normal_map = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
+        color_buf_corr_map = np.empty((self._shape[0], self._shape[1], 4), np.float32).view(gloo.TextureFloat2D)
 
-        depth_buf = np.empty((shape[0], shape[1]), np.float32).view(gloo.DepthTexture)
+        depth_buf = np.empty((self._shape[0], self._shape[1]), np.float32).view(gloo.DepthTexture)
 
         fbo = gloo.FrameBuffer(
             color = [
@@ -187,17 +192,16 @@ class Renderer():
             ],
             depth = depth_buf,
         )
-        fbo.activate()
 
         return fbo
 
-    def _prepare_rendering(self, shape):
+    def _prepare_rendering(self):
 
         # OpenGL setup
         gl.glEnable(gl.GL_DEPTH_TEST)
         gl.glClearColor(0.0, 0.0, 0.0, 0.0)
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
-        gl.glViewport(0, 0, shape[1], shape[0])
+        gl.glViewport(0, 0, self._shape[1], self._shape[0])
 
         # gl.glEnable(gl.GL_BLEND)
         # gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
@@ -263,51 +267,51 @@ class Renderer():
         mat_model = mat_model.T
 
         # Rendering
-        program['u_mv'] = self._compute_model_view(mat_model, self._mat_view)
-        program['u_nm'] = self._compute_normal_matrix(mat_model, self._mat_view)
-        program['u_mvp'] = self._compute_model_view_proj(mat_model, self._mat_view, mat_proj)
+        self._program['u_mv'] = self._compute_model_view(mat_model, self._mat_view)
+        self._program['u_nm'] = self._compute_normal_matrix(mat_model, self._mat_view)
+        self._program['u_mvp'] = self._compute_model_view_proj(mat_model, self._mat_view, mat_proj)
         if self._texture_maps[obj_id] is not None:
-            program['u_use_texture'] = int(True)
-            program['u_texture_map'] = self._texture_maps[obj_id]
+            self._program['u_use_texture'] = int(True)
+            self._program['u_texture_map'] = self._texture_maps[obj_id]
         else:
-            program['u_use_texture'] = int(False)
-            program['u_texture_map'] = np.zeros((1, 1, 4), np.float32)
-        program['u_obj_id'] = obj_id
-        program['u_instance_id'] = instance_id
+            self._program['u_use_texture'] = int(False)
+            self._program['u_texture_map'] = np.zeros((1, 1, 4), np.float32)
+        self._program['u_obj_id'] = obj_id
+        self._program['u_instance_id'] = instance_id
 
-        program.bind(self._vertex_buffers[obj_id])
-        program.draw(gl.GL_TRIANGLES, self._index_buffers[obj_id])
+        self._program.bind(self._vertex_buffers[obj_id])
+        self._program.draw(gl.GL_TRIANGLES, self._index_buffers[obj_id])
 
-    def _read_fbo(self, shape):
-        rgb = np.zeros((shape[0], shape[1], 4), dtype=np.float32)
+    def _read_fbo(self):
+        rgb = np.zeros((self._shape[0], self._shape[1], 4), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
-        gl.glReadPixels(0, 0, shape[1], shape[0], gl.GL_RGBA, gl.GL_FLOAT, rgb)
+        gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RGBA, gl.GL_FLOAT, rgb)
         rgb = np.flipud(rgb)
         rgb = np.round(rgb[:, :, :3] * 255).astype(np.uint8) # Convert to [0, 255]
 
-        depth = np.zeros((shape[0], shape[1]), dtype=np.float32)
+        depth = np.zeros((self._shape[0], self._shape[1]), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT1)
-        gl.glReadPixels(0, 0, shape[1], shape[0], gl.GL_RED, gl.GL_FLOAT, depth)
+        gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RED, gl.GL_FLOAT, depth)
         depth = np.flipud(depth)
 
-        seg = np.zeros((shape[0], shape[1]), dtype=np.float32)
+        seg = np.zeros((self._shape[0], self._shape[1]), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT2)
-        gl.glReadPixels(0, 0, shape[1], shape[0], gl.GL_RED, gl.GL_FLOAT, seg)
+        gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RED, gl.GL_FLOAT, seg)
         seg = np.flipud(seg).astype(np.uint8)
 
-        instance_seg = np.zeros((shape[0], shape[1]), dtype=np.float32)
+        instance_seg = np.zeros((self._shape[0], self._shape[1]), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT3)
-        gl.glReadPixels(0, 0, shape[1], shape[0], gl.GL_RED, gl.GL_FLOAT, instance_seg)
+        gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RED, gl.GL_FLOAT, instance_seg)
         instance_seg = np.flipud(instance_seg).astype(np.uint8)
 
-        normal_map = np.zeros((shape[0], shape[1], 4), dtype=np.float32)
+        normal_map = np.zeros((self._shape[0], self._shape[1], 4), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT4)
-        gl.glReadPixels(0, 0, shape[1], shape[0], gl.GL_RGBA, gl.GL_FLOAT, normal_map)
+        gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RGBA, gl.GL_FLOAT, normal_map)
         normal_map = np.flipud(normal_map)
 
-        corr_map = np.zeros((shape[0], shape[1], 4), dtype=np.float32)
+        corr_map = np.zeros((self._shape[0], self._shape[1], 4), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT5)
-        gl.glReadPixels(0, 0, shape[1], shape[0], gl.GL_RGBA, gl.GL_FLOAT, corr_map)
+        gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RGBA, gl.GL_FLOAT, corr_map)
         corr_map = np.flipud(corr_map)
 
         return rgb, depth, seg, instance_seg, normal_map, corr_map
@@ -315,7 +319,6 @@ class Renderer():
     # @profile
     def render(
         self,
-        shape,
         K,
         R_list,
         t_list,
@@ -326,34 +329,26 @@ class Renderer():
     ):
         nbr_instances = len(R_list)
 
-        mat_proj = self._compute_calib_proj(K, 0, 0, shape[1], shape[0], clip_near, clip_far)
+        mat_proj = self._compute_calib_proj(K, 0, 0, self._shape[1], self._shape[0], clip_near, clip_far)
 
-        # Create window
-        # config = app.configuration.Configuration()
-        # Number of samples used around the current pixel for multisample
-        # anti-aliasing (max is 8)
-        # config.samples = 8
-        # config.profile = "core"
-        # window = app.Window(config=config, visible=False)
-        window = app.Window(visible=False)
+        self._prepare_rendering()
 
-        program = self._setup_program(self._vertex_shader, self._fragment_shader, ambient_weight)
-        fbo = self._create_framebuffer(shape)
-        self._prepare_rendering(shape)
+        self._program['u_light_eye_pos'] = [0, 0, 0] # Camera origin
+        self._program['u_light_ambient_w'] = ambient_weight
 
-        @window.event
+        self._fbo.activate()
+
+        @self._window.event
         def on_draw(dt):
-            window.clear()
+            self._window.clear()
             instance_id = 0
             for R, t, obj_id in zip(R_list, t_list, obj_id_list):
                 instance_id += 1
-                self._draw(program, mat_proj, R, t, obj_id, instance_id)
+                self._draw(self._program, mat_proj, R, t, obj_id, instance_id)
 
         app.run(framecount=0) # The on_draw function is called framecount+1 times
-        rgb, depth, seg, instance_seg, normal_map, corr_map = self._read_fbo(shape)
 
-        fbo.deactivate()
-
-        window.close()
+        rgb, depth, seg, instance_seg, normal_map, corr_map = self._read_fbo()
+        self._fbo.deactivate()
 
         return rgb, depth, seg, instance_seg, normal_map, corr_map
