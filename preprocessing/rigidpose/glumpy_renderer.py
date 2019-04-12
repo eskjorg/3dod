@@ -88,8 +88,9 @@ class Renderer():
     }
     """
 
-    def __init__(self, shape):
+    def __init__(self, shape, coord_discretization_res = 1.0):
         self._shape = shape
+        self._coord_discretization_res = coord_discretization_res
         self._mat_view = self._get_model_view_transf()
         self._vertex_buffers = {}
         self._index_buffers = {}
@@ -283,16 +284,26 @@ class Renderer():
         self._program.draw(gl.GL_TRIANGLES, self._index_buffers[obj_id])
 
     def _read_fbo(self):
+        def scale2uint8(array):
+            return np.clip(array*256.0, 0.0, 255.999).astype(np.uint8)
+
+        def discretize_and_convert_to_uint16(array):
+            array /= self._coord_discretization_res
+            # If coordinates are negative, subtract 1.0 in order to avoid rounding towards 0.
+            array[array < 0.0] -= 1.0
+            array = array.astype(np.uint16)
+
         rgb = np.zeros((self._shape[0], self._shape[1], 4), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
         gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RGBA, gl.GL_FLOAT, rgb)
-        rgb = np.flipud(rgb)
-        rgb = np.round(rgb[:, :, :3] * 255).astype(np.uint8) # Convert to [0, 255]
+        rgb = np.flipud(rgb[:, :, :3])
+        rgb = scale2uint8(rgb)
 
         depth = np.zeros((self._shape[0], self._shape[1]), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT1)
         gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RED, gl.GL_FLOAT, depth)
         depth = np.flipud(depth)
+        depth = discretize_and_convert_to_uint16(depth)
 
         seg = np.zeros((self._shape[0], self._shape[1]), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT2)
@@ -307,12 +318,14 @@ class Renderer():
         normal_map = np.zeros((self._shape[0], self._shape[1], 4), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT4)
         gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RGBA, gl.GL_FLOAT, normal_map)
-        normal_map = np.flipud(normal_map)
+        normal_map = np.flipud(normal_map[:, :, :3])
+        normal_map = discretize_and_convert_to_uint16(normal_map)
 
         corr_map = np.zeros((self._shape[0], self._shape[1], 4), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT5)
         gl.glReadPixels(0, 0, self._shape[1], self._shape[0], gl.GL_RGBA, gl.GL_FLOAT, corr_map)
-        corr_map = np.flipud(corr_map)
+        corr_map = np.flipud(corr_map[:, :, :3])
+        corr_map = discretize_and_convert_to_uint16(corr_map)
 
         return rgb, depth, seg, instance_seg, normal_map, corr_map
 
