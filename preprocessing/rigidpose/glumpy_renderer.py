@@ -95,7 +95,7 @@ class Renderer():
         self._vertex_buffers = {}
         self._index_buffers = {}
         self._texture_maps = {}
-        self._window = app.Window(visible=False)
+        self._window = app.Window(visible=False, width=self._shape[1], height=self._shape[0])
         self._program = self._setup_program()
         self._fbo = self._create_framebuffer()
 
