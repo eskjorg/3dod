@@ -135,7 +135,7 @@ class Dataset():
                 obj_list.append(obj)
             gt_dict[file_idx] = obj_list
             # info.yml
-            info_dict[file_idx] = {'cam_K': [mat['intrinsic_matrix'].flatten().tolist()],
+            info_dict[file_idx] = {'cam_K': mat['intrinsic_matrix'].flatten().tolist(),
                                    'depth_scale': int(mat['factor_depth'])}
         data = yaml.dump(gt_dict)
         with open(join(dir_dst, 'gt.yml'), 'w') as gt_file:
