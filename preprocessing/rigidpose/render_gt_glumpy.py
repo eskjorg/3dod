@@ -1,3 +1,4 @@
+
 """
 Render ground truth instance segmentations, correspondence maps and normal maps from pose annotations.
 """
@@ -13,6 +14,8 @@ from preprocessing.rigidpose.glumpy_renderer import Renderer
 from lib.utils import listdir_nohidden
 import yaml
 import numpy as np
+import png
+from PIL import Image
 import shutil
 
 
@@ -30,6 +33,30 @@ else:
 def read_yaml(path):
     with open(path, 'r') as f:
         return yaml.load(f, Loader=yaml.CLoader)
+
+# def read_png(filename, dtype=None, nbr_channels=3):
+#     with open(filename, 'rb') as f:
+#         data = png.Reader(f).read()[2]
+#         if dtype is not None:
+#             img = np.vstack(map(dtype, data))
+#         else:
+#             img = np.vstack(data)
+#     shape = img.shape
+#     assert shape[1] % nbr_channels == 0
+#     img = np.reshape(img, (shape[0], shape[1]//nbr_channels, nbr_channels))
+#     return img
+
+def save_png(img, filename):
+    shape = img.shape
+    with open(filename, 'wb') as f:
+        writer = png.Writer(
+            width = shape[1],
+            height = shape[0],
+            bitdepth = 16,
+            greyscale = False, # RGB
+            alpha = False, # Not RGBA
+        )
+        writer.write(f, np.reshape(img, (shape[0], shape[1]*shape[2])))
 
 models_info = read_yaml(os.path.join(SIXD_PATH, 'models', 'models_info.yml'))
 models = {}
@@ -95,15 +122,8 @@ for subset in SUBSETS:
 
             info = infos[img_idx]
 
-            if (j+1) % 1 == 0:
+            if (j+1) % 100 == 0:
                 print("subset {}, seq {}, frame {}/{}".format(subset, seq, j+1, len(fnames)))
-
-            seg_path = os.path.join(seg_dir, fname) if render_seg else None
-            instance_seg_path = os.path.join(instance_seg_dir, fname) if render_instance_seg else None
-            corr_path = os.path.join(corr_dir, fname) if render_corr else None
-            normals_path = os.path.join(normals_dir, fname) if render_normals else None
-            depth_rendered_path = os.path.join(depth_rendered_dir, fname) if render_depth else None
-            rgb_rendered_path = os.path.join(rgb_rendered_dir, fname) if render_rgb else None
 
             obj_id_list = []
             R_list = []
@@ -125,8 +145,23 @@ for subset in SUBSETS:
                 clip_far = 10000, # mm
             )
 
-            # if not DRY_RUN:
-            #     exit_code = os.system(cmd)
-            #     if exit_code != 0:
-            #         print("Fail!")
-            #         sys.exit(exit_code)
+            if not DRY_RUN:
+                if render_seg:
+                    seg_path = os.path.join(seg_dir, fname)
+                    Image.fromarray(seg).save(seg_path)
+                if render_instance_seg:
+                    instance_seg_path = os.path.join(instance_seg_dir, fname)
+                    Image.fromarray(instance_seg).save(instance_seg_path)
+                if render_corr:
+                    corr_path = os.path.join(corr_dir, fname)
+                    save_png(corr_map, corr_path)
+                if render_normals:
+                    normals_path = os.path.join(normals_dir, fname)
+                    save_png(normal_map, normals_path)
+                if render_depth:
+                    depth_rendered_path = os.path.join(depth_rendered_dir, fname)
+                    Image.fromarray(depth).save(depth_path)
+                if render_rgb:
+                    rgb_rendered_path = os.path.join(rgb_rendered_dir, fname)
+                    Image.fromarray(rgb).save(rgb_rendered_path)
+            # assert False
