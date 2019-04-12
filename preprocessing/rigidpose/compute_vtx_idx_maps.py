@@ -114,7 +114,7 @@ for subset in SUBSETS:
             vtx_idx_path = os.path.join(vtx_idx_dir, fname)
 
             # Read segmentation & correspondence map
-            corr_map = read_png(corr_path, dtype=np.int16, nbr_channels=3).astype('float64')
+            corr_map = read_png(corr_path, dtype=np.int16, nbr_channels=3).astype('float64') + 0.5
             instance_seg = np.array(Image.open(instance_seg_path))
 
             img_height, img_width = instance_seg.shape
