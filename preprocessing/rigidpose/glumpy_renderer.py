@@ -292,6 +292,7 @@ class Renderer():
             # If coordinates are negative, subtract 1.0 in order to avoid rounding towards 0.
             array[array < 0.0] -= 1.0
             array = array.astype(np.uint16)
+            return array
 
         rgb = np.zeros((self._shape[0], self._shape[1], 4), dtype=np.float32)
         gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
