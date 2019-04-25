@@ -20,10 +20,10 @@ import shutil
 
 
 DRY_RUN = False
-LINEMOD_FLAG = False
+LINEMOD_FLAG = True
 
 if LINEMOD_FLAG:
-    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2bb_instance_idx_fix'
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06'
     SUBSETS = [subset for subset in listdir_nohidden(SIXD_PATH) if subset.startswith('train') or subset.startswith('test')]
 else:
     SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video2'
