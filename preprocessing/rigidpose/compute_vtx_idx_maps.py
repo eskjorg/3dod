@@ -14,13 +14,13 @@ import png
 from PIL import Image
 
 
-DRY_RUN = True
-LINEMOD_FLAG = False
+DRY_RUN = False
+LINEMOD_FLAG = True
 
 if LINEMOD_FLAG:
-    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists'
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06'
 else:
-    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video'
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video2'
 
 
 # Load models
@@ -81,9 +81,8 @@ def read_png(filename, dtype=None, nbr_channels=3):
     img = np.reshape(img, (shape[0], shape[1]//nbr_channels, nbr_channels))
     return img
 
-
-# SUBSETS = [subset for subset in listdir_nohidden(SIXD_PATH) if subset.startswith('train') or subset.startswith('test')]
-SUBSETS = ['data']
+SUBSETS = sorted([subset for subset in listdir_nohidden(SIXD_PATH) if subset.startswith('train') or subset.startswith('val') or subset.startswith('test')])
+# SUBSETS = ['data']
 
 for subset in SUBSETS:
     # if subset not in [
@@ -93,7 +92,7 @@ for subset in SUBSETS:
     #     #'test_occl',
     # ]:
     #     continue
-    seqs = listdir_nohidden(os.path.join(SIXD_PATH, subset))
+    seqs = sorted(listdir_nohidden(os.path.join(SIXD_PATH, subset)))
     #if subset == 'train_unoccl':
     #    seqs = ['driller']
     #elif subset == 'train_occl':
@@ -118,6 +117,7 @@ for subset in SUBSETS:
         for j, fname in enumerate(fnames):
             img_idx = int(fname.split('.')[0])
 
+            # if True:
             if (j+1) % 10 == 0:
                 print("subset {}, seq {}, frame {}/{}".format(subset, seq, j+1, len(fnames)))
 
