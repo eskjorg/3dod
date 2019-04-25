@@ -99,7 +99,7 @@ class Trainer():
             # if cnt % 10 == 0:
             #     self._visualizer.save_images(batch, outputs_cnn, results, mode, index=cnt)
 
-            if self._configs.loading[mode]['max_nbr_batches'] is not None and batch_id >= self._configs.loading[mode]['max_nbr_batches']:
+            if self._configs.loading[mode]['max_nbr_batches'] is not None and batch_id+1 >= self._configs.loading[mode]['max_nbr_batches']:
                 break
 
         score = self._result_saver.summarize_epoch(mode)

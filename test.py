@@ -40,7 +40,7 @@ class Tester():
                 self._visualizer.save_images(batch, outputs_cnn, results, TEST, index=cnt, sample=sample_idx)
                 cnt += 1
             self._logger.info('Inference done for Batch {id:<5d}'.format(id=batch_id))
-            if self._configs.loading[TEST]['max_nbr_batches'] is not None and batch_id >= self._configs.loading[TEST]['max_nbr_batches']:
+            if self._configs.loading[TEST]['max_nbr_batches'] is not None and batch_id+1 >= self._configs.loading[TEST]['max_nbr_batches']:
                 break
         self._result_saver.summarize_epoch(TEST)
 
