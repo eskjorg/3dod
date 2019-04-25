@@ -43,7 +43,20 @@ def find_nearest_neighbors_kdtree(ref_points, kd_tree):
     """
     For each reference point, find its corresponding index in the point cloud.
     """
+    nbr_ref_pts = ref_points.shape[0]
     dists, closest_indices = kd_tree.query(ref_points, k=1, eps=0, p=2)
+    max_dist = np.max(dists)
+    if not max_dist < 10.:
+        # Max 10 mm to closest point - otherwise something is fishy
+        print("max_dist: {}".format(max_dist))
+        k = 10
+        top_k_idx = np.argsort(dists)[-min(k, nbr_ref_pts):]
+        top_k_dists = dists[top_k_idx]
+        # top_k_dists = np.sort(dists)[-min(k, nbr_ref_pts):]
+        print("top_k_dists: {}".format(top_k_dists))
+        top_k_pts = ref_points[top_k_idx, :]
+        print("top_k_pts: {}".format(top_k_pts))
+        assert False
     return closest_indices
 
 def project_to_surface(self, obj_id):
@@ -128,15 +141,19 @@ for subset in SUBSETS:
 
                 mask = instance_seg == instance_idx
                 surface_pts = corr_map[mask,:]
+                nbr_pts = surface_pts.shape[0]
+                if not nbr_pts > 0:
+                    continue
 
                 obj_id = gt['obj_id']
+                # print(obj_id)
                 nbr_kp = len(models_info[obj_id]['kp_x'])
 
                 # Lookup closest vertices to surface points
-                vtx_idx_map[mask] = find_nearest_neighbors_naive(surface_pts, models[obj_id]['pts'])
-                print(vtx_idx_map[mask])
+                #vtx_idx_map[mask] = find_nearest_neighbors_naive(surface_pts, models[obj_id]['pts'])
+                #print(vtx_idx_map[mask])
                 vtx_idx_map[mask] = find_nearest_neighbors_kdtree(surface_pts, kd_trees[obj_id])
-                print(vtx_idx_map[mask])
+                #print(vtx_idx_map[mask])
 
             if not DRY_RUN:
                 # assert vtx_idx_map.max() < 2**16
