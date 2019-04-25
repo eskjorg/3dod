@@ -10,7 +10,7 @@ class PostProc:
 
     def run(self, batch, outputs):
         """Run selected post_proc modules on all frames."""
-        batch_results = defaultdict(dict)
+        batch_results = {}
         for frame_index, frame_id in enumerate(batch.id):
             frame_results = outputs
             for module in self._modules:

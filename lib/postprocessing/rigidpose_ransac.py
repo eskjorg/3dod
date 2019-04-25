@@ -280,6 +280,7 @@ class Runner(RunnerIf):
         visibility_maps = self._sigmoid(cnn_outs['clsnonmutex'][0][frame_index].detach())
 
         group_logit_maps = self._sigmoid(cnn_outs['clsgroup'][0][frame_index].detach())
+        # TODO: Use seg_map instead of gt_seg_map if GT not available..? (i.e. test mode)
         seg_map = group_logit_maps.argmax(0)
         gt_seg_map = batch.gt_map['clsgroup'][frame_index][0,:,:]
 
