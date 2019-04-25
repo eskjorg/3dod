@@ -23,8 +23,8 @@ from scipy.spatial.distance import cdist, pdist, squareform
 from abc import ABC, abstractmethod
 
 
-DRY_RUN = True
-LINEMOD_FLAG = True
+DRY_RUN = False
+LINEMOD_FLAG = False
 APPEND_WITH_FPS = True
 
 
@@ -476,8 +476,8 @@ if LINEMOD_FLAG:
     SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06'
     SUBSET = 'train_unoccl'
 else:
-    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video'
-    SUBSET = 'data'
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video2'
+    SUBSET = 'train'
 
 if not DRY_RUN:
     STORE_KEYPOINTS = True
@@ -510,7 +510,7 @@ opts.update({
     # 'DIST_TH': 1e-2, # meters
     'MAX_DIST_MM_FROM_KP_TO_SURFACE': 3.0,
     'FEATURE_SCALE_FACTOR': 1e-1,
-    'NBR_FRAMES_SAMPLED_PER_SEQ': 100 if LINEMOD_FLAG else 5,#10,
+    'NBR_FRAMES_SAMPLED_PER_SEQ': 100 if LINEMOD_FLAG else 10,
     'LP_SIGMA_MM': 40.0,
     'LP_DISTMAT_SUBSET_SIZE': 1000,
     'DEPTH_DIFF_TH': 1e-2, # meters
