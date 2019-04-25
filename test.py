@@ -62,6 +62,7 @@ def main(setup):
     if args.group_labels is not None:
         configs['data']['group_labels'] = args.group_labels.split(',')
     tester = Tester(configs)
+    configs['data']['data_loader'] = tester._data_loader
     tester.test()
 
 if __name__ == '__main__':

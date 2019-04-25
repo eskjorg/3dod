@@ -75,6 +75,7 @@ def main(setup):
     if args.group_labels is not None:
         configs['data']['group_labels'] = args.group_labels.split(',')
     evaluator = Evaluator(configs)
+    configs['data']['data_loader'] = evaluator._data_loader
     evaluator.eval()
 
 if __name__ == '__main__':

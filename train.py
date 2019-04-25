@@ -132,6 +132,7 @@ def main(setup):
     if args.group_labels is not None:
         configs['data']['group_labels'] = args.group_labels.split(',')
     trainer = Trainer(configs)
+    configs['data']['data_loader'] = trainer._data_loader
     trainer.train()
 
 if __name__ == '__main__':
