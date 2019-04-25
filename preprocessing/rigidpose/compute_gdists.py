@@ -9,21 +9,27 @@ from lib.rigidpose.sixd_toolkit.pysixd import inout
 import numpy as np
 from scipy.spatial import cKDTree
 from scipy.spatial.distance import cdist
+import argparse
 
 
-DRY_RUN = True
+DRY_RUN = False
 LINEMOD_FLAG = False
 
 if LINEMOD_FLAG:
     SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2cc_gdists'
 else:
-    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video'
+    SIXD_PATH = '/home/lucas/datasets/pose-data/sixd/ycb-video2'
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--obj-id', type=int, default=None)
+args = parser.parse_args()
 
 # Load models
 models_info = inout.load_yaml(os.path.join(SIXD_PATH, 'models', 'models_info.yml'))
 models = {}
 for obj_id in models_info:
+    if args.obj_id is not None and obj_id != args.obj_id:
+        continue
     models[obj_id] = inout.load_ply(os.path.join(SIXD_PATH, 'models', 'obj_{:02}.ply'.format(obj_id)))
     print("Obj {}: {} vertices, {} faces.".format(obj_id, len(models[obj_id]['pts']), len(models[obj_id]['faces'])))
 
@@ -86,12 +92,19 @@ def compute_gdists_on_models(models, models_info):
     gdists = {}
     for obj_id in models.keys():
         gdists[obj_id] = compute_gdists_on_model(obj_id, models, models_info)
-        break
+        # break
     return gdists
-gdists = compute_gdists_on_models(models, models_info)
+
+gdists_path = os.path.join(SIXD_PATH, 'models', 'gdists.yml')
+if os.path.exists(gdists_path):
+    with open(gdists_path, 'r') as f:
+        gdists = yaml.load(f, Loader=yaml.CLoader)
+else:
+    gdists = {}
+gdists.update(compute_gdists_on_models(models, models_info))
 
 
 if not DRY_RUN:
     # Store gdists as yaml
-    with open(os.path.join(SIXD_PATH, 'models', 'gdists.yml'), 'w') as f:
+    with open(gdists_path, 'w') as f:
         yaml.dump(gdists, f, Dumper=yaml.CDumper)
