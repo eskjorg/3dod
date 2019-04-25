@@ -36,8 +36,6 @@ class Evaluator():
             self._model.eval()
             cnt = 0
             for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
-                if self._configs.loading[mode]['max_nbr_batches'] is not None and batch_id >= self._configs.loading[mode]['max_nbr_batches']:
-                    break
                 outputs_cnn = self._run_model(batch.input)
                 if mode in (TRAIN, VAL):
                     loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)
@@ -48,6 +46,8 @@ class Evaluator():
                     self._visualizer.save_images(batch, outputs_cnn, results, mode, index=cnt, sample=sample_idx)
                     cnt += 1
                 self._logger.info('Inference done for Batch {id:<5d}'.format(id=batch_id))
+                if self._configs.loading[mode]['max_nbr_batches'] is not None and batch_id >= self._configs.loading[mode]['max_nbr_batches']:
+                    break
             self._result_saver.summarize_epoch(mode)
 
     def _run_model(self, inputs):
