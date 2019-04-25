@@ -150,8 +150,14 @@ class SixdDataset(Dataset):
 
     def _read_vtx_idx_map(self, dir_path, img_ind):
         path = join(dir_path, 'vtx_idx', str(img_ind).zfill(6) + '.png')
-        vtx_idx_map = Image.open(path)
-        vtx_idx_map = np.array(vtx_idx_map)
+        vtx_idx_map_rgb = Image.open(path)
+        vtx_idx_map_rgb = np.array(vtx_idx_map_rgb)
+
+        # Convert 8-bit little-endian RGB to 24-bit grayscale:
+        vtx_idx_map = np.zeros(vtx_idx_map_rgb.shape[:2], dtype=np.uint32)
+        for j in range(3):
+            vtx_idx_map += vtx_idx_map_rgb[:, :, j] * 2**(8*j)
+
         max_h, max_w = self._configs.data.img_dims
         return vtx_idx_map[:max_h, :max_w]
 

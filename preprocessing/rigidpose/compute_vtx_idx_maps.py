@@ -81,6 +81,18 @@ def read_png(filename, dtype=None, nbr_channels=3):
     img = np.reshape(img, (shape[0], shape[1]//nbr_channels, nbr_channels))
     return img
 
+def save_png(img, filename, bitdepth=16):
+    shape = img.shape
+    with open(filename, 'wb') as f:
+        writer = png.Writer(
+            width = shape[1],
+            height = shape[0],
+            bitdepth = bitdepth,
+            greyscale = False, # RGB
+            alpha = False, # Not RGBA
+        )
+        writer.write(f, np.reshape(img, (shape[0], shape[1]*shape[2])))
+
 SUBSETS = sorted([subset for subset in listdir_nohidden(SIXD_PATH) if subset.startswith('train') or subset.startswith('val') or subset.startswith('test')])
 # SUBSETS = ['data']
 
@@ -158,4 +170,15 @@ for subset in SUBSETS:
             if not DRY_RUN:
                 # assert vtx_idx_map.max() < 2**16
                 # Image.fromarray(vtx_idx_map.astype(np.uint16)).save(vtx_idx_path)
-                Image.fromarray(vtx_idx_map.astype(np.uint32)).save(vtx_idx_path)
+
+                # Image.fromarray(vtx_idx_map.astype(np.uint32)).save(vtx_idx_path)
+
+                # Convert 24-bit grayscale to 8-bit little-endian RGB
+                assert vtx_idx_map.max() < 2**24
+                vtx_idx_map_rgb = np.zeros((img_height, img_width, 3), dtype=np.uint8)
+                for j in range(3):
+                    tmp = (vtx_idx_map % 2**(8*(j+1))) // 2**(8*j)
+                    assert tmp.max() < 2**8
+                    vtx_idx_map_rgb[:,:,j] = tmp
+                # Note: could use PIL instead:
+                save_png(vtx_idx_map_rgb, vtx_idx_path, bitdepth=8)
