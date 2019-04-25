@@ -48,15 +48,21 @@ def read_yaml(path):
 
 def save_png(img, filename):
     shape = img.shape
+    if len(shape) == 2:
+        grayscale = True
+    else:
+        assert len(shape) == 3 and shape[2] == 3
+        grayscale = False
     with open(filename, 'wb') as f:
         writer = png.Writer(
             width = shape[1],
             height = shape[0],
             bitdepth = 16,
-            greyscale = False, # RGB
+            greyscale = grayscale, # RGB
             alpha = False, # Not RGBA
         )
-        writer.write(f, np.reshape(img, (shape[0], shape[1]*shape[2])))
+        reshaped = shape if grayscale else (shape[0], shape[1]*shape[2])
+        writer.write(f, np.reshape(img, reshaped))
 
 models_info = read_yaml(os.path.join(SIXD_PATH, 'models', 'models_info.yml'))
 models = {}
@@ -160,7 +166,8 @@ for subset in SUBSETS:
                     save_png(normal_map, normals_path)
                 if render_depth:
                     depth_rendered_path = os.path.join(depth_rendered_dir, fname)
-                    Image.fromarray(depth).save(depth_path)
+                    save_png(depth, depth_rendered_path)
+                    # Image.fromarray(depth).save(depth_rendered_path)
                 if render_rgb:
                     rgb_rendered_path = os.path.join(rgb_rendered_dir, fname)
                     Image.fromarray(rgb).save(rgb_rendered_path)
