@@ -283,7 +283,8 @@ class Visualizer:
                     lambda_map = 0.6*gt_visibility_map_highres
                     heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
                     heatmap[:100,:100,:] = kp_color
-                    plot_img(axes_array[kp_idx+1,0], heatmap, 'Keypoint {:02d} - GT'.format(kp_idx), bbox2d=bbox2d)
+                    seq, idx_in_seq = getattr(self._configs.data.data_loader, mode).dataset._get_data_pointers(frame_id)
+                    plot_img(axes_array[kp_idx+1,0], heatmap, 'Keypoint {:02d} - GT, {} #{}'.format(kp_idx, seq, idx_in_seq), bbox2d=bbox2d)
 
                     # GT position
                     if class_id in anno_lookup:
