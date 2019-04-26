@@ -22,7 +22,7 @@ from lib.utils import read_seg_to_pt
 from lib.utils import listdir_nohidden
 from lib.utils import get_metadata
 from lib.utils import project_3d_pts
-
+from lib.utils import read_yaml_and_pickle
 
 def get_metadata(configs):
     path = join(configs.data.path, 'models', 'models_info.yml')
@@ -77,10 +77,11 @@ class SixdDataset(Dataset):
         self._gdists = self._init_gdists()
 
     def _read_yaml(self, path):
-        if path not in self._yaml_dict:
-            with open(path, 'r') as f:
-                self._yaml_dict[path] = yaml.load(f, Loader=yaml.CLoader)
-        return self._yaml_dict[path]
+        return read_yaml_and_pickle(path)
+        # if path not in self._yaml_dict:
+        #     with open(path, 'r') as f:
+        #         self._yaml_dict[path] = yaml.load(f, Loader=yaml.CLoader)
+        # return self._yaml_dict[path]
 
     def _check_seq_has_annotations_of_interest(self, root_path, sequence):
         global_info_path = join(root_path, sequence, 'global_info.yml')

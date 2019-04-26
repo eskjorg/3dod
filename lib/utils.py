@@ -3,6 +3,8 @@ import os
 import json
 from attrdict import AttrDict
 from importlib import import_module
+import yaml
+import pickle
 
 from PIL import Image
 import numpy as np
@@ -33,6 +35,25 @@ def listdir_nohidden(path):
         if not f.startswith('.'):
             fnames.append(f)
     return fnames
+
+def read_yaml_and_pickle(yaml_path):
+    pickle_path = yaml_path + '.pickle'
+
+    if os.path.exists(pickle_path) and os.stat(pickle_path).st_mtime > os.stat(yaml_path).st_mtime:
+        # Read from pickle if it exists already, and has a more recent timestamp than the YAML file (no recent YAML mods)
+        with open(pickle_path, 'rb') as f:
+            data = pickle.load(f)
+    else:
+        print("Reading & converting YAML to pickle: {}...".format(yaml_path))
+        # Read YAML
+        with open(yaml_path, 'r') as f:
+            data = yaml.load(f, Loader=yaml.CLoader)
+        # Save as pickle
+        with open(pickle_path, 'wb') as f:
+            pickle.dump(data, f)
+        print("Done saving to pickle.")
+
+    return data
 
 def read_json(path):
     """Read json file to AttrDict."""
