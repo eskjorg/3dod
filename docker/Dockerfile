@@ -1,5 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:19.03-py3
-# NOTE: 19.03 still use old APEX (with old API)
+FROM nvcr.io/nvidia/pytorch:19.04-py3
 
 RUN conda update -n base -c conda-forge conda
 RUN conda install -y -c conda-forge \

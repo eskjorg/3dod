@@ -23,7 +23,7 @@ class Tester():
         self._result_saver = ResultSaver(configs)
         self._checkpoint_handler = CheckpointHandler(configs)
         model = self._checkpoint_handler.init(Model(configs), force_load=True)
-        self._model, _ = amp.initialize(model, [], opt_level="O1")
+        self._model, _ = amp.initialize(model, [], opt_level=configs.training.mixed_precision)
         self._post_proc = PostProc(configs)
         self._visualizer = Visualizer(configs)
         self._logger = logging.getLogger(self.__class__.__name__)

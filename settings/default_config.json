@@ -34,7 +34,8 @@
         "n_epochs": 100,
         "learning_rate": 0.0001,
         "weighting_mode": "layer_wise",
-        "backup_nth_epoch": 10
+        "backup_nth_epoch": 10,
+        "mixed_precision": "O1"
     },
     "logging": {
         "avg_window_size": 25,
