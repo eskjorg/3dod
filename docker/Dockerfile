@@ -5,6 +5,5 @@ RUN conda install -y -c conda-forge \
     attrdict \
     opencv \
     tensorboardX
-RUN pip install nuscenes-devkit
-RUN pip install --upgrade numpy  # Currenty needed to cope with old numpy in nuScenes
 RUN pip install git+https://github.com/facebookresearch/maskrcnn-benchmark.git@master
+RUN pip install nuscenes-devkit
