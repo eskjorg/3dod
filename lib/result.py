@@ -87,11 +87,10 @@ class KeypointEvaluator():
     def run_eval_frame_stats(self, group_id):
         group_label = self._class_map.group_label_from_group_id(group_id)
 
-        nbr_rows = NBR_KEYPOINTS
+        nbr_rows = NBR_KEYPOINTS + 1
 
         detection_stats = OrderedDict()
         colnames = [
-            'kp_idx',
             '#tp',
             '#fp',
             '#fn',
@@ -105,11 +104,12 @@ class KeypointEvaluator():
             '#tp_acc/(#tp+#fn) (10px)',
             '#tp_acc/(#tp+#fp+#tn+#fn) (10px)',
         ]
+        detection_stats['kp_idx'] = [None]*nbr_rows
         for key in colnames:
             detection_stats[key] = [None]*nbr_rows
 
         for kp_idx in range(NBR_KEYPOINTS):
-            row_idx = kp_idx
+            row_idx = kp_idx + 1
 
             detection_stats['kp_idx'][row_idx] = kp_idx
             detection_stats['#tp'][row_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
@@ -127,15 +127,25 @@ class KeypointEvaluator():
             detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (5px)'][row_idx] = detection_stats['#tp_acc (5px)'][row_idx] / (detection_stats['#tp'][row_idx] + detection_stats['#fp'][row_idx] + detection_stats['#tn'][row_idx] + detection_stats['#fn'][row_idx])
             detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (10px)'][row_idx] = detection_stats['#tp_acc (10px)'][row_idx] / (detection_stats['#tp'][row_idx] + detection_stats['#fp'][row_idx] + detection_stats['#tn'][row_idx] + detection_stats['#fn'][row_idx])
 
+        # Averaging for top row
+        detection_stats['kp_idx'][0] = 'avg'
+        for key in colnames:
+            detection_stats[key][0] = np.mean(detection_stats[key][1:])
+
         # ==========
         # FORMATTING
         # ==========
         for row_idx in range(nbr_rows):
-            for key in colnames:
-                if '/' in key:
+            for key in ['kp_idx'] + colnames:
+                if isinstance(detection_stats[key][row_idx], str):
+                    continue
+                if detection_stats[key][row_idx] is None:
+                    detection_stats[key][row_idx] = ''
+                elif '/' in key:
                     detection_stats[key][row_idx] = '{:0.2f} %'.format(100 * detection_stats[key][row_idx])
                 else:
-                    detection_stats[key][row_idx] = '{:d}'.format(detection_stats[key][row_idx])
+                    detection_stats[key][row_idx] = '{}'.format(detection_stats[key][row_idx])
+                    # detection_stats[key][row_idx] = '{:d}'.format(detection_stats[key][row_idx])
 
         vis_path = os.path.join(self._output_dir, 'visual')
         # shutil.rmtree(vis_path, ignore_errors=True)
