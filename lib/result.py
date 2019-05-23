@@ -163,6 +163,28 @@ class KeypointEvaluator():
             # self._format_markdown_table(*self._coldict2rowdata(detection_stats)),
             0,
         )
+
+        nbr_acc_kp_5px = []
+        nbr_acc_kp_10px = []
+        for sample_result in self._epoch_results.values():
+            nbr_acc_kp_5px.append(np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['min_resid_magnitude'] < 5.0 for kp_idx in range(NBR_KEYPOINTS)], dtype=int))
+            nbr_acc_kp_10px.append(np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['min_resid_magnitude'] < 10.0 for kp_idx in range(NBR_KEYPOINTS)], dtype=int))
+        fig, axes_array = plt.subplots(
+            nrows=1,
+            ncols=2,
+            figsize=[17, 4],
+            squeeze=False,
+            tight_layout=True,
+        )
+        # fig, ax = plt.subplots()
+        hist, _ = np.histogram(nbr_acc_kp_5px, bins=np.linspace(-0.5, NBR_KEYPOINTS+0.5, NBR_KEYPOINTS+2))
+        axes_array[0,0].bar(list(range(NBR_KEYPOINTS+1)), hist, width=0.8, align='center')
+        axes_array[0,0].set_xlabel('#KP < 5px somewhere')
+        hist, _ = np.histogram(nbr_acc_kp_10px, bins=np.linspace(-0.5, NBR_KEYPOINTS+0.5, NBR_KEYPOINTS+2))
+        axes_array[0,1].bar(list(range(NBR_KEYPOINTS+1)), hist, width=0.8, align='center')
+        axes_array[0,1].set_xlabel('#KP < 10px somewhere')
+        writer.add_figure('{}_{}_{}'.format(self._mode, group_label, 'nbr_acc_kp_hist'), fig, 0)
+
         # Unsure of the importance of calling close()... Might not be done in case of KeyboardInterrupt
         # https://stackoverflow.com/questions/44831317/tensorboard-unble-to-get-first-event-timestamp-for-run
         # https://stackoverflow.com/questions/33364340/how-to-avoid-suppressing-keyboardinterrupt-during-garbage-collection-in-python
