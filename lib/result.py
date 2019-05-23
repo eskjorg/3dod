@@ -124,21 +124,26 @@ class KeypointEvaluator():
             # ==========
             # FORMATTING
             # ==========
-            detection_stats['#tp'][kp_idx] = '{:d}'.format(detection_stats['#tp'][kp_idx])
-            detection_stats['#fp'][kp_idx] = '{:d}'.format(detection_stats['#fp'][kp_idx])
-            detection_stats['#fn'][kp_idx] = '{:d}'.format(detection_stats['#fn'][kp_idx])
-            detection_stats['#tn'][kp_idx] = '{:d}'.format(detection_stats['#tn'][kp_idx])
+            for key in [
+                '#tp',
+                '#fp',
+                '#fn',
+                '#tn',
+                '#tp_acc (5px)',
+                '#tp_inacc (5px)',
+                '#tp_acc (10px)',
+                '#tp_inacc (10px)',
+            ]:
+                detection_stats[key][kp_idx] = '{:d}'.format(detection_stats[key][kp_idx])
 
-            detection_stats['#tp_acc (5px)'][kp_idx] = '{:d}'.format(detection_stats['#tp_acc (5px)'][kp_idx])
-            detection_stats['#tp_inacc (5px)'][kp_idx] = '{:d}'.format(detection_stats['#tp_inacc (5px)'][kp_idx])
-            detection_stats['#tp_acc/(#tp+#fn) (5px)'][kp_idx] = '{:0.2f} %'.format(100 * detection_stats['#tp_acc/(#tp+#fn) (5px)'][kp_idx])
-            detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (5px)'][kp_idx] = '{:0.2f} %'.format(100 * detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (5px)'][kp_idx])
+            for key in [
+                '#tp_acc/(#tp+#fn) (5px)',
+                '#tp_acc/(#tp+#fp+#tn+#fn) (5px)',
+                '#tp_acc/(#tp+#fn) (10px)',
+                '#tp_acc/(#tp+#fp+#tn+#fn) (10px)',
+            ]:
+                detection_stats[key][kp_idx] = '{:0.2f} %'.format(100 * detection_stats[key][kp_idx])
 
-            detection_stats['#tp_acc (10px)'][kp_idx] = '{:d}'.format(detection_stats['#tp_acc (10px)'][kp_idx])
-            detection_stats['#tp_inacc (10px)'][kp_idx] = '{:d}'.format(detection_stats['#tp_inacc (10px)'][kp_idx])
-            detection_stats['#tp_acc/(#tp+#fn) (10px)'][kp_idx] = '{:0.2f} %'.format(100 * detection_stats['#tp_acc/(#tp+#fn) (10px)'][kp_idx])
-            detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (10px)'][kp_idx] = '{:0.2f} %'.format(100 * detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (10px)'][kp_idx])
-            
         vis_path = os.path.join(self._output_dir, 'visual')
         # shutil.rmtree(vis_path, ignore_errors=True)
         writer = SummaryWriter(vis_path)
