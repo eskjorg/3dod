@@ -321,6 +321,7 @@ class Runner(RunnerIf):
                     'pred_visib_map': visibility_map,
                     'gt_visib_map': gt_visibility_map.cuda(),
                     'kp_map': torch.flip(index_map, [0]) + kp_maps_dict[key],
+                    'kp_ln_b_map': kp_ln_b_maps_dict[key],
                 }
 
                 th = VISIB_TH

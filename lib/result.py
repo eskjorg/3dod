@@ -102,6 +102,7 @@ class KeypointEvaluator():
             '#fp',
             '#fn',
             '#tn',
+            'median_lpeak_ratio',
             '#tp_acc (5px)',
             '#tp_inacc (5px)',
             '#tp_acc/(#tp+#fn) (5px)',
@@ -127,6 +128,8 @@ class KeypointEvaluator():
             detection_stats['#tp_acc (10px)'][row_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['min_resid_magnitude'] < 10.0 for sample_result in self._epoch_results.values()], dtype=int)
             # detection_stats['#tp_acc (10px)'][row_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_acc'] for sample_result in self._epoch_results.values()], dtype=int)
 
+            detection_stats['median_lpeak_ratio'][row_idx] = np.median([sample_result[group_id]['kp_frame_stats'][kp_idx]['lpeak_ratio'] for sample_result in self._epoch_results.values() if sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist']])
+
             detection_stats['#tp_inacc (5px)'][row_idx] = detection_stats['#tp'][row_idx] - detection_stats['#tp_acc (5px)'][row_idx]
             detection_stats['#tp_inacc (10px)'][row_idx] = detection_stats['#tp'][row_idx] - detection_stats['#tp_acc (10px)'][row_idx]
             detection_stats['#tp_acc/(#tp+#fn) (5px)'][row_idx] = detection_stats['#tp_acc (5px)'][row_idx] / (detection_stats['#tp'][row_idx] + detection_stats['#fn'][row_idx])
@@ -150,6 +153,8 @@ class KeypointEvaluator():
                     detection_stats[key][row_idx] = ''
                 elif '/' in key:
                     detection_stats[key][row_idx] = '{:0.2f} %'.format(100 * detection_stats[key][row_idx])
+                elif key == 'median_lpeak_ratio':
+                    detection_stats[key][row_idx] = '{:0.2f}'.format(detection_stats[key][row_idx])
                 else:
                     detection_stats[key][row_idx] = '{}'.format(detection_stats[key][row_idx])
                     # detection_stats[key][row_idx] = '{:d}'.format(detection_stats[key][row_idx])
@@ -325,23 +330,26 @@ class ResultSaver:
                     ])
                     resid_magnitude_at_tp_vec = torch.norm(resid_at_tp_vec, dim=0).cpu().numpy()
                     min_resid_magnitude = float(np.min(resid_magnitude_at_tp_vec))
-                    # RES_TH_PX = 10.0
-                    # if np.sum(resid_magnitude_at_tp_vec <= RES_TH_PX):
-                    #     tp_acc = True
-                    # else:
-                    #     tp_acc = False
+
+                    # Determine ratio of estimated uncertainty between most certain & the best one
+                    best_idx = np.argmin(resid_magnitude_at_tp_vec)
+                    avg_ln_b_map = torch.mean(kp_data['kp_ln_b_map'], dim=0)
+                    top_conf_ln_b = torch.min(avg_ln_b_map)
+                    best_ln_b = avg_ln_b_map[pred_visib_binary & gt_visib_binary][best_idx]
+                    lpeak_ratio = float(torch.exp(best_ln_b - top_conf_ln_b).cpu().numpy()) # Corresponds to ratio between likelihood peaks
                 elif gt_gc_exist and det_gc_exist:
                     # Despite TP frame, there are no TP grid cells
                     min_resid_magnitude = None
+                    lpeak_ratio = None
                 else:
                     min_resid_magnitude = None
-                    # tp_acc = False
+                    lpeak_ratio = None
                 kp_frame_stats_data = {
                     'gt_gc_exist': gt_gc_exist,
                     'det_gc_exist': det_gc_exist,
                     'tp_gc_exist': tp_gc_exist,
                     'min_resid_magnitude': min_resid_magnitude,
-                    # 'tp_acc': tp_acc,
+                    'lpeak_ratio': lpeak_ratio,
                 }
                 sample_result[group_id]['kp_frame_stats'].append(kp_frame_stats_data)
                 if 'visib_vec' not in kp_data:
