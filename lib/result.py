@@ -90,22 +90,23 @@ class KeypointEvaluator():
         nbr_rows = NBR_KEYPOINTS
 
         detection_stats = OrderedDict()
-        for colname in [
-                'kp_idx',
-                '#tp',
-                '#fp',
-                '#fn',
-                '#tn',
-                '#tp_acc (5px)',
-                '#tp_inacc (5px)',
-                '#tp_acc/(#tp+#fn) (5px)',
-                '#tp_acc/(#tp+#fp+#tn+#fn) (5px)',
-                '#tp_acc (10px)',
-                '#tp_inacc (10px)',
-                '#tp_acc/(#tp+#fn) (10px)',
-                '#tp_acc/(#tp+#fp+#tn+#fn) (10px)',
-            ]:
-            detection_stats[colname] = [None]*nbr_rows
+        colnames = [
+            'kp_idx',
+            '#tp',
+            '#fp',
+            '#fn',
+            '#tn',
+            '#tp_acc (5px)',
+            '#tp_inacc (5px)',
+            '#tp_acc/(#tp+#fn) (5px)',
+            '#tp_acc/(#tp+#fp+#tn+#fn) (5px)',
+            '#tp_acc (10px)',
+            '#tp_inacc (10px)',
+            '#tp_acc/(#tp+#fn) (10px)',
+            '#tp_acc/(#tp+#fp+#tn+#fn) (10px)',
+        ]
+        for key in colnames:
+            detection_stats[key] = [None]*nbr_rows
 
         for kp_idx in range(NBR_KEYPOINTS):
             row_idx = kp_idx
@@ -130,26 +131,11 @@ class KeypointEvaluator():
         # FORMATTING
         # ==========
         for row_idx in range(nbr_rows):
-            for key in [
-                'kp_idx',
-                '#tp',
-                '#fp',
-                '#fn',
-                '#tn',
-                '#tp_acc (5px)',
-                '#tp_inacc (5px)',
-                '#tp_acc (10px)',
-                '#tp_inacc (10px)',
-            ]:
-                detection_stats[key][row_idx] = '{:d}'.format(detection_stats[key][row_idx])
-
-            for key in [
-                '#tp_acc/(#tp+#fn) (5px)',
-                '#tp_acc/(#tp+#fp+#tn+#fn) (5px)',
-                '#tp_acc/(#tp+#fn) (10px)',
-                '#tp_acc/(#tp+#fp+#tn+#fn) (10px)',
-            ]:
-                detection_stats[key][row_idx] = '{:0.2f} %'.format(100 * detection_stats[key][row_idx])
+            for key in colnames:
+                if '/' in key:
+                    detection_stats[key][row_idx] = '{:0.2f} %'.format(100 * detection_stats[key][row_idx])
+                else:
+                    detection_stats[key][row_idx] = '{:d}'.format(detection_stats[key][row_idx])
 
         vis_path = os.path.join(self._output_dir, 'visual')
         # shutil.rmtree(vis_path, ignore_errors=True)
