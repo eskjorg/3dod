@@ -70,6 +70,7 @@ def main(setup):
     configs['loading'][TRAIN]['max_nbr_batches'] = configs['loading'][TEST]['max_nbr_batches']
     configs['loading'][VAL]['max_nbr_batches'] = configs['loading'][TEST]['max_nbr_batches']
 
+    configs['data']['sequences']['train_extra'] = []
     if args.train_seqs is not None:
         configs['data']['sequences']['train'] = args.train_seqs.split(',')
     if args.group_labels is not None:

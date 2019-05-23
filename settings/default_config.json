@@ -45,6 +45,11 @@
         "save_nuscenes_format": false,
         "save_kp_stats": false
     },
+    "data": {
+        "sequences": {
+            "train_extra": []
+        }
+    },
     "loading": {
         "train": {
             "batch_size": 16,

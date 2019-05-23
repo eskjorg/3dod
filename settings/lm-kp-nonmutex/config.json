@@ -34,6 +34,9 @@
         "dataformat": "sixd_kp_instances",
         "path": "/datasets/occluded-linemod-augmented",
         "sequences": {
+            "train_extra": [
+                {"seq_name": "train_synthetic/seq", "sample_prob": 0.5}
+            ],
             "train": [
                 "train_unoccl/*"
             ],

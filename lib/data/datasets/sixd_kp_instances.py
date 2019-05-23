@@ -73,6 +73,8 @@ class SixdDataset(Dataset):
         self._class_map = ClassMap(configs)
         self._gt_map_generator = GtMapsGenerator(configs)
         self._sequence_lengths = self._init_sequence_lengths()
+        if self._mode == TRAIN:
+            self._extra_sequence_lengths = self._init_extra_sequence_lengths()
         self._models = self._init_models()
         self._gdists = self._init_gdists()
 
@@ -103,6 +105,18 @@ class SixdDataset(Dataset):
             num_images = len(listdir_nohidden(join(root_path, sequence, 'rgb')))
             sequences[sequence] = num_images
         assert len(sequences) > 0
+        return sequences
+
+    def _init_extra_sequence_lengths(self):
+        sequences = OrderedDict()
+        root_path = self._configs.data.path
+        # seqs = [seq for seq_pattern in self._configs.data.sequences.train_extra for seq in seq_glob_expand(self._configs, seq_pattern)] # Parse & expand glob patterns
+        seqs = [spec['seq_name'] for spec in self._configs.data.sequences.train_extra]
+        for sequence in seqs:
+            if not self._check_seq_has_annotations_of_interest(root_path, sequence):
+                continue
+            num_images = len(listdir_nohidden(join(root_path, sequence, 'rgb')))
+            sequences[sequence] = num_images
         return sequences
 
     def _init_models(self):
@@ -262,6 +276,15 @@ class SixdDataset(Dataset):
         return np.concatenate((intrinsic, np.zeros((3, 1))), axis=1)
 
     def _get_data_pointers(self, index):
+        if self._mode == TRAIN and len(self._configs.data.sequences.train_extra) > 0:
+            seq_names, sample_probs = zip(*[(spec['seq_name'], spec['sample_prob']) for spec in self._configs.data.sequences.train_extra])
+            seq_idx = np.random.choice(len(sample_probs)+1, p = [1.0-sum(sample_probs)]+list(sample_probs))
+            if seq_idx > 0:
+                # seq_idx == 0 corresponds to not sampling from the "extra" sequences
+                seq_name = seq_names[seq_idx-1]
+                index = np.random.choice(self._extra_sequence_lengths[seq_name])
+                # print(seq_name)
+                return seq_name, index
         for seq_name, seq_length in self._sequence_lengths.items():
             if seq_length > index:
                 break

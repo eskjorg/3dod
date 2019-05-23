@@ -57,6 +57,7 @@ def main(setup):
 
     configs = get_configs(args.config_name)
     configs += vars(args)
+    configs['data']['sequences']['train_extra'] = []
     if args.train_seqs is not None:
         configs['data']['sequences']['train'] = args.train_seqs.split(',')
     if args.group_labels is not None:
