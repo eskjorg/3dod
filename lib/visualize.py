@@ -328,6 +328,7 @@ class Visualizer:
                     # Sample based on confidence
                     kp_avg_std_vec = 0.5*sum([kp_std1_vec, kp_std2_vec])
                     center_likelihood_vec = (0.5 / np.exp(kp_x_ln_b_vec)) * (0.5 / np.exp(kp_y_ln_b_vec))
+                    center_likelihood_vec *= visib_vec
                     p = center_likelihood_vec / np.sum(center_likelihood_vec)
 
                     # for idx in {np.argmin(0.5*sum([kp_std1_vec, kp_std2_vec]))}:

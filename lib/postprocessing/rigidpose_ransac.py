@@ -106,6 +106,7 @@ class GroupedCorrespondenceSet():
         u_grouped = [self.u[:, idx_list] for idx_list in self.grouped_idx_lists]
         U_grouped = [self.U[:, idx_list] for idx_list in self.grouped_idx_lists]
         sample_confidences = 0.25 / np.prod(self.b_per_sample, axis=0)
+        sample_confidences *= self.sample_visib
         sample_confidences_grouped = [sample_confidences[idx_list] for idx_list in self.grouped_idx_lists]
         sample_loc_grouped = [self.sample_loc[:, idx_list] for idx_list in self.grouped_idx_lists]
         sample_visib_grouped = [self.sample_visib[idx_list] for idx_list in self.grouped_idx_lists]
