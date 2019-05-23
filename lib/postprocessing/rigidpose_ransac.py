@@ -325,8 +325,8 @@ class Runner(RunnerIf):
                 visib_vec = visibility_map[mask_confident].flatten()
                 idx_x_vec = index_map[1,:,:][mask_confident].flatten()
                 idx_y_vec = index_map[0,:,:][mask_confident].flatten()
-                kp_x_vec = (index_map[1,:,:] + kp_maps_dict[key]) [0,:,:][mask_confident].flatten()
-                kp_y_vec = (index_map[0,:,:] + kp_maps_dict[key]) [1,:,:][mask_confident].flatten()
+                kp_x_vec = (index_map[1,:,:] + kp_maps_dict[key][0,:,:]) [mask_confident].flatten()
+                kp_y_vec = (index_map[0,:,:] + kp_maps_dict[key][1,:,:]) [mask_confident].flatten()
                 kp_x_ln_b_vec = kp_ln_b_maps_dict[key][0,:,:][mask_confident].flatten()
                 kp_y_ln_b_vec = kp_ln_b_maps_dict[key][1,:,:][mask_confident].flatten()
                 # Laplace distribution, going from log(b) to b, to sigma=sqrt(2)*b
