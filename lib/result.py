@@ -38,7 +38,7 @@ class KeypointEvaluator():
         """
         Convert a (possibly ordered) dict of rows (keys are row names), to a list of rows of the corresponding table, the first column being the header column.
         """
-        table = [[key] + row for key, row in rowdict.items()]
+        table = [['**'+key+'**'] + row for key, row in rowdict.items()]
         return table[0], table[1:]
 
     def _coldict2rowdata(self, coldict):
