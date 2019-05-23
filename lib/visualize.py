@@ -14,7 +14,7 @@ from torch import nn
 from torchvision.transforms.functional import normalize
 from tensorboardX import SummaryWriter
 
-from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, NBR_KEYPOINTS, PATCH_SIZE, GT_TYPE, CNN_TYPE, DET_TYPE
+from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, NBR_KEYPOINTS, PATCH_SIZE, GT_TYPE, CNN_TYPE, DET_TYPE, VISIB_TH
 from lib.constants import TV_MEAN, TV_STD
 from lib.constants import TRAIN, VAL
 from lib.utils import project_3d_pts, construct_3d_box, get_metadata, get_class_map
@@ -32,6 +32,12 @@ class Visualizer:
         self._writer = SummaryWriter(vis_path)
         self._corner_colors = CORNER_COLORS
         self._loss_count_dict = {'train': 0, 'val': 0}
+
+    def __del__(self):
+        # Unsure of the importance of calling close()... Might not be done in case of KeyboardInterrupt
+        # https://stackoverflow.com/questions/44831317/tensorboard-unble-to-get-first-event-timestamp-for-run
+        # https://stackoverflow.com/questions/33364340/how-to-avoid-suppressing-keyboardinterrupt-during-garbage-collection-in-python
+        self._writer.close()
 
     def report_loss(self, losses, mode):
         self._writer.add_scalar('loss/{}'.format(mode), sum(losses.values()), self._loss_count_dict[mode])
@@ -303,7 +309,7 @@ class Visualizer:
                 # Pred position
                 likelihood_map = np.zeros(self._configs.data.img_dims)
 
-                th = 0.5
+                th = VISIB_TH
                 visibility_map_lowres = visibility_maps_lowres[class_id-2,:,:]
                 mask_confident = visibility_map_lowres >= th
                 nbr_confident = np.sum(mask_confident)

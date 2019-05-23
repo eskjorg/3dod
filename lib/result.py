@@ -3,6 +3,9 @@ import os
 import shutil
 import json
 import numpy as np
+import torch
+
+from collections import OrderedDict
 
 from pyquaternion import Quaternion
 
@@ -16,7 +19,7 @@ from nuscenes.eval.nuscenes_eval import NuScenesEval
 from nuscenes.utils.data_classes import Box
 
 from lib.utils import get_class_map
-from lib.constants import NBR_KEYPOINTS
+from lib.constants import NBR_KEYPOINTS, VISIB_TH
 
 
 class KeypointEvaluator():
@@ -27,112 +30,132 @@ class KeypointEvaluator():
         self._output_dir = output_dir
         self._mode = mode
 
-    def run_eval(self, group_id):
+    def _format_markdown_table(self, colnames, rows):
+        rowdata = [colnames] + [['-']*len(colnames)] + rows
+        return '\n'.join(['|'.join(map(str, row)) for row in rowdata])
+
+    def _coldata2rowdata(self, coldata):
+        """
+        Convert a (possibly ordered) dict of columns (keys are column names), to a list of rows of the corresponding table, the first row being the header row.
+        """
+        colnames, cols = zip(*coldata.items())
+        rowdata = []
+        rowdata += zip(*cols)
+        return colnames, rowdata
+
+    def run_eval_gridcell_stats(self, group_id):
         group_label = self._class_map.group_label_from_group_id(group_id)
-        stats = {}
-        for sample_token, sample_result in self._epoch_results.items():
-            stats[sample_token] = {
-                'kp_stats': {},
-                'nbr_tp': 0,
-                'nbr_fp': 0,
-                'nbr_fn': 0,
-                'nbr_tn': 0,
-            }
-            for kp_idx in range(NBR_KEYPOINTS):
-                curr_kp_stats = {}
-
-                # Tmp vars for convenience
-                kp_gt_data = sample_result[group_id]['kp_gt'][kp_idx]
-                kp_pred_data = sample_result[group_id]['kp_pred'][kp_idx]
-
-                # Initialized to False
-                curr_kp_stats['positive_anno'] = False
-                curr_kp_stats['positive_pred'] = False
-
-                # If most visible pixel is visible enough, annotation is considered visible:
-                gt_visib_th = 0.5
-                if kp_gt_data is not None and np.isfinite(kp_gt_data['max_visib']) and kp_gt_data['max_visib'] >= gt_visib_th:
-                    curr_kp_stats['positive_anno'] = True
-
-                # If predicted uncertainty is small enough, prediction is considered positive:
-                if kp_pred_data is not None:
-                    max_idx = np.argmin(np.array(kp_pred_data['kp_x_ln_b_vec']) + np.array(kp_pred_data['kp_y_ln_b_vec']))
-                    geom_mean_std = np.sqrt(2.0 * np.exp(kp_pred_data['kp_x_ln_b_vec'][max_idx] + kp_pred_data['kp_y_ln_b_vec'][max_idx]))
-                    pred_std_th = 5.0
-                    # pred_std_th = 10.0
-                    if geom_mean_std <= pred_std_th:
-                        curr_kp_stats['positive_pred'] = True
-                    curr_kp_stats['geom_mean_std'] = geom_mean_std
-                    if kp_gt_data is not None:
-                        res_x = kp_pred_data['kp_x_vec'][max_idx] - kp_gt_data['kp_x']
-                        res_y = kp_pred_data['kp_y_vec'][max_idx] - kp_gt_data['kp_y']
-                        curr_kp_stats['resid_magnitude'] = np.sqrt(res_x**2 + res_y**2)
-                    else:
-                        curr_kp_stats['resid_magnitude'] = None
-
-                curr_kp_stats['tp'] = False
-                curr_kp_stats['fp'] = False
-                curr_kp_stats['fn'] = False
-                curr_kp_stats['tn'] = False
-                if curr_kp_stats['positive_pred'] and curr_kp_stats['positive_anno']:
-                    curr_kp_stats['tp'] = True
-                    stats[sample_token]['nbr_tp'] += 1
-                elif curr_kp_stats['positive_pred'] and not curr_kp_stats['positive_anno']:
-                    curr_kp_stats['fp'] = True
-                    stats[sample_token]['nbr_fp'] += 1
-                elif not curr_kp_stats['positive_pred'] and curr_kp_stats['positive_anno']:
-                    curr_kp_stats['fn'] = True
-                    stats[sample_token]['nbr_fn'] += 1
-                elif not curr_kp_stats['positive_pred'] and not curr_kp_stats['positive_anno']:
-                    curr_kp_stats['tn'] = True
-                    stats[sample_token]['nbr_tn'] += 1
-
-                stats[sample_token]['kp_stats'][kp_idx] = curr_kp_stats
-
+    
+        detection_stats = OrderedDict()
+        for colname in ['kp_idx', 'avg_prec', 'avg_recall', '#avg_tp', '#avg_fp', '#avg_fn', '#avg_tn', '#gt_frames', 'freq of any res <= 5px']:
+            detection_stats[colname] = [None]*NBR_KEYPOINTS
+    
+        for kp_idx in range(NBR_KEYPOINTS):
+            detection_stats['kp_idx'][kp_idx] = kp_idx
+            detection_stats['#avg_tp'][kp_idx] = np.mean([sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] for sample_result in self._epoch_results.values()])
+            detection_stats['#avg_fp'][kp_idx] = np.mean([sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fp'] for sample_result in self._epoch_results.values()])
+            detection_stats['#avg_fn'][kp_idx] = np.mean([sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fn'] for sample_result in self._epoch_results.values()])
+            detection_stats['#avg_tn'][kp_idx] = np.mean([sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tn'] for sample_result in self._epoch_results.values()])
+            detection_stats['#gt_frames'][kp_idx] = np.mean([(sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] + sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fn']) for sample_result in self._epoch_results.values()])
+    
+            detection_stats['avg_prec'][kp_idx] = detection_stats['#avg_tp'][kp_idx] / (detection_stats['#avg_tp'][kp_idx] + detection_stats['#avg_fp'][kp_idx])
+            detection_stats['avg_recall'][kp_idx] = detection_stats['#avg_tp'][kp_idx] / (detection_stats['#avg_tp'][kp_idx] + detection_stats['#avg_fn'][kp_idx])
+            # detection_stats['avg_prec'][kp_idx] = '{:0.2f} %'.format(100 * np.mean([sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] / (sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] + sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fp']) for sample_result in self._epoch_results.values() if (sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] + sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fn']) > 0]))
+            # detection_stats['avg_recall'][kp_idx] = '{:0.2f} %'.format(100 * np.mean([sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] / (sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] + sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fn']) for sample_result in self._epoch_results.values() if (sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] + sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fn']) > 0]))
+    
+            detection_stats['#avg_tp'][kp_idx] = '{:0.2f}'.format(detection_stats['#avg_tp'][kp_idx])
+            detection_stats['#avg_fp'][kp_idx] = '{:0.2f}'.format(detection_stats['#avg_fp'][kp_idx])
+            detection_stats['#avg_fn'][kp_idx] = '{:0.2f}'.format(detection_stats['#avg_fn'][kp_idx])
+            detection_stats['#avg_tn'][kp_idx] = '{:0.2f}'.format(detection_stats['#avg_tn'][kp_idx])
+            detection_stats['#gt_frames'][kp_idx] = '{:0.2f}'.format(detection_stats['#gt_frames'][kp_idx])
+            detection_stats['avg_prec'][kp_idx] = '{:0.2f} %'.format(100 * detection_stats['avg_prec'][kp_idx])
+            detection_stats['avg_recall'][kp_idx] = '{:0.2f} %'.format(100 * detection_stats['avg_recall'][kp_idx])
+    
         vis_path = os.path.join(self._output_dir, 'visual')
-        shutil.rmtree(vis_path, ignore_errors=True)
+        # shutil.rmtree(vis_path, ignore_errors=True)
         writer = SummaryWriter(vis_path)
-        fig, axes_array = plt.subplots(
-            nrows=2,
-            ncols=2,
-            figsize=[10, 4],
-            squeeze=False,
-            tight_layout=True,
+        writer.add_text(
+            '{}_{}_{}'.format(self._mode, group_label, 'gridcell_detection_stats'),
+            self._format_markdown_table(*self._coldata2rowdata(detection_stats)),
+            0,
         )
-        # fig, ax = plt.subplots()
-        hist, _ = np.histogram([sample_stats['nbr_tp'] for sample_token, sample_stats in stats.items()], bins=np.linspace(-0.5, NBR_KEYPOINTS+0.5, NBR_KEYPOINTS+2))
-        axes_array[0,0].bar(list(range(NBR_KEYPOINTS+1)), hist, width=0.8, align='center')
-        axes_array[0,0].set_xlabel('#True Positives')
-        # axes_array[0,0].set_title('True Positives')
-        hist, _ = np.histogram([sample_stats['nbr_fp'] for sample_token, sample_stats in stats.items()], bins=np.linspace(-0.5, NBR_KEYPOINTS+0.5, NBR_KEYPOINTS+2))
-        axes_array[0,1].bar(list(range(NBR_KEYPOINTS+1)), hist, width=0.8, align='center')
-        axes_array[0,1].set_xlabel('#False Positives')
-        # axes_array[0,1].set_title('False Positives')
-        hist, _ = np.histogram([sample_stats['nbr_tn'] for sample_token, sample_stats in stats.items()], bins=np.linspace(-0.5, NBR_KEYPOINTS+0.5, NBR_KEYPOINTS+2))
-        axes_array[1,0].bar(list(range(NBR_KEYPOINTS+1)), hist, width=0.8, align='center')
-        axes_array[1,0].set_xlabel('#True Negatives')
-        # axes_array[1,0].set_title('True Negatives')
-        hist, _ = np.histogram([sample_stats['nbr_fn'] for sample_token, sample_stats in stats.items()], bins=np.linspace(-0.5, NBR_KEYPOINTS+0.5, NBR_KEYPOINTS+2))
-        axes_array[1,1].bar(list(range(NBR_KEYPOINTS+1)), hist, width=0.8, align='center')
-        axes_array[1,1].set_xlabel('#False Negatives')
-        # axes_array[1,1].set_title('False Negatives')
-        writer.add_figure('{}_{}_{}'.format(self._mode, group_label, 'conf_mat'), fig, 0)
 
-        fig, axes_array = plt.subplots(
-            nrows=1,
-            ncols=2,
-            figsize=[10, 3],
-            squeeze=False,
-            tight_layout=True,
+
+
+
+    def run_eval_frame_stats(self, group_id):
+        group_label = self._class_map.group_label_from_group_id(group_id)
+
+        detection_stats = OrderedDict()
+        for colname in [
+                'kp_idx',
+                '#tp',
+                '#fp',
+                '#fn',
+                '#tn',
+                '#tp_acc (5px)',
+                '#tp_inacc (5px)',
+                '#tp_acc/(#tp+#fn) (5px)',
+                '#tp_acc/(#tp+#fp+#tn+#fn) (5px)',
+                '#tp_acc (10px)',
+                '#tp_inacc (10px)',
+                '#tp_acc/(#tp+#fn) (10px)',
+                '#tp_acc/(#tp+#fp+#tn+#fn) (10px)',
+            ]:
+            detection_stats[colname] = [None]*NBR_KEYPOINTS
+
+        for kp_idx in range(NBR_KEYPOINTS):
+            detection_stats['kp_idx'][kp_idx] = kp_idx
+            detection_stats['#tp'][kp_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
+            detection_stats['#fp'][kp_idx] = np.sum([not sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
+            detection_stats['#tn'][kp_idx] = np.sum([not sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and not sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
+            detection_stats['#fn'][kp_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and not sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
+            detection_stats['#tp_acc (5px)'][kp_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['min_resid_magnitude'] < 5.0 for sample_result in self._epoch_results.values()], dtype=int)
+            detection_stats['#tp_acc (10px)'][kp_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['min_resid_magnitude'] < 10.0 for sample_result in self._epoch_results.values()], dtype=int)
+            # detection_stats['#tp_acc (10px)'][kp_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_acc'] for sample_result in self._epoch_results.values()], dtype=int)
+
+            detection_stats['#tp_inacc (5px)'][kp_idx] = detection_stats['#tp'][kp_idx] - detection_stats['#tp_acc (5px)'][kp_idx]
+            detection_stats['#tp_inacc (10px)'][kp_idx] = detection_stats['#tp'][kp_idx] - detection_stats['#tp_acc (10px)'][kp_idx]
+            detection_stats['#tp_acc/(#tp+#fn) (5px)'][kp_idx] = detection_stats['#tp_acc (5px)'][kp_idx] / (detection_stats['#tp'][kp_idx] + detection_stats['#fn'][kp_idx])
+            detection_stats['#tp_acc/(#tp+#fn) (10px)'][kp_idx] = detection_stats['#tp_acc (10px)'][kp_idx] / (detection_stats['#tp'][kp_idx] + detection_stats['#fn'][kp_idx])
+            detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (5px)'][kp_idx] = detection_stats['#tp_acc (5px)'][kp_idx] / (detection_stats['#tp'][kp_idx] + detection_stats['#fp'][kp_idx] + detection_stats['#tn'][kp_idx] + detection_stats['#fn'][kp_idx])
+            detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (10px)'][kp_idx] = detection_stats['#tp_acc (10px)'][kp_idx] / (detection_stats['#tp'][kp_idx] + detection_stats['#fp'][kp_idx] + detection_stats['#tn'][kp_idx] + detection_stats['#fn'][kp_idx])
+
+            # ==========
+            # FORMATTING
+            # ==========
+            detection_stats['#tp'][kp_idx] = '{:d}'.format(detection_stats['#tp'][kp_idx])
+            detection_stats['#fp'][kp_idx] = '{:d}'.format(detection_stats['#fp'][kp_idx])
+            detection_stats['#fn'][kp_idx] = '{:d}'.format(detection_stats['#fn'][kp_idx])
+            detection_stats['#tn'][kp_idx] = '{:d}'.format(detection_stats['#tn'][kp_idx])
+
+            detection_stats['#tp_acc (5px)'][kp_idx] = '{:d}'.format(detection_stats['#tp_acc (5px)'][kp_idx])
+            detection_stats['#tp_inacc (5px)'][kp_idx] = '{:d}'.format(detection_stats['#tp_inacc (5px)'][kp_idx])
+            detection_stats['#tp_acc/(#tp+#fn) (5px)'][kp_idx] = '{:0.2f} %'.format(100 * detection_stats['#tp_acc/(#tp+#fn) (5px)'][kp_idx])
+            detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (5px)'][kp_idx] = '{:0.2f} %'.format(100 * detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (5px)'][kp_idx])
+
+            detection_stats['#tp_acc (10px)'][kp_idx] = '{:d}'.format(detection_stats['#tp_acc (10px)'][kp_idx])
+            detection_stats['#tp_inacc (10px)'][kp_idx] = '{:d}'.format(detection_stats['#tp_inacc (10px)'][kp_idx])
+            detection_stats['#tp_acc/(#tp+#fn) (10px)'][kp_idx] = '{:0.2f} %'.format(100 * detection_stats['#tp_acc/(#tp+#fn) (10px)'][kp_idx])
+            detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (10px)'][kp_idx] = '{:0.2f} %'.format(100 * detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (10px)'][kp_idx])
+            
+        vis_path = os.path.join(self._output_dir, 'visual')
+        # shutil.rmtree(vis_path, ignore_errors=True)
+        writer = SummaryWriter(vis_path)
+        writer.add_text(
+            '{}_{}_{}'.format(self._mode, group_label, 'frame_detection_stats'),
+            self._format_markdown_table(*self._coldata2rowdata(detection_stats)),
+            0,
         )
-        axes_array[0,0].hist([sample_stats['kp_stats'][kp_idx]['resid_magnitude'] for sample_token, sample_stats in stats.items() for kp_idx in range(NBR_KEYPOINTS) if sample_stats['kp_stats'][kp_idx]['tp']], bins=30)
-        axes_array[0,0].set_xlabel('Residual Magnitude (px)')
-        axes_array[0,0].set_title('True Positives')
-        axes_array[0,1].hist([sample_stats['kp_stats'][kp_idx]['resid_magnitude'] for sample_token, sample_stats in stats.items() for kp_idx in range(NBR_KEYPOINTS) if sample_stats['kp_stats'][kp_idx]['fp'] and sample_stats['kp_stats'][kp_idx]['resid_magnitude'] is not None], bins=30)
-        axes_array[0,1].set_xlabel('Residual Magnitude (px)')
-        axes_array[0,1].set_title('False Positives')
-        writer.add_figure('{}_{}_{}'.format(self._mode, group_label, 'resid_magnitude'), fig, 0)
+        # Unsure of the importance of calling close()... Might not be done in case of KeyboardInterrupt
+        # https://stackoverflow.com/questions/44831317/tensorboard-unble-to-get-first-event-timestamp-for-run
+        # https://stackoverflow.com/questions/33364340/how-to-avoid-suppressing-keyboardinterrupt-during-garbage-collection-in-python
+        writer.close()
 
+
+    def run_eval(self, group_id):
+        self.run_eval_gridcell_stats(group_id)
+        self.run_eval_frame_stats(group_id)
         score = 9999999999999.0
         return score
 
@@ -166,11 +189,20 @@ class ResultSaver:
         if self._configs.logging.save_kp_stats:
             for frame_idx, frame_id in enumerate(batch.id):
                 self.save_frame_kp_stats(frame_id, detections[frame_id], batch.annotation[frame_idx])
+                # self.save_frame_kp_stats(
+                #     frame_id,
+                #     detections[frame_id], batch.annotation[frame_idx],
+                #     cnn_outs['clsnonmutex'][0][frame_idx,:,:,:],
+                #     batch.gt_map['clsnonmutex'][frame_idx,:,:,:],
+                #     batch.gt_map['clsgroup'][frame_idx,:,:],
+                # )
             # for frame_id, frame_detections in detections.items():
             #     self.save_frame_kp_stats(frame_id, frame_detections)
 
     def summarize_epoch(self, mode):
         if self._configs.data.dataformat == 'sixd_kp_instances':
+            if not self._configs.logging.save_kp_stats:
+                return None
             scores = {}
             for group_id in self._class_map.get_group_ids():
                 group_label = self._class_map.group_label_from_group_id(group_id)
@@ -215,6 +247,8 @@ class ResultSaver:
             sample_result[group_id] = {
                 'kp_gt': [],
                 'kp_pred': [],
+                'kp_gridcell_stats': [],
+                'kp_frame_stats': [],
             }
             for kp_idx in range(NBR_KEYPOINTS):
                 class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
@@ -230,7 +264,49 @@ class ResultSaver:
                     sample_result[group_id]['kp_gt'].append(None)
 
                 kp_data = frame_detections[group_id]['keypoints'][kp_idx]
-                if kp_data is None:
+                th_pred = 0.1
+                th_gt = VISIB_TH
+                pred_visib_binary = kp_data['pred_visib_map'] >= th_pred
+                gt_visib_binary = kp_data['gt_visib_map'] >= th_gt
+                sample_result[group_id]['kp_gridcell_stats'].append({
+                    'nbr_tp': int(torch.sum(pred_visib_binary & gt_visib_binary).cpu().numpy()),
+                    'nbr_fp': int(torch.sum(pred_visib_binary & (~gt_visib_binary)).cpu().numpy()),
+                    'nbr_fn': int(torch.sum((~pred_visib_binary) & gt_visib_binary).cpu().numpy()),
+                    'nbr_tn': int(torch.sum((~pred_visib_binary) & (~gt_visib_binary)).cpu().numpy()),
+                })
+
+                # Any positive grid cells at all for GT & pred respectively?
+                gt_gc_exist = int(torch.sum(gt_visib_binary).cpu().numpy()) > 0
+                det_gc_exist = int(torch.sum(pred_visib_binary).cpu().numpy()) > 0
+                tp_gc_exist = int(torch.sum(pred_visib_binary & gt_visib_binary).cpu().numpy()) > 0
+                if tp_gc_exist:
+                    resid_map = kp_data['kp_map'] - torch.from_numpy(anno_lookup[class_id].keypoint.reshape((2,1,1))).float().cuda()
+                    resid_at_tp_vec = torch.stack([
+                        resid_map[0,:,:][pred_visib_binary & gt_visib_binary],
+                        resid_map[1,:,:][pred_visib_binary & gt_visib_binary],
+                    ])
+                    resid_magnitude_at_tp_vec = torch.norm(resid_at_tp_vec, dim=0).cpu().numpy()
+                    min_resid_magnitude = float(np.min(resid_magnitude_at_tp_vec))
+                    # RES_TH_PX = 10.0
+                    # if np.sum(resid_magnitude_at_tp_vec <= RES_TH_PX):
+                    #     tp_acc = True
+                    # else:
+                    #     tp_acc = False
+                elif gt_gc_exist and det_gc_exist:
+                    # Despite TP frame, there are no TP grid cells
+                    min_resid_magnitude = None
+                else:
+                    min_resid_magnitude = None
+                    # tp_acc = False
+                kp_frame_stats_data = {
+                    'gt_gc_exist': gt_gc_exist,
+                    'det_gc_exist': det_gc_exist,
+                    'tp_gc_exist': tp_gc_exist,
+                    'min_resid_magnitude': min_resid_magnitude,
+                    # 'tp_acc': tp_acc,
+                }
+                sample_result[group_id]['kp_frame_stats'].append(kp_frame_stats_data)
+                if 'visib_vec' not in kp_data:
                     sample_result[group_id]['kp_pred'].append(None)
                 else:
                     sample_result[group_id]['kp_pred'].append({

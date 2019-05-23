@@ -7,7 +7,7 @@ from maskrcnn_benchmark.layers import nms
 import numpy as np
 import math
 
-from lib.constants import NBR_KEYPOINTS
+from lib.constants import NBR_KEYPOINTS, VISIB_TH
 from lib.data import maps
 from lib.utils import get_device, get_class_map, get_metadata
 from lib.postprocessing import RunnerIf
@@ -279,6 +279,7 @@ class Runner(RunnerIf):
         kp_maps_dict = {task_name: task_output[0][frame_index].detach() for task_name, task_output in cnn_outs.items() if task_name.startswith('keypoint')}
         kp_ln_b_maps_dict = {task_name: task_output[1][frame_index].detach() for task_name, task_output in cnn_outs.items() if task_name.startswith('keypoint')}
         visibility_maps = self._sigmoid(cnn_outs['clsnonmutex'][0][frame_index].detach())
+        gt_visibility_maps = batch.gt_map['clsnonmutex'][frame_index]
 
         group_logit_maps = self._sigmoid(cnn_outs['clsgroup'][0][frame_index].detach())
         # TODO: Use seg_map instead of gt_seg_map if GT not available..? (i.e. test mode)
@@ -314,12 +315,19 @@ class Runner(RunnerIf):
                 class_id = class_ids[kp_idx]
                 key = '{}_{}'.format('keypoint', self._class_map.label_from_id(class_id))
 
-                th = 0.5
                 visibility_map = visibility_maps[class_id-2,:,:]
+                gt_visibility_map = gt_visibility_maps[class_id-2,:,:]
+                frame_results[group_id]['keypoints'][kp_idx] = {
+                    'pred_visib_map': visibility_map,
+                    'gt_visib_map': gt_visibility_map.cuda(),
+                    'kp_map': torch.flip(index_map, [0]) + kp_maps_dict[key],
+                }
+
+                th = VISIB_TH
                 mask_confident = visibility_map >= th
                 nbr_confident = torch.sum(mask_confident).cpu().numpy()
                 if nbr_confident == 0:
-                    frame_results[group_id]['keypoints'][kp_idx] = None
+                    # frame_results[group_id]['keypoints'][kp_idx] = None
                     continue
 
                 visib_vec = visibility_map[mask_confident].flatten()
@@ -370,7 +378,7 @@ class Runner(RunnerIf):
                     # center_likelihood_vec.cpu().numpy(),
                 )
 
-                frame_results[group_id]['keypoints'][kp_idx] = {
+                frame_results[group_id]['keypoints'][kp_idx].update({
                     'visib_vec': visib_vec,
                     'idx_x_vec': idx_x_vec,
                     'idx_y_vec': idx_y_vec,
@@ -378,7 +386,7 @@ class Runner(RunnerIf):
                     'kp_y_vec': kp_y_vec,
                     'kp_x_ln_b_vec': kp_x_ln_b_vec,
                     'kp_y_ln_b_vec': kp_y_ln_b_vec,
-                }
+                })
 
             frame_results[group_id]['corr_set'] = corr_set
 

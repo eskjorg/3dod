@@ -55,6 +55,9 @@ NBR_KEYPOINTS = 20
 PATCH_SIZE = 252
 # PATCH_SIZE = 508
 
+# VISIB_TH = 0.1
+VISIB_TH = float(numpy.exp(-1.0)) # 1 STD
+
 # Classes
 DONT_CARE = 'dont_care'
 
