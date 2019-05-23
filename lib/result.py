@@ -63,6 +63,7 @@ class KeypointEvaluator():
             # detection_stats['avg_prec'][kp_idx] = '{:0.2f} %'.format(100 * np.mean([sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] / (sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] + sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fp']) for sample_result in self._epoch_results.values() if (sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] + sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fn']) > 0]))
             # detection_stats['avg_recall'][kp_idx] = '{:0.2f} %'.format(100 * np.mean([sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] / (sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] + sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fn']) for sample_result in self._epoch_results.values() if (sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_tp'] + sample_result[group_id]['kp_gridcell_stats'][kp_idx]['nbr_fn']) > 0]))
     
+        for kp_idx in range(NBR_KEYPOINTS):
             detection_stats['#avg_tp'][kp_idx] = '{:0.2f}'.format(detection_stats['#avg_tp'][kp_idx])
             detection_stats['#avg_fp'][kp_idx] = '{:0.2f}'.format(detection_stats['#avg_fp'][kp_idx])
             detection_stats['#avg_fn'][kp_idx] = '{:0.2f}'.format(detection_stats['#avg_fn'][kp_idx])
@@ -86,6 +87,8 @@ class KeypointEvaluator():
     def run_eval_frame_stats(self, group_id):
         group_label = self._class_map.group_label_from_group_id(group_id)
 
+        nbr_rows = NBR_KEYPOINTS
+
         detection_stats = OrderedDict()
         for colname in [
                 'kp_idx',
@@ -102,29 +105,33 @@ class KeypointEvaluator():
                 '#tp_acc/(#tp+#fn) (10px)',
                 '#tp_acc/(#tp+#fp+#tn+#fn) (10px)',
             ]:
-            detection_stats[colname] = [None]*NBR_KEYPOINTS
+            detection_stats[colname] = [None]*nbr_rows
 
         for kp_idx in range(NBR_KEYPOINTS):
-            detection_stats['kp_idx'][kp_idx] = kp_idx
-            detection_stats['#tp'][kp_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
-            detection_stats['#fp'][kp_idx] = np.sum([not sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
-            detection_stats['#tn'][kp_idx] = np.sum([not sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and not sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
-            detection_stats['#fn'][kp_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and not sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
-            detection_stats['#tp_acc (5px)'][kp_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['min_resid_magnitude'] < 5.0 for sample_result in self._epoch_results.values()], dtype=int)
-            detection_stats['#tp_acc (10px)'][kp_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['min_resid_magnitude'] < 10.0 for sample_result in self._epoch_results.values()], dtype=int)
-            # detection_stats['#tp_acc (10px)'][kp_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_acc'] for sample_result in self._epoch_results.values()], dtype=int)
+            row_idx = kp_idx
 
-            detection_stats['#tp_inacc (5px)'][kp_idx] = detection_stats['#tp'][kp_idx] - detection_stats['#tp_acc (5px)'][kp_idx]
-            detection_stats['#tp_inacc (10px)'][kp_idx] = detection_stats['#tp'][kp_idx] - detection_stats['#tp_acc (10px)'][kp_idx]
-            detection_stats['#tp_acc/(#tp+#fn) (5px)'][kp_idx] = detection_stats['#tp_acc (5px)'][kp_idx] / (detection_stats['#tp'][kp_idx] + detection_stats['#fn'][kp_idx])
-            detection_stats['#tp_acc/(#tp+#fn) (10px)'][kp_idx] = detection_stats['#tp_acc (10px)'][kp_idx] / (detection_stats['#tp'][kp_idx] + detection_stats['#fn'][kp_idx])
-            detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (5px)'][kp_idx] = detection_stats['#tp_acc (5px)'][kp_idx] / (detection_stats['#tp'][kp_idx] + detection_stats['#fp'][kp_idx] + detection_stats['#tn'][kp_idx] + detection_stats['#fn'][kp_idx])
-            detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (10px)'][kp_idx] = detection_stats['#tp_acc (10px)'][kp_idx] / (detection_stats['#tp'][kp_idx] + detection_stats['#fp'][kp_idx] + detection_stats['#tn'][kp_idx] + detection_stats['#fn'][kp_idx])
+            detection_stats['kp_idx'][row_idx] = kp_idx
+            detection_stats['#tp'][row_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
+            detection_stats['#fp'][row_idx] = np.sum([not sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
+            detection_stats['#tn'][row_idx] = np.sum([not sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and not sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
+            detection_stats['#fn'][row_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['gt_gc_exist'] and not sample_result[group_id]['kp_frame_stats'][kp_idx]['det_gc_exist'] for sample_result in self._epoch_results.values()], dtype=int)
+            detection_stats['#tp_acc (5px)'][row_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['min_resid_magnitude'] < 5.0 for sample_result in self._epoch_results.values()], dtype=int)
+            detection_stats['#tp_acc (10px)'][row_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist'] and sample_result[group_id]['kp_frame_stats'][kp_idx]['min_resid_magnitude'] < 10.0 for sample_result in self._epoch_results.values()], dtype=int)
+            # detection_stats['#tp_acc (10px)'][row_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_acc'] for sample_result in self._epoch_results.values()], dtype=int)
 
-            # ==========
-            # FORMATTING
-            # ==========
+            detection_stats['#tp_inacc (5px)'][row_idx] = detection_stats['#tp'][row_idx] - detection_stats['#tp_acc (5px)'][row_idx]
+            detection_stats['#tp_inacc (10px)'][row_idx] = detection_stats['#tp'][row_idx] - detection_stats['#tp_acc (10px)'][row_idx]
+            detection_stats['#tp_acc/(#tp+#fn) (5px)'][row_idx] = detection_stats['#tp_acc (5px)'][row_idx] / (detection_stats['#tp'][row_idx] + detection_stats['#fn'][row_idx])
+            detection_stats['#tp_acc/(#tp+#fn) (10px)'][row_idx] = detection_stats['#tp_acc (10px)'][row_idx] / (detection_stats['#tp'][row_idx] + detection_stats['#fn'][row_idx])
+            detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (5px)'][row_idx] = detection_stats['#tp_acc (5px)'][row_idx] / (detection_stats['#tp'][row_idx] + detection_stats['#fp'][row_idx] + detection_stats['#tn'][row_idx] + detection_stats['#fn'][row_idx])
+            detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (10px)'][row_idx] = detection_stats['#tp_acc (10px)'][row_idx] / (detection_stats['#tp'][row_idx] + detection_stats['#fp'][row_idx] + detection_stats['#tn'][row_idx] + detection_stats['#fn'][row_idx])
+
+        # ==========
+        # FORMATTING
+        # ==========
+        for row_idx in range(nbr_rows):
             for key in [
+                'kp_idx',
                 '#tp',
                 '#fp',
                 '#fn',
@@ -134,7 +141,7 @@ class KeypointEvaluator():
                 '#tp_acc (10px)',
                 '#tp_inacc (10px)',
             ]:
-                detection_stats[key][kp_idx] = '{:d}'.format(detection_stats[key][kp_idx])
+                detection_stats[key][row_idx] = '{:d}'.format(detection_stats[key][row_idx])
 
             for key in [
                 '#tp_acc/(#tp+#fn) (5px)',
@@ -142,7 +149,7 @@ class KeypointEvaluator():
                 '#tp_acc/(#tp+#fn) (10px)',
                 '#tp_acc/(#tp+#fp+#tn+#fn) (10px)',
             ]:
-                detection_stats[key][kp_idx] = '{:0.2f} %'.format(100 * detection_stats[key][kp_idx])
+                detection_stats[key][row_idx] = '{:0.2f} %'.format(100 * detection_stats[key][row_idx])
 
         vis_path = os.path.join(self._output_dir, 'visual')
         # shutil.rmtree(vis_path, ignore_errors=True)
