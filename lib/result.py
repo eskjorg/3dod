@@ -34,11 +34,18 @@ class KeypointEvaluator():
         rowdata = [colnames] + [['-']*len(colnames)] + rows
         return '\n'.join(['|'.join(map(str, row)) for row in rowdata])
 
-    def _coldata2rowdata(self, coldata):
+    def _rowdict2rowdata(self, rowdict):
+        """
+        Convert a (possibly ordered) dict of rows (keys are row names), to a list of rows of the corresponding table, the first column being the header column.
+        """
+        table = [[key] + row for key, row in rowdict.items()]
+        return table[0], table[1:]
+
+    def _coldict2rowdata(self, coldict):
         """
         Convert a (possibly ordered) dict of columns (keys are column names), to a list of rows of the corresponding table, the first row being the header row.
         """
-        colnames, cols = zip(*coldata.items())
+        colnames, cols = zip(*coldict.items())
         rowdata = []
         rowdata += zip(*cols)
         return colnames, rowdata
@@ -77,7 +84,7 @@ class KeypointEvaluator():
         writer = SummaryWriter(vis_path)
         writer.add_text(
             '{}_{}_{}'.format(self._mode, group_label, 'gridcell_detection_stats'),
-            self._format_markdown_table(*self._coldata2rowdata(detection_stats)),
+            self._format_markdown_table(*self._coldict2rowdata(detection_stats)),
             0,
         )
 
@@ -152,7 +159,8 @@ class KeypointEvaluator():
         writer = SummaryWriter(vis_path)
         writer.add_text(
             '{}_{}_{}'.format(self._mode, group_label, 'frame_detection_stats'),
-            self._format_markdown_table(*self._coldata2rowdata(detection_stats)),
+            self._format_markdown_table(*self._rowdict2rowdata(detection_stats)),
+            # self._format_markdown_table(*self._coldict2rowdata(detection_stats)),
             0,
         )
         # Unsure of the importance of calling close()... Might not be done in case of KeyboardInterrupt
