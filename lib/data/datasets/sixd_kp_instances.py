@@ -3,6 +3,7 @@ from os.path import join
 from collections import namedtuple, OrderedDict
 import yaml
 import os
+import shutil
 import glob
 
 import math
@@ -11,6 +12,7 @@ import numpy as np
 from PIL import Image
 import torch
 from torch import Tensor
+from torchvision.transforms import ColorJitter
 from torch.utils.data import Dataset
 from matplotlib.pyplot import cm
 
@@ -75,8 +77,21 @@ class SixdDataset(Dataset):
         self._sequence_lengths = self._init_sequence_lengths()
         if self._mode == TRAIN:
             self._extra_sequence_lengths = self._init_extra_sequence_lengths()
+        # self._aug_transform = None
+        if self._mode == TRAIN:
+            self._aug_transform = ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.03)
+            # self._aug_transform = ColorJitter(brightness=(0.7, 1.5), contrast=(0.7, 1.5), saturation=(0.7, 1.5), hue=(-0.03, 0.03))
+        else:
+            self._aug_transform = None
         self._models = self._init_models()
         self._gdists = self._init_gdists()
+
+        self._pids_path = '/tmp/sixd_kp_pids/' + self._mode
+        if os.path.exists(self._pids_path):
+            shutil.rmtree(self._pids_path)
+            print("Removing " + self._pids_path)
+        print("Creating " + self._pids_path)
+        os.makedirs(self._pids_path)
 
     def _read_yaml(self, path):
         return read_yaml_and_pickle(path)
@@ -136,7 +151,16 @@ class SixdDataset(Dataset):
             return [self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for group_id in self._class_map.get_group_ids() for kp_idx in range(NBR_KEYPOINTS) if group_id != group_id_annotated]
         return []
 
+    def _init_worker_seed(self):
+        pid = os.getpid()
+        pid_path = os.path.join(self._pids_path, str(pid))
+        if os.path.exists(pid_path):
+            return
+        np.random.seed(pid)
+        open(pid_path, 'w').close()
+
     def __getitem__(self, index):
+        self._init_worker_seed() # Cannot be called in constructor, since it is only executed by main process. Workaround: call at every sampling.
         #index = int(index)
         seq_name, img_ind = self._get_data_pointers(index)
         dir_path = join(self._configs.data.path, seq_name)
@@ -153,7 +177,7 @@ class SixdDataset(Dataset):
 
     def _read_data(self, dir_path, img_ind):
         path = join(dir_path, 'rgb', str(img_ind).zfill(6) + '.png')
-        image = read_image_to_pt(path, load_type=cv.IMREAD_COLOR, normalize_flag=True)
+        image = read_image_to_pt(path, load_type=cv.IMREAD_COLOR, normalize_flag=True, transform=self._aug_transform)
         max_h, max_w = self._configs.data.img_dims
         return image[:, :max_h, :max_w]
 

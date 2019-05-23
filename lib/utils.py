@@ -62,18 +62,22 @@ def read_json(path):
     return AttrDict(json_dict)
 
 
-def read_image_to_pt(path, load_type=cv.IMREAD_COLOR, normalize_flag=True):
+def read_image_to_pt(path, load_type=cv.IMREAD_COLOR, normalize_flag=True, transform=None):
     """Read an image from path to pt tensor."""
-    image = cv.imread(path, load_type)
+    image = Image.open(path)
     if image is None:
+        # NOTE: Can this happen when Pillow loads images - or is it an OpenCV-specific precaution..?
         raise Exception('Failed to read image: {}.'.format(path))
+    if transform is not None:
+        image = transform(image)
+    image = np.array(image)
     if len(image.shape) == 2:
         image = image[:, :, np.newaxis]
         # image._unsqueeze(0)
     image = to_tensor(image)
     if normalize_flag:
         image = normalize(image, TV_MEAN, TV_STD)
-    return image.flip(0) # BGR -> RGB..?
+    return image
 
 
 def read_seg_to_pt(path):
