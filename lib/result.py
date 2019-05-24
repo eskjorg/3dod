@@ -104,11 +104,11 @@ class KeypointEvaluator():
             '#tn',
             'median_lpeak_ratio',
             '#tp_acc (5px)',
-            '#tp_inacc (5px)',
+            # '#tp_inacc (5px)',
             '#tp_acc/(#tp+#fn) (5px)',
             '#tp_acc/(#tp+#fp+#tn+#fn) (5px)',
             '#tp_acc (10px)',
-            '#tp_inacc (10px)',
+            # '#tp_inacc (10px)',
             '#tp_acc/(#tp+#fn) (10px)',
             '#tp_acc/(#tp+#fp+#tn+#fn) (10px)',
         ]
@@ -130,8 +130,8 @@ class KeypointEvaluator():
 
             detection_stats['median_lpeak_ratio'][row_idx] = np.median([sample_result[group_id]['kp_frame_stats'][kp_idx]['lpeak_ratio'] for sample_result in self._epoch_results.values() if sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist']])
 
-            detection_stats['#tp_inacc (5px)'][row_idx] = detection_stats['#tp'][row_idx] - detection_stats['#tp_acc (5px)'][row_idx]
-            detection_stats['#tp_inacc (10px)'][row_idx] = detection_stats['#tp'][row_idx] - detection_stats['#tp_acc (10px)'][row_idx]
+            # detection_stats['#tp_inacc (5px)'][row_idx] = detection_stats['#tp'][row_idx] - detection_stats['#tp_acc (5px)'][row_idx]
+            # detection_stats['#tp_inacc (10px)'][row_idx] = detection_stats['#tp'][row_idx] - detection_stats['#tp_acc (10px)'][row_idx]
             detection_stats['#tp_acc/(#tp+#fn) (5px)'][row_idx] = detection_stats['#tp_acc (5px)'][row_idx] / (detection_stats['#tp'][row_idx] + detection_stats['#fn'][row_idx])
             detection_stats['#tp_acc/(#tp+#fn) (10px)'][row_idx] = detection_stats['#tp_acc (10px)'][row_idx] / (detection_stats['#tp'][row_idx] + detection_stats['#fn'][row_idx])
             detection_stats['#tp_acc/(#tp+#fp+#tn+#fn) (5px)'][row_idx] = detection_stats['#tp_acc (5px)'][row_idx] / (detection_stats['#tp'][row_idx] + detection_stats['#fp'][row_idx] + detection_stats['#tn'][row_idx] + detection_stats['#fn'][row_idx])
