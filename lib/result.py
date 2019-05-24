@@ -190,6 +190,20 @@ class KeypointEvaluator():
         axes_array[0,1].set_xlabel('#KP < 10px somewhere')
         writer.add_figure('{}_{}_{}'.format(self._mode, group_label, 'nbr_acc_kp_hist'), fig, 0)
 
+        fig, axes_array = plt.subplots(
+            nrows=NBR_KEYPOINTS,
+            ncols=1,
+            figsize=[8, 30],
+            squeeze=False,
+            tight_layout=True,
+        )
+        for kp_idx in range(NBR_KEYPOINTS):
+            lpeak_ratio = [sample_result[group_id]['kp_frame_stats'][kp_idx]['lpeak_ratio'] for sample_result in self._epoch_results.values() if sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist']]
+            # fig, ax = plt.subplots()
+            axes_array[kp_idx,0].hist(lpeak_ratio, bins=25, range=(0.0, 25.0))
+            axes_array[kp_idx,0].set_xlabel('Ratio of likelihood peaks, KP {}'.format(kp_idx))
+        writer.add_figure('{}_{}_{}'.format(self._mode, group_label, 'lpeak_ratio_hist'), fig, 0)
+
         # Unsure of the importance of calling close()... Might not be done in case of KeyboardInterrupt
         # https://stackoverflow.com/questions/44831317/tensorboard-unble-to-get-first-event-timestamp-for-run
         # https://stackoverflow.com/questions/33364340/how-to-avoid-suppressing-keyboardinterrupt-during-garbage-collection-in-python
