@@ -117,6 +117,7 @@ class Visualizer:
 
         if mode in (TRAIN, VAL):
             # And corresponding ground truth
+            gt_visibility_maps_lowres = tensor2numpy(batch.gt_map['clsnonmutex'], sample)
             gt_visibility_maps_highres = tensor2numpy(batch.gt_map['clsnonmutex'], sample, upsample_and_permute=True)
             gt_seg_map_lowres = tensor2numpy(batch.gt_map['clsgroup'], sample)[0,:,:]
             gt_seg_map_highres = tensor2numpy(batch.gt_map['clsgroup'], sample, upsample_and_permute=True)[0,:,:]
@@ -311,10 +312,12 @@ class Visualizer:
 
                 th = VISIB_TH
                 visibility_map_lowres = visibility_maps_lowres[class_id-2,:,:]
+                gt_visibility_map_lowres = gt_visibility_maps_lowres[class_id-2,:,:]
                 mask_confident = visibility_map_lowres >= th
                 nbr_confident = np.sum(mask_confident)
                 if nbr_confident > 0:
                     visib_vec = visibility_map_lowres[mask_confident].flatten()
+                    gt_visib_vec = gt_visibility_map_lowres[mask_confident].flatten()
                     key = '{}_{}'.format('keypoint', self._class_map.label_from_id(class_id))
                     idx_x_vec = index_map_lowres[1,:,:][mask_confident].flatten()
                     idx_y_vec = index_map_lowres[0,:,:][mask_confident].flatten()
@@ -326,41 +329,69 @@ class Visualizer:
                     kp_std1_vec = np.sqrt(2) * np.exp(kp_x_ln_b_vec)
                     kp_std2_vec = np.sqrt(2) * np.exp(kp_y_ln_b_vec)
 
-                    nbr_sampled = min(15, nbr_confident)
+                    SAMPLE_CONFIDENT = False
+                    if SAMPLE_CONFIDENT:
+                        nbr_sampled = min(15, nbr_confident)
 
-                    # # Sample based on estimated visibility
-                    # p = visib_vec / np.sum(visib_vec)
+                        # # Sample based on estimated visibility
+                        # p = visib_vec / np.sum(visib_vec)
 
-                    # Sample based on confidence
-                    kp_avg_std_vec = 0.5*sum([kp_std1_vec, kp_std2_vec])
-                    center_likelihood_vec = (0.5 / np.exp(kp_x_ln_b_vec)) * (0.5 / np.exp(kp_y_ln_b_vec))
-                    center_likelihood_vec *= visib_vec
-                    p = center_likelihood_vec / np.sum(center_likelihood_vec)
+                        # Sample based on confidence
+                        kp_avg_std_vec = 0.5*sum([kp_std1_vec, kp_std2_vec])
+                        center_likelihood_vec = (0.5 / np.exp(kp_x_ln_b_vec)) * (0.5 / np.exp(kp_y_ln_b_vec))
+                        center_likelihood_vec *= visib_vec
+                        p = center_likelihood_vec / np.sum(center_likelihood_vec)
 
-                    # for idx in {np.argmin(0.5*sum([kp_std1_vec, kp_std2_vec]))}:
-                    idx_sampled = np.random.choice(nbr_confident, nbr_sampled, p=p)
-                    for idx in idx_sampled:
-                        avg_std = 0.5*sum([kp_std1_vec[idx], kp_std2_vec[idx]])
-                        nbr_std_px_half_faded = 5.0 # When std amounts to this number of pixels, KP color will be faded to half intensity
-                        confidence_interp_factor = 1.0 / (1.0 + (avg_std/nbr_std_px_half_faded)**2)
+                        # for idx in {np.argmin(0.5*sum([kp_std1_vec, kp_std2_vec]))}:
+                        idx_sampled = np.random.choice(nbr_confident, nbr_sampled, p=p)
+                        for idx in idx_sampled:
+                            avg_std = 0.5*sum([kp_std1_vec[idx], kp_std2_vec[idx]])
+                            nbr_std_px_half_faded = 5.0 # When std amounts to this number of pixels, KP color will be faded to half intensity
+                            confidence_interp_factor = 1.0 / (1.0 + (avg_std/nbr_std_px_half_faded)**2)
 
-                        # confidence_interp_factor = center_likelihood_vec[idx]
+                            # confidence_interp_factor = center_likelihood_vec[idx]
 
-                        color = confidence_interp_factor * np.array([0.0, 1.0, 0.0]) + (1.0 - confidence_interp_factor) * np.array([0.0, 0.0, 0.0])
-                        axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
-                        # axes_array[kp_idx+1,1].plot(
-                        #     [kp_x_vec[idx] - 0.5*kp_std1_vec[idx],    kp_x_vec[idx] + 0.5*kp_std1_vec[idx]],
-                        #     [kp_y_vec[idx],                            kp_y_vec[idx]],
-                        #     '-',
-                        #     color='red',
-                        # )
-                        # axes_array[kp_idx+1,1].plot(
-                        #     [kp_x_vec[idx],                            kp_x_vec[idx]],
-                        #     [kp_y_vec[idx] - 0.5*kp_std2_vec[idx],    kp_y_vec[idx] + 0.5*kp_std2_vec[idx]],
-                        #     '-',
-                        #     color='red',
-                        # )
-                        axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
+                            color = confidence_interp_factor * np.array([0.0, 1.0, 0.0]) + (1.0 - confidence_interp_factor) * np.array([0.0, 0.0, 0.0])
+                            axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
+                            # axes_array[kp_idx+1,1].plot(
+                            #     [kp_x_vec[idx] - 0.5*kp_std1_vec[idx],    kp_x_vec[idx] + 0.5*kp_std1_vec[idx]],
+                            #     [kp_y_vec[idx],                            kp_y_vec[idx]],
+                            #     '-',
+                            #     color='red',
+                            # )
+                            # axes_array[kp_idx+1,1].plot(
+                            #     [kp_x_vec[idx],                            kp_x_vec[idx]],
+                            #     [kp_y_vec[idx] - 0.5*kp_std2_vec[idx],    kp_y_vec[idx] + 0.5*kp_std2_vec[idx]],
+                            #     '-',
+                            #     color='red',
+                            # )
+                            axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
+                    else:
+                        # MOST CONFIDENT REGRESSION
+                        nbr_sampled = min(15, nbr_confident)
+                        kp_avg_std_vec = 0.5*sum([kp_std1_vec, kp_std2_vec])
+                        center_likelihood_vec = (0.5 / np.exp(kp_x_ln_b_vec)) * (0.5 / np.exp(kp_y_ln_b_vec))
+                        center_likelihood_vec *= visib_vec
+                        p = center_likelihood_vec / np.sum(center_likelihood_vec)
+                        for idx in {np.argmin(0.5*sum([kp_std1_vec, kp_std2_vec]))}:
+                            avg_std = 0.5*sum([kp_std1_vec[idx], kp_std2_vec[idx]])
+                            nbr_std_px_half_faded = 5.0 # When std amounts to this number of pixels, KP color will be faded to half intensity
+                            confidence_interp_factor = 1.0 / (1.0 + (avg_std/nbr_std_px_half_faded)**2)
+                            color = confidence_interp_factor * np.array([0.0, 1.0, 0.0]) + (1.0 - confidence_interp_factor) * np.array([0.0, 0.0, 0.0])
+                            axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
+                            axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
+
+                        # BEST REGRESSION
+                        resid_vec = np.vstack([kp_x_vec, kp_y_vec]) - anno_lookup[class_id].keypoint.reshape((2,1))
+                        resid_magnitude_vec = np.linalg.norm(resid_vec, axis=0)
+                        best_idx = np.argmin(resid_magnitude_vec)
+                        for idx in {best_idx}:
+                            avg_std = 0.5*sum([kp_std1_vec[idx], kp_std2_vec[idx]])
+                            nbr_std_px_half_faded = 5.0 # When std amounts to this number of pixels, KP color will be faded to half intensity
+                            confidence_interp_factor = 1.0 / (1.0 + (avg_std/nbr_std_px_half_faded)**2)
+                            color = confidence_interp_factor * np.array([1.0, 0.0, 0.0]) + (1.0 - confidence_interp_factor) * np.array([0.0, 0.0, 0.0])
+                            axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
+                            axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
 
                     for idx in range(nbr_confident):
                         x = kp_x_vec[idx]
