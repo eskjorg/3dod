@@ -13,8 +13,8 @@ OBJECTS=(duck can cat eggbox glue holepuncher ape)
 # OBJECTS=(duck can cat driller eggbox glue holepuncher ape)
 
 for OBJ in ${OBJECTS[@]}; do
-    echo "Removing experiment /hdd/lucas/out/3dod-experiments/$EXPERIMENT_PREFIX-$OBJ"
-    rm -rf /hdd/lucas/out/3dod-experiments/$EXPERIMENT_PREFIX-$OBJ
+    echo "Removing experiment /hdd/lucas/out/3dod-experiments/$EXPERIMENT_PREFIX/$OBJ"
+    rm -rf /hdd/lucas/out/3dod-experiments/$EXPERIMENT_PREFIX/$OBJ
 done
 
 for OBJ in ${OBJECTS[@]}; do
@@ -26,7 +26,7 @@ for OBJ in ${OBJECTS[@]}; do
         -v /home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06:/datasets/occluded-linemod-augmented 3dod-opengv python train.py \
         --overwrite-experiment \
         --config-name lm-kp-nonmutex \
-        --experiment-name $EXPERIMENT_PREFIX-$OBJ \
+        --experiment-name $EXPERIMENT_PREFIX/$OBJ \
         --train-seqs train_unoccl/* \
         --group-labels $OBJ
 done
