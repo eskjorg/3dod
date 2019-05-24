@@ -87,6 +87,10 @@ class KeypointEvaluator():
             self._format_markdown_table(*self._coldict2rowdata(detection_stats)),
             0,
         )
+        # Unsure of the importance of calling close()... Might not be done in case of KeyboardInterrupt
+        # https://stackoverflow.com/questions/44831317/tensorboard-unble-to-get-first-event-timestamp-for-run
+        # https://stackoverflow.com/questions/33364340/how-to-avoid-suppressing-keyboardinterrupt-during-garbage-collection-in-python
+        writer.close()
 
 
 
@@ -350,6 +354,7 @@ class ResultSaver:
                     avg_ln_b_map = torch.mean(kp_data['kp_ln_b_map'], dim=0)
                     top_conf_ln_b = torch.min(avg_ln_b_map)
                     best_ln_b = avg_ln_b_map[pred_visib_binary & gt_visib_binary][best_idx]
+                    # NOTE: Relative estimated visibility not compared
                     lpeak_ratio = float(torch.exp(best_ln_b - top_conf_ln_b).cpu().numpy()) # Corresponds to ratio between likelihood peaks
                 elif gt_gc_exist and det_gc_exist:
                     # Despite TP frame, there are no TP grid cells
