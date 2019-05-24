@@ -140,7 +140,7 @@ class KeypointEvaluator():
         # Averaging for top row
         detection_stats['kp_idx'][0] = 'avg'
         for key in colnames:
-            detection_stats[key][0] = np.mean(detection_stats[key][1:])
+            detection_stats[key][0] = np.nanmean(detection_stats[key][1:])
 
         # ==========
         # FORMATTING
