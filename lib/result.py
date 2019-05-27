@@ -107,6 +107,7 @@ class KeypointEvaluator():
             '#fn',
             '#tn',
             'median_lpeak_ratio',
+            'median_delta_conf_best',
             '#tp_acc (5px)',
             # '#tp_inacc (5px)',
             '#tp_acc/(#tp+#fn) (5px)',
@@ -133,6 +134,7 @@ class KeypointEvaluator():
             # detection_stats['#tp_acc (10px)'][row_idx] = np.sum([sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_acc'] for sample_result in self._epoch_results.values()], dtype=int)
 
             detection_stats['median_lpeak_ratio'][row_idx] = np.median([sample_result[group_id]['kp_frame_stats'][kp_idx]['lpeak_ratio'] for sample_result in self._epoch_results.values() if sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist']])
+            detection_stats['median_delta_conf_best'][row_idx] = np.median([sample_result[group_id]['kp_frame_stats'][kp_idx]['delta_conf_best'] for sample_result in self._epoch_results.values() if sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist']])
 
             # detection_stats['#tp_inacc (5px)'][row_idx] = detection_stats['#tp'][row_idx] - detection_stats['#tp_acc (5px)'][row_idx]
             # detection_stats['#tp_inacc (10px)'][row_idx] = detection_stats['#tp'][row_idx] - detection_stats['#tp_acc (10px)'][row_idx]
@@ -157,7 +159,7 @@ class KeypointEvaluator():
                     detection_stats[key][row_idx] = ''
                 elif '/' in key:
                     detection_stats[key][row_idx] = '{:0.2f} %'.format(100 * detection_stats[key][row_idx])
-                elif key == 'median_lpeak_ratio':
+                elif key in ['median_lpeak_ratio', 'delta_conf_best']:
                     detection_stats[key][row_idx] = '{:0.2f}'.format(detection_stats[key][row_idx])
                 else:
                     detection_stats[key][row_idx] = '{}'.format(detection_stats[key][row_idx])
@@ -196,8 +198,8 @@ class KeypointEvaluator():
 
         fig, axes_array = plt.subplots(
             nrows=NBR_KEYPOINTS,
-            ncols=1,
-            figsize=[8, 30],
+            ncols=2,
+            figsize=[10, 30],
             squeeze=False,
             tight_layout=True,
         )
@@ -206,7 +208,12 @@ class KeypointEvaluator():
             # fig, ax = plt.subplots()
             axes_array[kp_idx,0].hist(lpeak_ratio, bins=25, range=(0.0, 25.0))
             axes_array[kp_idx,0].set_xlabel('Ratio of likelihood peaks, KP {}'.format(kp_idx))
-        writer.add_figure('{}_{}_{}'.format(self._mode, group_label, 'lpeak_ratio_hist'), fig, 0)
+
+            delta_conf_best = [sample_result[group_id]['kp_frame_stats'][kp_idx]['delta_conf_best'] for sample_result in self._epoch_results.values() if sample_result[group_id]['kp_frame_stats'][kp_idx]['tp_gc_exist']]
+            # fig, ax = plt.subplots()
+            axes_array[kp_idx,1].hist(delta_conf_best, bins=25, range=(0.0, 100.0))
+            axes_array[kp_idx,1].set_xlabel('#px from best to most confident, KP {}'.format(kp_idx))
+        writer.add_figure('{}_{}_{}'.format(self._mode, group_label, 'confident_vs_best'), fig, 0)
 
         # Unsure of the importance of calling close()... Might not be done in case of KeyboardInterrupt
         # https://stackoverflow.com/questions/44831317/tensorboard-unble-to-get-first-event-timestamp-for-run
@@ -352,23 +359,41 @@ class ResultSaver:
                     # Determine ratio of estimated uncertainty between most certain & the best one
                     best_idx = np.argmin(resid_magnitude_at_tp_vec)
                     avg_ln_b_map = torch.mean(kp_data['kp_ln_b_map'], dim=0)
-                    top_conf_ln_b = torch.min(avg_ln_b_map)
+
+                    # top_conf_ln_b = torch.min(avg_ln_b_map)
+                    avg_ln_b_at_visib_pred_vec = avg_ln_b_map[pred_visib_binary]
+                    most_conf_idx = torch.argmin(avg_ln_b_at_visib_pred_vec)
+                    top_conf_ln_b = avg_ln_b_at_visib_pred_vec[most_conf_idx]
+
                     best_ln_b = avg_ln_b_map[pred_visib_binary & gt_visib_binary][best_idx]
                     # NOTE: Relative estimated visibility not compared
                     lpeak_ratio = float(torch.exp(best_ln_b - top_conf_ln_b).cpu().numpy()) # Corresponds to ratio between likelihood peaks
+
+                    kp_at_tp_vec = torch.stack([
+                        kp_data['kp_map'][0,:,:][pred_visib_binary & gt_visib_binary],
+                        kp_data['kp_map'][1,:,:][pred_visib_binary & gt_visib_binary],
+                    ])
+                    kp_at_visib_pred_vec = torch.stack([
+                        kp_data['kp_map'][0,:,:][pred_visib_binary],
+                        kp_data['kp_map'][1,:,:][pred_visib_binary],
+                    ])
+                    delta_conf_best = float(torch.norm(kp_at_visib_pred_vec[:,most_conf_idx] - kp_at_tp_vec[:,best_idx]).cpu().numpy())
                 elif gt_gc_exist and det_gc_exist:
                     # Despite TP frame, there are no TP grid cells
                     min_resid_magnitude = None
                     lpeak_ratio = None
+                    delta_conf_best = None
                 else:
                     min_resid_magnitude = None
                     lpeak_ratio = None
+                    delta_conf_best = None
                 kp_frame_stats_data = {
                     'gt_gc_exist': gt_gc_exist,
                     'det_gc_exist': det_gc_exist,
                     'tp_gc_exist': tp_gc_exist,
                     'min_resid_magnitude': min_resid_magnitude,
                     'lpeak_ratio': lpeak_ratio,
+                    'delta_conf_best': delta_conf_best,
                 }
                 sample_result[group_id]['kp_frame_stats'].append(kp_frame_stats_data)
                 if 'visib_vec' not in kp_data:
