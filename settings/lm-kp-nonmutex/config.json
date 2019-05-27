@@ -28,6 +28,12 @@
             "rigidpose_ransac"
         ],
         "rigidpose_ransac": {
+            "method": "ransac",
+            "max_nbr_corr": null,
+            "ransac": {
+                "n_iter": 100,
+                "th": 0.02
+            },
         }
     },
     "data":{

@@ -1,4 +1,3 @@
-"""Run thresholding and nms."""
 from attrdict import AttrDict
 
 import torch
@@ -342,8 +341,7 @@ class Runner(RunnerIf):
                 # kp_std1_vec = math.sqrt(2) * torch.exp(kp_x_ln_b_vec)
                 # kp_std2_vec = math.sqrt(2) * torch.exp(kp_y_ln_b_vec)
 
-                MAX_NBR_SAMPLES = 100
-                if nbr_confident > MAX_NBR_SAMPLES:
+                if self._configs.postprocessing.rigidpose_ransac.max_nbr_corr is not None and nbr_confident > self._configs.postprocessing.rigidpose_ransac.max_nbr_corr:
                     _, top_confident = torch.topk(kp_x_ln_b_vec+kp_y_ln_b_vec, k=MAX_NBR_SAMPLES, largest=False, sorted=False)
                     visib_vec = visib_vec[top_confident]
                     idx_x_vec = idx_x_vec[top_confident]
@@ -393,8 +391,8 @@ class Runner(RunnerIf):
 
             ransac_estimator = RansacEstimator(
                 corr_set,
-                nransac=100,
-                ransacthr=0.02,
+                nransac=self._configs.postprocessing.rigidpose_ransac.ransac.n_iter,
+                ransacthr=self._configs.postprocessing.rigidpose_ransac.ransac.th,
                 confidence_based_sampling=True,
             )
             try:
