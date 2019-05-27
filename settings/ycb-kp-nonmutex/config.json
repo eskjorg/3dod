@@ -1,0 +1,82 @@
+{
+    "network": {
+        "encoder1": "resnet34",
+        "encoder": "resnet34_shallow",
+        "encoder3": "drn_c_26",
+        "output_stride": 8,
+        "support_region": 1.0
+    },
+    "logging": {
+        "avg_window_size": 25,
+        "save_kitti_format": false,
+        "save_nuscenes_format": false,
+        "save_kp_stats": true,
+        "save_kp_stats2": false
+    },
+    "training": {
+        "learning_rate": 0.001,
+        "weight_decay": {"encoder": 1e-3, "decoder": 1e-3},
+        "weighting_mode": "sample_wise",
+        "n_epochs": 20
+    },
+    "visualization": {
+        "keypoints1": true,
+        "keypoints": false
+    },
+    "postprocessing": {
+        "methods1": [
+        ],
+        "methods": [
+            "rigidpose_ransac"
+        ],
+        "rigidpose_ransac": {
+            "method": "ransac",
+            "max_nbr_corr": null,
+            "ransac": {
+                "n_iter": 100,
+                "th": 0.02
+            },
+        }
+    },
+    "data":{
+        "dataformat": "sixd_kp_instances",
+        "path": "/datasets/ycb-video",
+        "sequences": {
+            "train": [
+                "train/*"
+            ],
+            "val": [
+                "val/*"
+            ],
+            "test": [
+                "val/*"
+            ]
+        },
+        "img_dims": [480, 640]
+    },
+    "loading": {
+        "train": {
+            "batch_size": 8,
+            "shuffle": true,
+            "max_nbr_batches1": 1,
+            "max_nbr_batches": 400,
+            "num_workers": 6
+        },
+        "val": {
+            "batch_size": 8,
+            "shuffle": true,
+            "max_nbr_batches": 50,
+            "num_workers": 4
+        },
+        "test": {
+            "batch_size1": 2,
+            "batch_size": 8,
+            "shuffle": "fixed",
+            "max_nbr_batches1": 1,
+            "max_nbr_batches2": 15,
+            "max_nbr_batches": 100,
+            "max_nbr_batches4": null,
+            "num_workers": 4
+        }
+    }
+}

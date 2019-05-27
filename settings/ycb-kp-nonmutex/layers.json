@@ -1,0 +1,20 @@
+{
+    "clsnonmutex": {
+        "n_layers": 20,
+        "loss": "BCE",
+        "loss_weight": 1.0,
+        "ignore_bg": true
+    },
+    "clsgroup": {
+        "n_layers": 3,
+        "loss": "CE",
+        "loss_weight": 1.0,
+        "fg_upweight_factor": 10.0
+    },
+    "keypoint": {
+        "n_layers": 2,
+        "cls_specific_heads": true,
+        "loss": "L1",
+        "loss_weight": 1.0
+    }
+}
