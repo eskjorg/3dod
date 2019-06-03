@@ -16,7 +16,7 @@
             "bbox2d_detection"
         ],
         "bbox2d_detection": {
-            "detection_threshold": 1.5,
+            "detection_threshold": 2.0,
             "iou_threshold": 0.3
         }
     },

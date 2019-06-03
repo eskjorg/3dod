@@ -53,6 +53,28 @@ class Visualizer:
                 getattr(self, "_plot_" + feature)(axes, detection, calib=calib, annotation_flag=False, fill=False)
         self._writer.add_figure(mode, fig, index)
 
+    def show_outputs(self, outputs, batch, index):
+        gt_maps = batch.gt_map
+        cnn_input = normalize(batch.input[0], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
+
+        # CNN input
+        fig, axes = pyplot.subplots(figsize=[dim / PYPLOT_DPI for dim in cnn_input.shape[2:0:-1]])
+        _ = axes.imshow(cnn_input.permute(1, 2, 0))
+        self._writer.add_figure('input', fig, index)
+
+        # CNN outputs
+        if self._configs.visualization.cnn_outputs:
+            for layer, gt_map in gt_maps.items():
+                fig, axes = pyplot.subplots(figsize=[dim / PYPLOT_DPI for dim in gt_map.shape[:1:-1]])
+                _ = axes.imshow(gt_map[0, 0].detach().cpu().numpy())
+                self._writer.add_figure(layer + '_gt', fig, index)
+        # GT Maps
+        if self._configs.visualization.cnn_outputs_gtmask:
+            for layer, tensor in outputs.items():
+                fig, axes = pyplot.subplots(figsize=[dim / PYPLOT_DPI for dim in tensor[0].shape[:1:-1]])
+                _ = axes.imshow(tensor[0][0, 0].detach().cpu().numpy())
+                self._writer.add_figure(layer + '_output', fig, index)
+
     def _plot_confidence(self, axes, obj, **kwargs):
         _, _, xmax, ymax = obj.bbox2d
         axes.text(x=xmax, y=ymax,

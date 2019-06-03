@@ -45,6 +45,8 @@ class Trainer():
         getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
         for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
             outputs_cnn = self._run_model(batch.input, mode)
+            if batch_id == 0:
+                self._visualizer.show_outputs(outputs_cnn, batch, index=epoch)
             loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)
             if mode == TRAIN:
                 self._optimizer.zero_grad()
