@@ -2,36 +2,36 @@
     "cls": {
         "n_layers": 5,
         "loss": "CE",
-        "loss_weight": 0.1
+        "loss_weight": 1
     },
     "bbox2d": {
         "n_layers": 4,
         "cls_specific_heads": false,
         "loss": "L1",
-        "loss_weight": 0.1
+        "loss_weight": 1
     },
     "zdepth": {
         "n_layers": 1,
         "cls_specific_heads": false,
         "loss": "L1",
-        "loss_weight": 0.1
+        "loss_weight": 1
     },
     "size": {
         "n_layers": 3,
         "cls_specific_heads": false,
         "loss": "L1",
-        "loss_weight": 0.1
+        "loss_weight": 1
     },
     "corners": {
         "n_layers": 16,
         "cls_specific_heads": false,
         "loss": "L1",
-        "loss_weight": 0.1
+        "loss_weight": 1
     },
     "alpha": {
         "n_layers": 2,
         "cls_specific_heads": false,
         "loss": "L1",
-        "loss_weight": 0.1
+        "loss_weight": 1
     }
 }
