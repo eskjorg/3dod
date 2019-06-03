@@ -9,7 +9,7 @@ TEST = 'test'
 
 # Training
 IGNORE_IDX_CLS = 1
-IGNORE_IDX_REG = 97986 # Nonsense number - expected never to interfere with actual GT annotations
+IGNORE_IDX_REG = 0  # Expected never to interfere with float GT annotations
 
 # Data
 ANNOTATION = 'annotation'

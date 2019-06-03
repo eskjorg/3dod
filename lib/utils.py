@@ -5,7 +5,7 @@ from attrdict import AttrDict
 from importlib import import_module
 
 import numpy as np
-import cv2 as cv
+import cv2
 import torch
 from torchvision.transforms.functional import normalize, to_tensor
 
@@ -40,9 +40,9 @@ def read_json(path):
     return AttrDict(json_dict)
 
 
-def read_image_to_pt(path, load_type=cv.IMREAD_COLOR):
+def read_image_to_pt(path, load_type=cv2.IMREAD_COLOR):
     """Read an image from path to pt tensor."""
-    image = cv.imread(path, load_type)
+    image = cv2.imread(path, load_type)
     if image is None:
         raise Exception('Failed to read image: {}.'.format(path))
     image = normalize(to_tensor(image), TV_MEAN, TV_STD)
