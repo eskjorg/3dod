@@ -20,7 +20,7 @@ class PoseEstimator():
             K, # Calibration
             U0, # 3D correspondence points
             u_unnorm, # 2D correspondence pixels
-            Uanno0, # Mesh vertices
+            Uanno0=None, # Mesh vertices
             verbose=0,
             w=None,
             alpha_rho=-1.0,

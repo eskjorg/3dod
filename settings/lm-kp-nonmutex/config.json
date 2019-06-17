@@ -30,12 +30,16 @@
             "rigidpose_ransac"
         ],
         "rigidpose_ransac": {
-            "method": "ransac",
+            "method1": "ransac",
+            "method": "lm_jb",
             "max_nbr_corr": null,
             "ransac": {
                 "n_iter": 100,
                 "th": 0.02
             },
+            "lm_jb": {
+                "initialization": "gt"
+            }
         }
     },
     "data":{

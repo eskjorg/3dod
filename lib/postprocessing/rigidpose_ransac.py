@@ -10,7 +10,7 @@ from lib.constants import NBR_KEYPOINTS, VISIB_TH
 from lib.data import maps
 from lib.utils import get_device, get_class_map, get_metadata
 from lib.postprocessing import RunnerIf
-from lib.rigidpose.pose_estimator import ransac, normalize, RANSACException, resec3pts, pflat, pextend
+from lib.rigidpose.pose_estimator import PoseEstimator, ransac, normalize, RANSACException, resec3pts, pflat, pextend
 import pyopengv
 
 def invert_eucl(eucl):
@@ -147,7 +147,8 @@ def normalize_vec(vec):
     return vec / sum(vec)
 
 class RansacEstimator():
-    def __init__(self, corr_set, nransac=100, ransacthr=0.02, confidence_based_sampling=True):
+    def __init__(self, configs, corr_set, nransac=100, ransacthr=0.02, confidence_based_sampling=True):
+        self._configs = configs
         self.corr_set = corr_set
         self.corr_set.pack()
         self.nransac = nransac
@@ -253,6 +254,56 @@ class RansacEstimator():
             raise RANSACException("No inliers found")
         return Pransac, best_minimal_set, inlier_mask, fraction_inliers, i
 
+class LevenbergMarquardtJonBarronEstimator():
+    def __init__(
+            self,
+            configs,
+            corr_set,
+            P0=None,
+        ):
+        self._configs = configs
+        self.corr_set = corr_set
+        self.corr_set.pack()
+        self.P0 = P0
+        self.pose_estimator = self._initialize_pose_estimator()
+
+    def _initialize_pose_estimator(self):
+        c = 65.0 # Ad-hoc - looked similar to mixture of laplacian PDFs, when plotting exp(-sum_of_jb_losses_for_residuals)
+        K = self.corr_set.K
+        U0 = pflat(self.corr_set.U)[:3,:]
+        u_unnorm = pflat(K @ self.corr_set.u)[:2,:]
+        Uanno0 = None # Model vertices not needed for forward pass
+        # Uanno0 = ...
+        w = None
+        # w = 
+
+        return PoseEstimator(
+            self._configs,
+            K, # Calibration
+            U0, # 3D correspondence points
+            u_unnorm, # 2D correspondence pixels
+            Uanno0=Uanno0, # Mesh vertices
+            verbose=0,
+            w=w,
+            alpha_rho=-1.0,
+            c=c,
+            lambda0=1e5,
+            max_refine_iters=200,
+        )
+
+    def _reproj_residuals(self, P):
+        u_reproj = pflat(np.dot(P, self.corr_set.U))
+        return u_reproj[0:2,:] - self.corr_set.u[:2,:]
+
+    def estimate(self):
+        if self.corr_set.nbr_groups < 4:
+            raise RANSACException("Found correspondence for {} keypoints only.".format(self.corr_set.nbr_groups))
+
+        R_pred, t_pred, rhototal, drhototal_dx, final_res, refine_iters, final_lambda_refinement = self.pose_estimator.pose_forward(P0 = self.P0)
+        P_est = np.concatenate([R_pred, t_pred], axis=1)
+
+        return P_est
+
 class Runner(RunnerIf):
     def __init__(self, configs):
         super(Runner, self).__init__(configs, "rigidpose_ransac")
@@ -292,6 +343,23 @@ class Runner(RunnerIf):
                 class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
                 # visibility_maps[class_id-2,:,:][seg_map != group_id] = 0.0
                 visibility_maps[class_id-2,:,:][gt_seg_map != group_id] = 0.0
+
+        # GT annotations
+        if self._configs.postprocessing.rigidpose_ransac.method == 'lm_jb' and self._configs.postprocessing.rigidpose_ransac.lm_jb.initialization == 'gt':
+            # assert mode in (TRAIN, VAL):
+
+            # Pick one sample from batch of ground truth annotations
+            annotations = batch.annotation[frame_index]
+
+            anno_lookup = dict(zip([anno.cls for anno in annotations], annotations))
+            anno_group_lookup = {}
+            for group_id in self._class_map.get_group_ids():
+                # All keypoints share the same pose annotation - choose the first existing one
+                for kp_idx in range(NBR_KEYPOINTS):
+                    class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
+                    if class_id in anno_lookup:
+                        anno_group_lookup[group_id] = anno_lookup[class_id]
+                        break
 
         # Intrinsic camera parameters
         K = batch.calibration[frame_index][:,:3]
@@ -389,33 +457,63 @@ class Runner(RunnerIf):
 
             frame_results[group_id]['corr_set'] = corr_set
 
-            ransac_estimator = RansacEstimator(
-                corr_set,
-                nransac=self._configs.postprocessing.rigidpose_ransac.ransac.n_iter,
-                ransacthr=self._configs.postprocessing.rigidpose_ransac.ransac.th,
-                confidence_based_sampling=True,
-            )
-            try:
-                P_ransac, indices_best_minimal_set, inlier_mask, fraction_inliers, niter = ransac_estimator.estimate()
-                print("Object {}: Inlier fraction: {:.4f}, Iterations: {}".format(group_label, fraction_inliers, niter))
-            except RANSACException as e:
-                print("No solution found through RANSAC.")
-                print(e)
-                P_ransac = None
+            if self._configs.postprocessing.rigidpose_ransac.method == 'ransac':
+                ransac_estimator = RansacEstimator(
+                    self._configs,
+                    corr_set,
+                    nransac=self._configs.postprocessing.rigidpose_ransac.ransac.n_iter,
+                    ransacthr=self._configs.postprocessing.rigidpose_ransac.ransac.th,
+                    confidence_based_sampling=True,
+                )
+                try:
+                    P_ransac, indices_best_minimal_set, inlier_mask, fraction_inliers, niter = ransac_estimator.estimate()
+                    print("Object {}: Inlier fraction: {:.4f}, Iterations: {}".format(group_label, fraction_inliers, niter))
+                except RANSACException as e:
+                    print("No solution found through RANSAC.")
+                    print(e)
+                    P_ransac = None
 
-            if P_ransac is None:
+                if P_ransac is None:
+                    frame_results[group_id]['P_est'] = None
+                    frame_results[group_id]['ransac'] = None
+                    continue
+                best_minimal_set = {}
+                for corr_idx in indices_best_minimal_set:
+                    curr_kp_idx, corr_idx_within_kp_group = corr_set.corr_idx2group_id_and_idx_within_group(corr_idx)
+                    # best_minimal_set[curr_kp_idx] = corr_idx
+                    best_minimal_set[curr_kp_idx] = corr_idx_within_kp_group
+                frame_results[group_id]['P_est'] = P_ransac
+                frame_results[group_id]['ransac'] = {
+                    'P': P_ransac,
+                    'fraction_inliers': fraction_inliers,
+                    'inlier_mask': inlier_mask,
+                    'best_minimal_set': best_minimal_set,
+                }
+            elif self._configs.postprocessing.rigidpose_ransac.method == 'lm_jb':
+                if self._configs.postprocessing.rigidpose_ransac.lm_jb.initialization == 'gt':
+                    if group_id in anno_group_lookup:
+                        P0 = np.concatenate([anno_group_lookup[group_id].rotation, anno_group_lookup[group_id].location[:,None]], axis=1)
+                    else:
+                        P0 = None
+                elif self._configs.postprocessing.rigidpose_ransac.lm_jb.initialization == 'ransac':
+                    # Not implemented
+                    # P0 = 
+                    assert False
+                else:
+                    assert False
+                if P0 is not None and corr_set.nbr_groups >= 4:
+                    lm_jb_estimator = LevenbergMarquardtJonBarronEstimator(
+                        self._configs,
+                        corr_set,
+                        P0=P0,
+                    )
+                    P_est = lm_jb_estimator.estimate()
+                else:
+                    P_est = None
+                frame_results[group_id]['P_est'] = P_est
                 frame_results[group_id]['ransac'] = None
-                continue
-            best_minimal_set = {}
-            for corr_idx in indices_best_minimal_set:
-                curr_kp_idx, corr_idx_within_kp_group = corr_set.corr_idx2group_id_and_idx_within_group(corr_idx)
-                # best_minimal_set[curr_kp_idx] = corr_idx
-                best_minimal_set[curr_kp_idx] = corr_idx_within_kp_group
-            frame_results[group_id]['ransac'] = {
-                'P': P_ransac,
-                'fraction_inliers': fraction_inliers,
-                'inlier_mask': inlier_mask,
-                'best_minimal_set': best_minimal_set,
-            }
+            else:
+                assert False
+
 
         return frame_results

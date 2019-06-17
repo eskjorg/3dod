@@ -31,11 +31,15 @@
         ],
         "rigidpose_ransac": {
             "method": "ransac",
+            "method2": "lm_jb",
             "max_nbr_corr": null,
             "ransac": {
                 "n_iter": 100,
                 "th": 0.02
             },
+            "lm_jb": {
+                "initialization": "gt"
+            }
         }
     },
     "data":{
