@@ -18,7 +18,7 @@ from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, NBR_KEYPOINTS
 from lib.constants import TV_MEAN, TV_STD
 from lib.constants import TRAIN, VAL
 from lib.utils import project_3d_pts, construct_3d_box, get_metadata, get_class_map
-from lib.rigidpose.pose_estimator import pflat
+from lib.rigidpose.pose_estimator import pflat, deg_cm_error
 
 
 class Visualizer:
@@ -197,8 +197,28 @@ class Visualizer:
                     self.plot_bbox3d(ax, K, anno.rotation, anno.location.numpy(), *self._metadata['objects'][group_label]['bbox3d'], color='b', linestyle='-', linewidth=1)
                 if group_id in detections:
                     det = detections[group_id]
-                    if det['ransac'] is not None:
-                        self.plot_bbox3d(ax, K, det['ransac']['P'][:,:3], det['ransac']['P'][:,3], *self._metadata['objects'][group_label]['bbox3d'], color='g', linestyle=':', linewidth=1)
+                    if det['P_est'] is not None:
+                        self.plot_bbox3d(ax, K, det['P_est'][:,:3], det['P_est'][:,3], *self._metadata['objects'][group_label]['bbox3d'], color='g', linestyle=':', linewidth=1)
+
+        def get_pose_gt_and_est():
+            assert len(anno_group_lookup.keys()) == 1
+            assert len(detections.keys()) == 1
+            group_id = list(anno_group_lookup.keys())[0]
+            assert group_id in detections
+            group_label = self._class_map.group_label_from_group_id(group_id)
+            anno = anno_group_lookup[group_id]
+            det = detections[group_id]
+            P_gt = np.concatenate([anno.rotation, anno.location.numpy()[:,None]], axis=1)
+            P_est = det['P_est']
+            return P_gt, P_est
+
+        def pose_eval_pretty_print(P_gt, P_est):
+            if P_est is None:
+                return 'Estimation failed.'
+            else:
+                deg_error, cm_error = deg_cm_error(P_est[:,:3], P_est[:,[3]], P_gt[:,:3], P_gt[:,[3]], rescale2meter_factor=1e-3)
+                return '{:.4} cm, {:.4} deg'.format(cm_error, deg_error)
+
 
         fig, axes_array = pyplot.subplots(
             nrows=1,
@@ -264,7 +284,9 @@ class Visualizer:
             plot_poses(axes_array[0,0], [group_id], annotations, detections)
 
             # Close-up image + pose
-            plot_img(axes_array[0,1], img, 'Pose close-up', bbox2d=bbox2d)
+            P_gt, P_est = get_pose_gt_and_est()
+            plot_img(axes_array[0,1], img, pose_eval_pretty_print(P_gt, P_est), bbox2d=bbox2d)
+            # plot_img(axes_array[0,1], img, 'Pose close-up', bbox2d=bbox2d)
             plot_poses(axes_array[0,1], [group_id], annotations, detections)
 
             # Segmentation
@@ -424,9 +446,10 @@ class Visualizer:
                 # lambda_map = np.clip(likelihood_map/0.7, 0.0, 1.0)
                 heatmap = blend_rgb(img, get_uniform_color(heatmap_color), lambda_map)
                 heatmap[:100,:100,:] = kp_color
-                # plot_img(axes_array[kp_idx+1,2], heatmap, 'Keypoint {:02d} - Uncertainty'.format(kp_idx), bbox2d=bbox2d)
-                plot_img(axes_array[kp_idx+1,2], heatmap, 'Keypoint {:02d} - Uncertainty'.format(kp_idx), bbox2d=None)
+                plot_img(axes_array[kp_idx+1,2], heatmap, 'Keypoint {:02d} - Uncertainty'.format(kp_idx), bbox2d=bbox2d)
+                # plot_img(axes_array[kp_idx+1,2], heatmap, 'Keypoint {:02d} - Uncertainty'.format(kp_idx), bbox2d=None)
 
+                # Plot large green crosses for the keypoints selected by RANSAC:
                 if detections[group_id]['ransac'] is not None and kp_idx in detections[group_id]['ransac']['best_minimal_set']:
                     corr_idx_within_kp_group = detections[group_id]['ransac']['best_minimal_set'][kp_idx]
                     x = detections[group_id]['keypoints'][kp_idx]['kp_x_vec'][corr_idx_within_kp_group]
