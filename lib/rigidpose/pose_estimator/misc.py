@@ -49,10 +49,10 @@ def poseobjective(x, U, um, alpha_rho, c, w=None):
     drho_dx = np.sum(np.tile(rho['drho_dres'][:,np.newaxis], (1,6))*dres_dx, axis=0)
     return fval, drho_dx
 
-def deg_cm_error(R_pred, t_pred, R_gt, t_gt):
+def deg_cm_error(R_pred, t_pred, R_gt, t_gt, rescale2meter_factor=1e-3):
     cos_theta_est = (np.trace(np.dot(R_pred.T, R_gt)) - 1) / 2.
     cos_theta = np.clip(cos_theta_est, -1., 1.)
     assert abs(cos_theta - cos_theta_est) < 1e-2
     deg_error = 180./np.pi * np.arccos(cos_theta)
-    cm_error = 100. * np.linalg.norm(t_pred - t_gt)
+    cm_error = 100. * rescale2meter_factor * np.linalg.norm(t_pred - t_gt)
     return deg_error, cm_error
