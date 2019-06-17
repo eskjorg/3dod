@@ -10,6 +10,7 @@
         "avg_window_size": 25,
         "save_kitti_format": false,
         "save_nuscenes_format": false,
+        "save_kp_stats1": true,
         "save_kp_stats": false
     },
     "training": {
@@ -19,12 +20,13 @@
         "n_epochs": 30
     },
     "visualization": {
-        "keypoints": true
+        "keypoints": true,
+        "keypoints2": false
     },
     "postprocessing": {
-        "methods": [
+        "methods1": [
         ],
-        "methods2": [
+        "methods": [
             "rigidpose_ransac"
         ],
         "rigidpose_ransac": {
@@ -71,7 +73,10 @@
         "test": {
             "batch_size": 8,
             "shuffle": "fixed",
-            "max_nbr_batches": 3,
+            "max_nbr_batches1": 1,
+            "max_nbr_batches": 2,
+            "max_nbr_batches3": 15,
+            "max_nbr_batches4": null,
             "num_workers": 4
         }
     }
