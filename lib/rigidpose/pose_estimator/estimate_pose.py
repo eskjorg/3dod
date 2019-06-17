@@ -66,15 +66,18 @@ class PoseEstimator():
         self.max_refine_iters = max_refine_iters
 
         # Mesh vertices
-        self.Uanno0 = pextend(Uanno0)
+        if Uanno0 is not None:
+            Uanno0 = pextend(Uanno0)
+        self.Uanno0 = Uanno0
 
-    def pose_forward(self):
-        # INITIAL RANSAC ESTIMATE
-        if clock_flag:
-            t0 = time.time()
-        P0, nbest = ransac(self.U0, self.um, self.nransac, self.ransacthr, verbose=self.verbose)
-        if clock_flag:
-            print("{:>15} time: {}".format("RANSAC", time.time()-t0))
+    def pose_forward(self, P0=None):
+        if P0 is None:
+            # INITIAL RANSAC ESTIMATE
+            if clock_flag:
+                t0 = time.time()
+            P0, nbest = ransac(self.U0, self.um, self.nransac, self.ransacthr, verbose=self.verbose)
+            if clock_flag:
+                print("{:>15} time: {}".format("RANSAC", time.time()-t0))
 
         # Transformation matrix T0. Choosing scale based on data.
         tmp = np.dot(P0, self.U0)
@@ -83,7 +86,8 @@ class PoseEstimator():
 
         # Transform points using initial estimate
         self.U = np.dot(self.T0, self.U0)
-        self.Uanno = np.dot(self.T0, self.Uanno0)
+        if self.Uanno0 is not None:
+            self.Uanno = np.dot(self.T0, self.Uanno0)
 
         # LOCAL REFINEMENT
         if clock_flag:
