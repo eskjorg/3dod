@@ -9,10 +9,7 @@
         "ap": ["2d"]
     },
     "visualization": {
-        "keypoints": false,
-        "gt": ["bbox2d"],
-        "cnn": [],
-        "det": ["bbox2d", "corners", "zdepth"]
+        "keypoints": false
     },
     "postprocessing": {
         "methods": [

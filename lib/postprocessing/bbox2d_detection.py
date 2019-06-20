@@ -2,7 +2,8 @@
 from attrdict import AttrDict
 
 import torch
-from maskrcnn_benchmark.layers import nms
+#from maskrcnn_benchmark.layers import nms
+from torchvision.ops import nms
 
 from lib.constants import NBR_KEYPOINTS
 from lib.data import maps

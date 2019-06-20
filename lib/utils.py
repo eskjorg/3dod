@@ -8,7 +8,7 @@ import pickle
 
 from PIL import Image
 import numpy as np
-import cv2 as cv
+from cv2 import IMREAD_COLOR
 import torch
 from torchvision.transforms.functional import normalize, to_tensor
 
@@ -62,7 +62,7 @@ def read_json(path):
     return AttrDict(json_dict)
 
 
-def read_image_to_pt(path, load_type=cv.IMREAD_COLOR, normalize_flag=True, transform=None):
+def read_image_to_pt(path, load_type=IMREAD_COLOR, normalize_flag=True, transform=None):
     """Read an image from path to pt tensor."""
     image = Image.open(path)
     if image is None:
@@ -140,7 +140,7 @@ def project_3d_pts(pts_3d_objframe, p_matrix, loc, rot_y=None, rot_matrix=None):
     nbr_pts = pts_3d_objframe.shape[1]
 
     # Euclidean transformation to global frame. Store as homogeneous coordinates.
-    pts_3d_global = np.ones((4,nbr_pts))
+    pts_3d_global = np.ones((4, nbr_pts))
     pts_3d_global[:3] = np.tile(loc, (nbr_pts, 1)).T + rot_matrix @ np.array(pts_3d_objframe)
 
     # Projection

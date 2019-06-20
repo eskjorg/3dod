@@ -12,7 +12,8 @@ import numpy as np
 import torch
 from torch import nn
 from torchvision.transforms.functional import normalize
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
+#from tensorboardX import SummaryWriter
 
 from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, NBR_KEYPOINTS, PATCH_SIZE, GT_TYPE, CNN_TYPE, DET_TYPE, VISIB_TH
 from lib.constants import TV_MEAN, TV_STD

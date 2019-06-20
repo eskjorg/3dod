@@ -9,37 +9,47 @@
         "dataformat": "nuscenes",
         "path": "/datasets/nuscenes/teaser",
         "channels": [
-            "CAM_FRONT"
+            "CAM_FRONT",
+            "CAM_FRONT_LEFT",
+            "CAM_FRONT_RIGHT",
+            "CAM_BACK",
+            "CAM_BACK_LEFT",
+            "CAM_BACK_RIGHT"
         ],
         "keyframes_only": true,
         "class_map": {
-            "vehicle.car": 2,
-            "human.pedestrian.adult": 3,
-            "movable_object.barrier": 4
+            "human.pedestrian.adult": 1,
+            "human.pedestrian.child": 1,
+            "human.pedestrian.construction_worker": 1,
+            "human.pedestrian.police_officer": 1,
+            "movable_object.barrier": 2,
+            "movable_object.trafficcone": 3, 
+            "vehicle.bicycle": 4,
+            "vehicle.bus.bendy": 5,
+            "vehicle.bus.rigid": 5,
+            "vehicle.car": 6,
+            "vehicle.construction": 7,
+            "vehicle.motorcycle": 8,
+            "vehicle.trailer": 9,
+            "vehicle.truck": 10
         },
-        "img_dims": [896, 1600],
-        "split": {
-            "train": [
-                "n008-2018-05-21-11-06-59-0400",
-                "n015-2018-07-18-11-18-34+0800",
-                "n015-2018-07-18-11-50-34+0800",
-                "n015-2018-07-24-10-42-41+0800",
-                "n015-2018-07-24-11-03-52+0800",
-                "n015-2018-07-24-11-13-19+0800",
-                "n015-2018-07-24-11-22-45+0800",
-                "n015-2018-08-01-16-32-59+0800",
-                "n015-2018-08-01-16-41-59+0800"
-            ],
-            "val": [
-                "n008-2018-08-01-15-16-36-0400",
-                "n015-2018-07-18-11-41-49+0800",
-                "n015-2018-07-18-11-07-57+0800"
-            ],
-            "test": [
-                "n008-2018-08-01-15-16-36-0400",
-                "n015-2018-07-18-11-41-49+0800",
-                "n015-2018-07-18-11-07-57+0800"
-            ]
+        "img_dims": [896, 1600]
+    },
+    "loading": {
+        "train": {
+            "batch_size": 8,
+            "shuffle": true,
+            "num_workers": 2
+        },
+        "val": {
+            "batch_size": 8,
+            "shuffle": true,
+            "num_workers": 2
+        },
+        "test": {
+            "batch_size": 1,
+            "shuffle": false,
+            "num_workers": 4
         }
     }
 }

@@ -5,10 +5,10 @@
         "support_region": 0.2
     },
     "logging": {
-        "save_kitti_format": true
+        "save_kitti_format": true,
+        "save_pickle": true
     },
     "training": {
-        "learning_rate": 0.001,
         "weighting_mode": "sample_wise"
     },
     "postprocessing": {
@@ -16,7 +16,7 @@
             "bbox2d_detection"
         ],
         "bbox2d_detection": {
-            "detection_threshold": 0.55,
+            "detection_threshold": 2.0,
             "iou_threshold": 0.3
         }
     },

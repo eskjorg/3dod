@@ -1,0 +1,33 @@
+FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
+
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends apt-utils && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        git && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN curl -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh  && \
+    chmod +x ~/miniconda.sh && \
+    ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh
+ENV PATH /opt/conda/bin:$PATH
+RUN conda install -y -c pytorch \
+    pytorch \
+    torchvision \
+    cudatoolkit=9.0
+RUN conda install -y -c conda-forge \
+    attrdict
+RUN conda clean -ya
+
+RUN pip install nuscenes-devkit
+RUN pip install git+https://github.com/NVIDIA/apex@master \
+    --install-option="--cuda_ext" \
+    --install-option="--cpp_ext"
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libglib2.0-0 libsm6 libxext6 libxrender-dev
+
+RUN pip install tb-nightly future
