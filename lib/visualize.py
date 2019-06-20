@@ -401,7 +401,7 @@ class Visualizer:
                             # )
                             axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
                     else:
-                        # MOST CONFIDENT REGRESSION
+                        # Option (1): MOST CONFIDENT REGRESSION
                         nbr_sampled = min(15, nbr_confident)
                         kp_avg_std_vec = 0.5*sum([kp_std1_vec, kp_std2_vec])
                         center_likelihood_vec = (0.5 / np.exp(kp_x_ln_b_vec)) * (0.5 / np.exp(kp_y_ln_b_vec))
@@ -415,17 +415,18 @@ class Visualizer:
                             axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
                             axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
 
-                        # BEST REGRESSION
-                        resid_vec = np.vstack([kp_x_vec, kp_y_vec]) - anno_lookup[class_id].keypoint.reshape((2,1))
-                        resid_magnitude_vec = np.linalg.norm(resid_vec, axis=0)
-                        best_idx = np.argmin(resid_magnitude_vec)
-                        for idx in {best_idx}:
-                            avg_std = 0.5*sum([kp_std1_vec[idx], kp_std2_vec[idx]])
-                            nbr_std_px_half_faded = 5.0 # When std amounts to this number of pixels, KP color will be faded to half intensity
-                            confidence_interp_factor = 1.0 / (1.0 + (avg_std/nbr_std_px_half_faded)**2)
-                            color = confidence_interp_factor * np.array([1.0, 0.0, 0.0]) + (1.0 - confidence_interp_factor) * np.array([0.0, 0.0, 0.0])
-                            axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
-                            axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
+                        # Option (2): BEST REGRESSION
+                        # if class_id in anno_lookup:
+                        #     resid_vec = np.vstack([kp_x_vec, kp_y_vec]) - anno_lookup[class_id].keypoint.reshape((2,1))
+                        #     resid_magnitude_vec = np.linalg.norm(resid_vec, axis=0)
+                        #     best_idx = np.argmin(resid_magnitude_vec)
+                        #     for idx in {best_idx}:
+                        #         avg_std = 0.5*sum([kp_std1_vec[idx], kp_std2_vec[idx]])
+                        #         nbr_std_px_half_faded = 5.0 # When std amounts to this number of pixels, KP color will be faded to half intensity
+                        #         confidence_interp_factor = 1.0 / (1.0 + (avg_std/nbr_std_px_half_faded)**2)
+                        #         color = confidence_interp_factor * np.array([1.0, 0.0, 0.0]) + (1.0 - confidence_interp_factor) * np.array([0.0, 0.0, 0.0])
+                        #         axes_array[kp_idx+1,1].plot([idx_x_vec[idx], kp_x_vec[idx]], [idx_y_vec[idx], kp_y_vec[idx]], '-', color=color)
+                        #         axes_array[kp_idx+1,1].add_patch(patches.Circle([kp_x_vec[idx], kp_y_vec[idx]], radius=4, color=color, edgecolor='black'))
 
                     for idx in range(nbr_confident):
                         x = kp_x_vec[idx]
