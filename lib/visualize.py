@@ -18,7 +18,7 @@ from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, NBR_KEYPOINTS
 from lib.constants import TV_MEAN, TV_STD
 from lib.constants import TRAIN, VAL
 from lib.utils import project_3d_pts, construct_3d_box, get_metadata, get_class_map
-from lib.rigidpose.pose_estimator import pflat, deg_cm_error
+from lib.rigidpose.pose_estimator import pflat, pextend, deg_cm_error
 
 
 class Visualizer:
@@ -287,12 +287,16 @@ class Visualizer:
 
             bbox2d = expand_bbox(anno_group_lookup[group_id].bbox2d, 3.0) if group_id in anno_group_lookup else None
 
+            keypoints_3d = self._metadata['objects'][group_label]['keypoints']
+            P_gt, P_est = get_pose_gt_and_est()
+            if P_est is not None:
+                keypoints_reproj = pflat(K @ P_est @ pextend(keypoints_3d))[:2,:]
+
             # Regular size image + pose
             plot_img(axes_array[0,0], img, 'Pose')
             plot_poses(axes_array[0,0], [group_id], annotations, detections)
 
             # Close-up image + pose
-            P_gt, P_est = get_pose_gt_and_est()
             plot_img(axes_array[0,1], img, pose_eval_pretty_print(P_gt, P_est), bbox2d=bbox2d)
             # plot_img(axes_array[0,1], img, 'Pose close-up', bbox2d=bbox2d)
             plot_poses(axes_array[0,1], [group_id], annotations, detections)
