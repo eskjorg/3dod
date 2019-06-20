@@ -241,18 +241,26 @@ class LevenbergMarquardtJonBarronEstimator():
         self._configs = configs
         self.corr_set = corr_set
         self.corr_set.pack()
+        # self.P0 = None
         self.P0 = P0
+        # self.P0[0,3] += 20.0
         self.pose_estimator = self._initialize_pose_estimator()
 
     def _initialize_pose_estimator(self):
-        c = 65.0 # Ad-hoc - looked similar to mixture of laplacian PDFs, when plotting exp(-sum_of_jb_losses_for_residuals)
+        # c = 0.002
+        c = 0.008
+        # c = 0.02
+        # c = 1.0
+        # c = 10.0
+        # c = 65.0 # Ad-hoc - looked similar to mixture of laplacian PDFs, when plotting exp(-sum_of_jb_losses_for_residuals)
         K = self.corr_set.K
         U0 = pflat(self.corr_set.U)[:3,:]
         u_unnorm = pflat(K @ self.corr_set.u)[:2,:]
         Uanno0 = None # Model vertices not needed for forward pass
         # Uanno0 = ...
         w = None
-        # w = 
+        # w = self.corr_set.sample_confidences
+        # w /= np.mean(w)
 
         return PoseEstimator(
             self._configs,
@@ -265,7 +273,7 @@ class LevenbergMarquardtJonBarronEstimator():
             alpha_rho=-1.0,
             c=c,
             lambda0=1e5,
-            max_refine_iters=200,
+            max_refine_iters=300,
         )
 
     def _reproj_residuals(self, P):
@@ -277,6 +285,9 @@ class LevenbergMarquardtJonBarronEstimator():
             raise RANSACException("Found correspondence for {} keypoints only.".format(self.corr_set.nbr_groups))
 
         R_pred, t_pred, rhototal, drhototal_dx, final_res, refine_iters, final_lambda_refinement = self.pose_estimator.pose_forward(P0 = self.P0)
+        if refine_iters == 300:
+            print('\n'.join(5*["REACHED MAX NBR ITERATIONS"]))
+        # print(refine_iters)
         P_est = np.concatenate([R_pred, t_pred], axis=1)
 
         return P_est
