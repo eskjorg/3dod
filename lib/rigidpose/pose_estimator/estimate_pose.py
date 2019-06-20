@@ -241,7 +241,7 @@ def ransac(U0, um, nransac, ransacthr, confidence_vals=None, verbose=0):
         cameras = resec3pts(pextend(um[:,ind]), U0[:,ind], coord_change=True)
         for P in cameras:
             u = pflat(np.dot(P, U0))
-            res_norm = np.norm(u[0:2,:] - um, axis=0)
+            res_norm = np.linalg.norm(u[0:2,:] - um, axis=0)
             inlier_scores = res_norm < ransacthr
             # inlier_score = np.sum(inlier_scores)
             inlier_score = np.sum(confidence_vals * inlier_scores)
