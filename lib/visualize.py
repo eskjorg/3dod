@@ -2,12 +2,15 @@
 from os.path import join
 import shutil
 
+from attrdict import AttrDict
+
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot, patches
 
 from torchvision.transforms.functional import normalize
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
+#from tensorboardX import SummaryWriter
 
 from lib.constants import PYPLOT_DPI, BOX_SKELETON, CORNER_COLORS, KEYPOINT_COLORS
 from lib.constants import TV_MEAN, TV_STD
@@ -36,11 +39,21 @@ class Visualizer:
         if not any(self._configs.visualization.values()):
             return
         calib = batch.calibration[sample]
-        image_tensor = normalize(batch.input[sample], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
-        frame_id = batch.id[sample]
+        # image_tensor = normalize(batch.input[sample], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
+        image_tensor = batch.input[sample] 
+        # frame_id = batch.id[sample]
         annotations = batch.annotation[sample]
 
-        detections = output[frame_id]
+        # detections = output[frame_id]
+        detections = []
+        for obj in zip(*output[sample].values()):
+            obj = dict(zip(output[sample], obj))
+            if obj['scores'] < 0.1:
+                continue
+            detections.append(AttrDict({'bbox2d': obj['boxes'],
+                                        'cls': obj['labels'].item(),
+                                        'confidence': obj['scores'],
+                                        'corners': obj['keypoints'].cpu().numpy()}))
 
         fig, axes = pyplot.subplots(figsize=[dim / PYPLOT_DPI for dim in image_tensor.shape[2:0:-1]])
         axes.axis('off')
@@ -104,7 +117,7 @@ class Visualizer:
         axes.add_patch(polygon)
 
     def _plot_corners(self, axes, obj, **kwargs):
-        for corner_xy, color in zip(obj.corners.T, self._corner_colors):
+        for corner_xy, color in zip(obj.corners[:, :2], self._corner_colors):
             axes.add_patch(patches.Circle(corner_xy, radius=3, color=color, edgecolor='black'))
 
     def _plot_keypoints(self, axes, obj, calib, annotation_flag, **kwargs):

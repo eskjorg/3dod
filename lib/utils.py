@@ -5,7 +5,7 @@ from attrdict import AttrDict
 from importlib import import_module
 
 import numpy as np
-import cv2
+from cv2 import imread, IMREAD_COLOR
 import torch
 from torchvision.transforms.functional import normalize, to_tensor
 
@@ -40,12 +40,13 @@ def read_json(path):
     return AttrDict(json_dict)
 
 
-def read_image_to_pt(path, load_type=cv2.IMREAD_COLOR):
+def read_image_to_pt(path, load_type=IMREAD_COLOR):
     """Read an image from path to pt tensor."""
-    image = cv2.imread(path, load_type)
+    image = imread(path, load_type)
     if image is None:
         raise Exception('Failed to read image: {}.'.format(path))
-    image = normalize(to_tensor(image), TV_MEAN, TV_STD)
+    #image = normalize(to_tensor(image), TV_MEAN, TV_STD)
+    image = to_tensor(image)
     if len(image.shape) == 2:
         image._unsqueeze(0)
     return image.flip(0)
@@ -103,7 +104,7 @@ def project_3d_pts(pts_3d_objframe, p_matrix, loc, rot_y=None, rot_matrix=None):
     nbr_pts = pts_3d_objframe.shape[1]
 
     # Euclidean transformation to global frame. Store as homogeneous coordinates.
-    pts_3d_global = np.ones((4,nbr_pts))
+    pts_3d_global = np.ones((4, nbr_pts))
     pts_3d_global[:3] = np.tile(loc, (nbr_pts, 1)).T + rot_matrix @ np.array(pts_3d_objframe)
 
     # Projection

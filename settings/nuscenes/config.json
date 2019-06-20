@@ -12,14 +12,47 @@
         "dataformat": "nuscenes",
         "path": "/datasets/nuscenes/v1.0",
         "channels": [
-            "CAM_FRONT"
+            "CAM_FRONT",
+            "CAM_FRONT_LEFT",
+            "CAM_FRONT_RIGHT",
+            "CAM_BACK",
+            "CAM_BACK_LEFT",
+            "CAM_BACK_RIGHT"
         ],
         "keyframes_only": true,
         "class_map": {
-            "vehicle.car": 2,
-            "human.pedestrian.adult": 3,
-            "movable_object.barrier": 4
+            "human.pedestrian.adult": 1,
+            "human.pedestrian.child": 1,
+            "human.pedestrian.construction_worker": 1,
+            "human.pedestrian.police_officer": 1,
+            "movable_object.barrier": 2,
+            "movable_object.trafficcone": 3, 
+            "vehicle.bicycle": 4,
+            "vehicle.bus.bendy": 5,
+            "vehicle.bus.rigid": 5,
+            "vehicle.car": 6,
+            "vehicle.construction": 7,
+            "vehicle.motorcycle": 8,
+            "vehicle.trailer": 9,
+            "vehicle.truck": 10
         },
         "img_dims": [896, 1600]
+    },
+    "loading": {
+        "train": {
+            "batch_size": 8,
+            "shuffle": true,
+            "num_workers": 2
+        },
+        "val": {
+            "batch_size": 8,
+            "shuffle": true,
+            "num_workers": 2
+        },
+        "test": {
+            "batch_size": 1,
+            "shuffle": false,
+            "num_workers": 4
+        }
     }
 }

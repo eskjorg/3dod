@@ -96,7 +96,7 @@ class ResultSaver:
                 "attribute_name": ""
             }
             sample_results.append(sample_result)
-        self._epoch_results_nuscenes[sample_token] = sample_results
+        self._epoch_results_nuscenes[sample_token] += sample_results
 
     def get_nusc_global_pose(self, box, sample_data):
         box = Box(center=box['location'],

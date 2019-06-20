@@ -8,7 +8,7 @@ VAL = 'val'
 TEST = 'test'
 
 # Training
-IGNORE_IDX_CLS = 1
+IGNORE_IDX_CLS = -100
 IGNORE_IDX_REG = 0  # Expected never to interfere with float GT annotations
 
 # Data

@@ -125,7 +125,7 @@ class ClassMap:
     """ClassMap."""
     def __init__(self, configs):
         self._cls_dict = configs.data.class_map
-        self._colors = ['black', 'gray', 'blue', 'red', 'green']
+        self._colors = ['black', 'gray', 'blue', 'red', 'green', 'yellow', 'pink', 'brown', 'cyan', 'orange']
 
     def id_from_label(self, label):
         return self._cls_dict.get(label, IGNORE_IDX_CLS)
