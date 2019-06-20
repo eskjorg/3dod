@@ -201,19 +201,27 @@ class Visualizer:
                         self.plot_bbox3d(ax, K, det['P_est'][:,:3], det['P_est'][:,3], *self._metadata['objects'][group_label]['bbox3d'], color='g', linestyle=':', linewidth=1)
 
         def get_pose_gt_and_est():
-            assert len(anno_group_lookup.keys()) == 1
-            assert len(detections.keys()) == 1
-            group_id = list(anno_group_lookup.keys())[0]
-            assert group_id in detections
-            group_label = self._class_map.group_label_from_group_id(group_id)
-            anno = anno_group_lookup[group_id]
-            det = detections[group_id]
-            P_gt = np.concatenate([anno.rotation, anno.location.numpy()[:,None]], axis=1)
-            P_est = det['P_est']
+            if len(anno_group_lookup.keys()) == 0:
+                P_gt = None
+            else:
+                assert len(anno_group_lookup.keys()) == 1
+                group_id = list(anno_group_lookup.keys())[0]
+                anno = anno_group_lookup[group_id]
+                P_gt = np.concatenate([anno.rotation, anno.location.numpy()[:,None]], axis=1)
+
+            if len(detections.keys()) == 0:
+                P_est = None
+            else:
+                assert len(detections.keys()) == 1
+                group_id = list(detections.keys())[0]
+                det = detections[group_id]
+                P_est = det['P_est']
             return P_gt, P_est
 
         def pose_eval_pretty_print(P_gt, P_est):
-            if P_est is None:
+            if P_gt is None:
+                return 'No object annotated.'
+            elif P_est is None:
                 return 'Estimation failed.'
             else:
                 deg_error, cm_error = deg_cm_error(P_est[:,:3], P_est[:,[3]], P_gt[:,:3], P_gt[:,[3]], rescale2meter_factor=1e-3)
