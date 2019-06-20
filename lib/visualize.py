@@ -474,6 +474,11 @@ class Visualizer:
                     # print(kp_idx, False, False)
                     pass
 
+                # Reprojected keypoint, using estimated pose
+                if P_est is not None:
+                    reproj_kp_color = 'green'
+                    axes_array[kp_idx+1,2].add_patch(patches.Circle(keypoints_reproj[:,kp_idx], radius=4, color=reproj_kp_color, edgecolor='black'))
+
 
 
 
