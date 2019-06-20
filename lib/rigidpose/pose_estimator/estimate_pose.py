@@ -238,7 +238,8 @@ def ransac(U0, um, nransac, ransacthr, confidence_vals=None, verbose=0):
     for i in range(nransac):
         ind = np.random.choice(ntotal, 3, p=confidence_vals)
 
-        cameras = resec3pts(pextend(um[:,ind]), U0[:,ind], coord_change=True)
+        cameras = p3p_kneip(pextend(um[:,ind]), U0[:,ind])
+        # cameras = resec3pts(pextend(um[:,ind]), U0[:,ind], coord_change=True)
         for P in cameras:
             u = pflat(np.dot(P, U0))
             res_norm = np.linalg.norm(u[0:2,:] - um, axis=0)
