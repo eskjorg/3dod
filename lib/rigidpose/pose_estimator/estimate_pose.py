@@ -257,6 +257,12 @@ def ransac(U0, um, nransac, ransacthr, confidence_vals=None, verbose=0):
 class BigGradientException(Exception):
     pass
 
+def calc_percent_inliers(x, U, um, c):
+    res = calc_res(x, U, um)
+    res = np.reshape(res, (2,-1), order='F')
+    res = np.linalg.norm(res, axis=0)
+    return 100. * np.mean(res < c)
+
 def local_refinement(x, U, um, w, alpha_rho, c, niter, lambda0, verbose=0):
     """
     Local minimization of rho(res(x)) w.r.t. x, using Gauss-Newton
@@ -265,6 +271,9 @@ def local_refinement(x, U, um, w, alpha_rho, c, niter, lambda0, verbose=0):
     lambd = lambda0
     fval,dx = poseobjective(x,U,um,alpha_rho,c,w=w)
     iter = 0
+
+    print("{} % correspondences < c={} before refinement.".format(calc_percent_inliers(x, U, um, c), c))
+
     while iter<niter:
         iter += 1
         res = calc_res(x,U,um)
@@ -296,6 +305,9 @@ def local_refinement(x, U, um, w, alpha_rho, c, niter, lambda0, verbose=0):
             lambd *= 2
         if np.linalg.norm(dx) < 1e-3:
             break
+
+
+    print("{} % correspondences < c={} after refinement.".format(calc_percent_inliers(x, U, um, c), c))
 
     if verbose >= 1:
         print("lambda: {}".format(lambd))
