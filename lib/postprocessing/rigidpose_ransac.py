@@ -10,31 +10,8 @@ from lib.constants import NBR_KEYPOINTS, VISIB_TH
 from lib.data import maps
 from lib.utils import get_device, get_class_map, get_metadata
 from lib.postprocessing import RunnerIf
-from lib.rigidpose.pose_estimator import PoseEstimator, ransac, normalize, RANSACException, resec3pts, pflat, pextend
+from lib.rigidpose.pose_estimator import PoseEstimator, ransac, normalize, RANSACException, resec3pts, pflat, pextend, p3p_kneip, opengv_ransac, epnp
 import pyopengv
-
-def invert_eucl(eucl):
-    return np.concatenate([eucl[:,:3].T, -eucl[:,:3].T@eucl[:,[3]]], axis=1)
-
-def p3p_kneip(u, U):
-    viewing_rays = u / np.linalg.norm(u, axis=0)
-    cameras = pyopengv.absolute_pose_p3p_kneip(viewing_rays.T, U.T)
-    cameras = [invert_eucl(cam) for cam in cameras if np.all(np.isfinite(cam))]
-    return cameras
-
-def opengv_ransac(u, U):
-    viewing_rays = u / np.linalg.norm(u, axis=0)
-    method_name = 'KNEIP' # This is the default
-    # method_name = 'EPNP'
-    cam = pyopengv.absolute_pose_ransac(viewing_rays.T, U.T, method_name, 0.02, iterations=1000, probability=0.99)
-    cam = invert_eucl(cam)
-    return cam if np.all(np.isfinite(cam)) else None
-
-def epnp(u, U):
-    viewing_rays = u / np.linalg.norm(u, axis=0)
-    cam = pyopengv.absolute_pose_epnp(viewing_rays.T, U.T)
-    cam = invert_eucl(cam)
-    return cam if np.all(np.isfinite(cam)) else None
 
 class GroupedCorrespondenceSet():
     def __init__(self, K):

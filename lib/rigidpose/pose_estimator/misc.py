@@ -3,6 +3,30 @@ import json
 import math
 import numpy as np
 from lib.rigidpose.pose_estimator.gencode import *
+import pyopengv
+
+def invert_eucl(eucl):
+    return np.concatenate([eucl[:,:3].T, -eucl[:,:3].T@eucl[:,[3]]], axis=1)
+
+def p3p_kneip(u, U):
+    viewing_rays = u / np.linalg.norm(u, axis=0)
+    cameras = pyopengv.absolute_pose_p3p_kneip(viewing_rays.T, U.T)
+    cameras = [invert_eucl(cam) for cam in cameras if np.all(np.isfinite(cam))]
+    return cameras
+
+def opengv_ransac(u, U):
+    viewing_rays = u / np.linalg.norm(u, axis=0)
+    method_name = 'KNEIP' # This is the default
+    # method_name = 'EPNP'
+    cam = pyopengv.absolute_pose_ransac(viewing_rays.T, U.T, method_name, 0.02, iterations=1000, probability=0.99)
+    cam = invert_eucl(cam)
+    return cam if np.all(np.isfinite(cam)) else None
+
+def epnp(u, U):
+    viewing_rays = u / np.linalg.norm(u, axis=0)
+    cam = pyopengv.absolute_pose_epnp(viewing_rays.T, U.T)
+    cam = invert_eucl(cam)
+    return cam if np.all(np.isfinite(cam)) else None
 
 def normalize(u_unnorm, K):
     return np.dot(np.linalg.inv(K), u_unnorm)
