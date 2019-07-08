@@ -8,6 +8,8 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot, patches
 
+import numpy as np
+
 from torchvision.transforms.functional import normalize
 from torch.utils.tensorboard import SummaryWriter
 #from tensorboardX import SummaryWriter
@@ -53,17 +55,66 @@ class Visualizer:
             detections.append(AttrDict({'bbox2d': obj['boxes'],
                                         'cls': obj['labels'].item(),
                                         'confidence': obj['scores'],
-                                        'corners': obj['keypoints'].cpu().numpy()}))
+                                        'keypoints': obj['keypoints'].cpu().numpy()}))
 
-        fig, axes = pyplot.subplots(figsize=[dim / PYPLOT_DPI for dim in image_tensor.shape[2:0:-1]])
-        axes.axis('off')
-        _ = axes.imshow(image_tensor.permute(1, 2, 0))
-        for feature in self._configs.visualization.gt:
-            for annotation in annotations:
-                getattr(self, "_plot_" + feature)(axes, annotation, calib=calib, annotation_flag=True, fill=True, alpha=0.2)
-        for feature in self._configs.visualization.det:
-            for detection in detections:
-                getattr(self, "_plot_" + feature)(axes, detection, calib=calib, annotation_flag=False, fill=False)
+        def expand_bbox(bbox2d, resize_factor):
+            x1, y1, x2, y2 = bbox2d
+            center_x = 0.5*(x1+x2)
+            center_y = 0.5*(y1+y2)
+            return (
+                max(-0.5,                                  center_x + resize_factor*(x1 - center_x)),
+                max(-0.5,                                  center_y + resize_factor*(y1 - center_y)),
+                min(-0.5 + self._configs.data.img_dims[1], center_x + resize_factor*(x2 - center_x)),
+                min(-0.5 + self._configs.data.img_dims[0], center_y + resize_factor*(y2 - center_y)),
+            )
+
+        def plot_img(ax, img, title, bbox2d=None):
+            img = np.clip(img, 0.0, 1.0)
+            if bbox2d is None:
+                ax.axis('on')
+                ax.set_xlim(-0.5,                                  -0.5 + self._configs.data.img_dims[1])
+                ax.set_ylim(-0.5 + self._configs.data.img_dims[0], -0.5)
+            else:
+                x1, y1, x2, y2 = bbox2d
+                ax.set_xlim(x1, x2)
+                ax.set_ylim(y2, y1)
+            ax.autoscale(enable=False)
+            ax.imshow(img)
+            ax.set_title(title)
+
+        def plot_gt(axes):
+            for feature in self._configs.visualization.gt:
+                for annotation in annotations:
+                    getattr(self, "_plot_" + feature)(axes, annotation, calib=calib, annotation_flag=True, fill=True, alpha=0.2)
+        def plot_det(axes):
+            for feature in self._configs.visualization.det:
+                for detection in detections:
+                    getattr(self, "_plot_" + feature)(axes, detection, calib=calib, annotation_flag=False, fill=False)
+
+        if len(annotations) == 0:
+            bbox2d = None
+        else:
+            assert len(annotations) == 1
+            bbox2d = expand_bbox(annotations[0].bbox2d, 2.0)
+
+        img = image_tensor.permute(1, 2, 0)
+
+        fig, axes = pyplot.subplots(
+            nrows = 3,
+            ncols = 1,
+            squeeze = False,
+            figsize = [10, 25],
+            # figsize = [dim / PYPLOT_DPI for dim in image_tensor.shape[2:0:-1]],
+        )
+        plot_img(axes[0,0], img, 'GT', bbox2d=bbox2d)
+        plot_gt(axes[0,0])
+        plot_img(axes[1,0], img, 'Det', bbox2d=bbox2d)
+        plot_det(axes[1,0])
+        plot_img(axes[2,0], img, 'Both', bbox2d=bbox2d)
+        plot_gt(axes[2,0])
+        plot_det(axes[2,0])
+
+
         self._writer.add_figure(mode, fig, index)
 
     def show_outputs(self, outputs, batch, index):
@@ -132,13 +183,15 @@ class Visualizer:
                 calib,
                 obj.location,
                 rot_matrix=rotation,
-            )
-            for corner_xy, color in zip(keypoints_2d.T, self._keypoint_colors):
+            ).T
+            for corner_xy, color in zip(keypoints_2d, self._keypoint_colors):
                 axes.add_patch(patches.Circle(corner_xy, radius=3, fill=True, color=color, edgecolor='black'))
         else:
-            keypoints_2d = obj.keypoints
-            for corner_xy, color in zip(keypoints_2d.T, self._keypoint_colors):
-                axes.add_patch(patches.Circle(corner_xy, radius=5, fill=False, edgecolor=color))
+            keypoints_2d = obj.keypoints[:,:2]
+            kp_visibility = obj.keypoints[:,2] > 0.5 # Binary signal - make boolean
+            for corner_xy, color, kp_visible in zip(keypoints_2d, self._keypoint_colors, kp_visibility):
+                if kp_visible:
+                    axes.add_patch(patches.Circle(corner_xy, radius=5, fill=False, edgecolor=color))
         # for corner_xy, color in zip(obj.corners.T, self._corner_colors):
         #     axes.add_patch(patches.Circle(corner_xy, radius=3, color=color, edgecolor='black'))
 

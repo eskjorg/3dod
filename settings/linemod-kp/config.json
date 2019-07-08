@@ -9,7 +9,7 @@
     },
     "training": {
         "learning_rate": 0.0001,
-        "weighting_mode": "uniform",
+        "weighting_mode": null
     },
     "visualization": {
         "gt": [
@@ -26,17 +26,23 @@
         "path": "/datasets/occluded-linemod-augmented",
         "sequences": {
             "train": [
-                "train_aug/ape",
-                "train_aug/can",
-                "train_aug/cat",
-                "train_aug/driller",
-                "train_aug/duck",
-                "train_aug/eggbox",
-                "train_aug/glue",
-                "train_aug/holepuncher"
+                "train_unoccl/duck"
+            ],
+            "train2": [
+                "train_unoccl/ape",
+                "train_unoccl/can",
+                "train_unoccl/cat",
+                "train_unoccl/driller",
+                "train_unoccl/duck",
+                "train_unoccl/eggbox",
+                "train_unoccl/glue",
+                "train_unoccl/holepuncher"
+            ],
+            "val1": [
+                "train_occl/ape"
             ],
             "val": [
-                "train_occl/ape"
+                "train_unoccl/duck"
             ],
             "test": [
                 "test_occl/benchviseblue"
@@ -46,14 +52,14 @@
     },
     "loading": {
         "train": {
-            "batch_size": 8,
+            "batch_size": 4,
             "shuffle": true,
-            "num_workers": 6
+            "num_workers": 8
         },
         "val": {
             "batch_size": 4,
-            "shuffle": false,
-            "num_workers": 6
+            "shuffle": "fixed",
+            "num_workers": 8
         },
         "test": {
             "batch_size": 1,

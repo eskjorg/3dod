@@ -14,6 +14,8 @@ from lib.data.maps import GtMapsGenerator
 from lib.utils import read_image_to_pt
 from lib.utils import listdir_nohidden
 from lib.utils import get_metadata
+from lib.utils import project_3d_pts
+from lib.utils import read_yaml_and_pickle
 
 
 def get_metadata(configs):
@@ -38,7 +40,7 @@ def get_dataset(configs, mode):
     return SixdDataset(configs, mode)
 
 
-Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'size', 'location', 'rotation'])
+Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'keypoints', 'kp_visibility', 'size', 'location', 'rotation'])
 
 
 class SixdDataset(Dataset):
@@ -48,15 +50,17 @@ class SixdDataset(Dataset):
         self._metadata = get_metadata(configs)
         self._mode = mode
         self._class_map = ClassMap(configs)
+        # configs['data']['class_map'] = self._class_map
         self._gt_map_generator = GtMapsGenerator(configs)
         self._sequence_lengths = self._init_sequence_lengths()
         self._models = self._init_models()
 
     def _read_yaml(self, path):
-        if path not in self._yaml_dict:
-            with open(path, 'r') as f:
-                self._yaml_dict[path] = yaml.load(f, Loader=yaml.CLoader)
-        return self._yaml_dict[path]
+        return read_yaml_and_pickle(path)
+        # if path not in self._yaml_dict:
+        #     with open(path, 'r') as f:
+        #         self._yaml_dict[path] = yaml.load(f, Loader=yaml.CLoader)
+        # return self._yaml_dict[path]
 
     def _init_sequence_lengths(self):
         sequences = OrderedDict()
@@ -77,8 +81,8 @@ class SixdDataset(Dataset):
         seq_name, img_ind = self._get_data_pointers(index)
         dir_path = join(self._configs.path, seq_name)
         data = self._read_data(dir_path, img_ind)
-        annotations = self._read_annotations(dir_path, img_ind)
         calibration = self._read_calibration(dir_path, img_ind)
+        annotations = self._read_annotations(dir_path, img_ind, calibration)
         gt_maps = self._mode in (TRAIN, VAL) and \
                   self._gt_map_generator.generate(annotations, calibration)
         return Sample(annotations, data, gt_maps, calibration, index)
@@ -89,20 +93,41 @@ class SixdDataset(Dataset):
         max_h, max_w = self._configs.img_dims
         return image[:, :max_h, :max_w]
 
-    def _read_annotations(self, dir_path, img_ind):
+    def _read_annotations(self, dir_path, img_ind, calib):
         annotations = []
         gts = self._read_yaml(join(dir_path, 'gt.yml'))[img_ind]
         for gt in gts:
             model = self._models[gt['obj_id']]
+            class_label = self._class_map.format_label(gt['obj_id'])
+            if class_label not in self._class_map._label2id_dict.keys():
+                continue
+            class_id = self._class_map.id_from_label(class_label)
+
+            location = Tensor(gt['cam_t_m2c'])
+            rot_matrix = np.array(gt['cam_R_m2c']).reshape((3, 3))
+
+            keypoints_3d = self._metadata['objects'][class_label]['keypoints']
+            keypoints_2d = project_3d_pts(
+                keypoints_3d,
+                calib,
+                location,
+                rot_matrix=rot_matrix,
+            )
+
+            kp_normals_global_frame = rot_matrix @ self._metadata['objects'][class_label]['kp_normals']
+            kp_visibility = kp_normals_global_frame[2,:] <= 0.0 # neg z-coordinate => normal points towards camera
+
             bbox2d = Tensor(gt['obj_bb'])
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
             # Size uses KITTI convention - when rot=0 we have that: h, w, l  <-->  y, z, x
             size = Tensor((model['size_y'], model['size_z'], model['size_x']))
-            annotations.append(Annotation(cls=self._class_map.id_from_label(self._class_map.format_label(gt['obj_id'])),
+            annotations.append(Annotation(cls=class_id,
                                           bbox2d=bbox2d,
+                                          keypoints=keypoints_2d,
+                                          kp_visibility=kp_visibility,
                                           size=size,
-                                          location=Tensor(gt['cam_t_m2c']),
-                                          rotation=np.array(gt['cam_R_m2c']).reshape((3, 3))))
+                                          location=location,
+                                          rotation=rot_matrix))
         return annotations
 
     def _read_calibration(self, dir_path, img_ind):
@@ -117,6 +142,26 @@ class SixdDataset(Dataset):
             index -= seq_length
         return seq_name, index
 
+
+# class ClassMap:
+#     """ClassMap."""
+#     def __init__(self, configs):
+#         self._cls_dict = configs.data.class_map
+# 
+#     def id_from_label(self, label):
+#         return self._cls_dict.get(label, IGNORE_IDX_CLS)
+# 
+#     def label_from_id(self, class_id):
+#         return next(label for label, id_ in self._cls_dict.items() if id_ is class_id)
+# 
+#     def get_ids(self):
+#         return set(self._cls_dict.values()) - {IGNORE_IDX_CLS}
+# 
+#     def get_color(self, class_id):
+#         if isinstance(class_id, str):
+#             class_id = self.id_from_label(class_id)
+#         return cm.Set3(class_id % 12)
+
 class ClassMap:
     """Mapping between class label and class id.
 
@@ -125,11 +170,15 @@ class ClassMap:
 
     """
     def __init__(self, configs):
-        with open(join(configs.data.path, 'models', 'models_info.yml'), 'r') as model_file:
-            class_labels_int = sorted(yaml.load(model_file, Loader=yaml.CLoader).keys())
-        class_labels_str = list(map(self.format_label, class_labels_int))
+        # with open(join(configs.data.path, 'models', 'models_info.yml'), 'r') as model_file:
+        #     class_labels_int = sorted(yaml.load(model_file, Loader=yaml.CLoader).keys())
+        # class_labels_str = list(map(self.format_label, class_labels_int))
+        # class_labels_str = ['07'] # duck in occluded-linemod-augmented/
+        class_labels_str = ['09'] # duck in occluded-linemod-augmented2_gdists/
+
         # In network, 0 and 1 are reserved for background and don't_care
-        class_ids = list(range(2, len(class_labels_str)+2))
+        class_ids = list(range(1, len(class_labels_str)+1))
+        # class_ids = list(range(2, len(class_labels_str)+2))
         self._label2id_dict = dict(list(zip(class_labels_str, class_ids)))
         self._id2label_dict = dict(list(zip(class_ids, class_labels_str)))
 
