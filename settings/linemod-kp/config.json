@@ -1,0 +1,71 @@
+{
+    "network": {
+        "encoder": "resnet34",
+        "output_stride": 4,
+        "support_region": 0.2
+    },
+    "logging": {
+        "save_kitti_format": false
+    },
+    "training": {
+        "learning_rate": 0.0001,
+        "weighting_mode": null
+    },
+    "visualization": {
+        "keypoints": false,
+        "gt": [
+            "bbox2d",
+            "keypoints"
+        ],
+        "det": [
+            "bbox2d",
+            "keypoints"
+        ]
+    },
+    "data":{
+        "dataformat": "sixd",
+        "path": "/datasets/occluded-linemod-augmented",
+        "sequences": {
+            "train": [
+                "train_unoccl/duck"
+            ],
+            "train2": [
+                "train_unoccl/ape",
+                "train_unoccl/can",
+                "train_unoccl/cat",
+                "train_unoccl/driller",
+                "train_unoccl/duck",
+                "train_unoccl/eggbox",
+                "train_unoccl/glue",
+                "train_unoccl/holepuncher"
+            ],
+            "val1": [
+                "train_occl/ape"
+            ],
+            "val": [
+                "train_unoccl/duck"
+            ],
+            "test": [
+                "test_occl/benchviseblue"
+            ]
+        },
+        "img_dims": [480, 640]
+    },
+    "loading": {
+        "train": {
+            "batch_size": 4,
+            "shuffle": true,
+            "num_workers": 8
+        },
+        "val": {
+            "batch_size": 4,
+            "shuffle": "fixed",
+            "num_workers": 8
+        },
+        "test": {
+            "batch_size": 1,
+            "shuffle": false,
+            "num_workers": 6
+        }
+    }
+}

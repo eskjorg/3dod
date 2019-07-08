@@ -24,6 +24,7 @@ def show_gpu_info():
 
 def get_device():
     """Get best available device."""
+    # return "cpu"
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 

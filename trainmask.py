@@ -50,7 +50,7 @@ class Trainer():
 #             if batch_id == 0:
 #                 self._visualizer.show_outputs(outputs_cnn, batch, index=epoch)
             if mode == TRAIN:
-                if batch_id >= 300:
+                if batch_id >= 30:
                     break
 
                 loss = self._loss_handler.calc_loss(outputs_cnn)
@@ -60,7 +60,7 @@ class Trainer():
                 self._optimizer.step()
                 self._loss_handler.log_batch(epoch, batch_id, mode)
             else:
-                if batch_id >= 20:
+                if batch_id >= 3:
                     break
 
                 print('Validation epoch:', epoch, ', iteration:', batch_id)
