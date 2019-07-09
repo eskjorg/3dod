@@ -1,20 +1,21 @@
-"""Main training script."""
+# """Main training script."""
 import torch
 
-from apex import amp
-amp_handle = amp.init()
+# from apex import amp
+# amp_handle = amp.init()
 
 import lib.setup
 from lib.checkpoint import CheckpointHandler
 from lib.constants import TRAIN, VAL
 from lib.postprocessing import PostProc
-from lib.loss import LossHandler
-from lib.model import Model
+from lib.keypointrcnn.loss import LossHandler
+# from lib.model import Model
+from lib.keypointrcnn.model import Model
 from lib.result import ResultSaver
 from lib.utils import get_device, get_configs
 from lib.visualize import Visualizer
 
-from lib.data.loader import Loader
+from lib.keypointrcnn.loader import Loader
 
 class Trainer():
     """Trainer."""
@@ -77,12 +78,14 @@ class Trainer():
         getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
         cnt = 0
         for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
-            outputs_cnn = self._run_model(batch.input, mode)
-            loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)
+            outputs_cnn = self._run_model(batch.input, batch.targets, mode)
+#             if batch_id == 0:
+#                 self._visualizer.show_outputs(outputs_cnn, batch, index=epoch)
             if mode == TRAIN:
+                loss = self._loss_handler.calc_loss(outputs_cnn)
                 self._optimizer.zero_grad()
-                with amp_handle.scale_loss(loss, self._optimizer) as scaled_loss:
-                    scaled_loss.backward()
+#                with amp.scale_loss(loss, self._optimizer) as scaled_loss:
+                loss.backward()
                 self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
             results = self._post_proc.run(batch, outputs_cnn)
@@ -112,11 +115,14 @@ class Trainer():
         self._loss_handler.finish_epoch(epoch, mode)
         # TODO: implement evaluation for other datasets
         return score or sum(self._loss_handler.get_averages().values())
+        # return sum(self._loss_handler.get_averages().values())
 
-    def _run_model(self, inputs, mode):
-        inputs = inputs.to(get_device(), non_blocking=True)
+    def _run_model(self, inputs, targets, mode):
+        #inputs = inputs.to(get_device(), non_blocking=True)
+        inputs = [data.contiguous().to(get_device(), non_blocking=True) for data in inputs]
+        targets = [{k: v.to(get_device()) for k, v in t.items()} for t in targets]
         with torch.set_grad_enabled(mode == TRAIN):
-            return self._model(inputs)
+            return self._model(inputs, targets)
 
 
 def main(setup):

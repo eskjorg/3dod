@@ -12,11 +12,16 @@ from pyquaternion import Quaternion
 import matplotlib
 matplotlib.use('Agg')  # Overriding nuscenes backend
 from matplotlib import pyplot as plt
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
+#from tensorboardX import SummaryWriter
 
-from nuscenes.eval.eval_utils import category_to_detection_name
-from nuscenes.eval.nuscenes_eval import NuScenesEval
+from nuscenes.eval.detection.utils import category_to_detection_name
+from nuscenes.eval.detection.evaluate import NuScenesEval
+from nuscenes.eval.detection.config import config_factory
 from nuscenes.utils.data_classes import Box
+# from nuscenes.eval.eval_utils import category_to_detection_name
+# from nuscenes.eval.nuscenes_eval import NuScenesEval
+# from nuscenes.utils.data_classes import Box
 
 from lib.utils import get_class_map
 from lib.constants import NBR_KEYPOINTS, VISIB_TH

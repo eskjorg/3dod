@@ -1,0 +1,21 @@
+{
+    "cls": {
+        "n_layers": 10,
+        "loss": "CE"
+    },
+    "bbox2d": {
+        "n_layers": 4,
+        "cls_specific_heads": false,
+        "loss": "L1"
+    },
+    "zdepth": {
+        "n_layers": 1,
+        "cls_specific_heads": false,
+        "loss": "L1"
+    },
+    "keypoints": {
+        "n_layers": 40,
+        "cls_specific_heads": true,
+        "loss": "L1"
+    }
+}
