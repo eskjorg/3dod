@@ -10,7 +10,7 @@ ndocker \
     -v $PWD:/workspace/3dod \
     -v /hdd/lucas/out/3dod-experiments:/workspace/3dod/experiments \
     -v /home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2_gdists:/datasets/occluded-linemod-augmented \
-    3dod-kp-rcnn python trainmask.py \
+    3dod-kp-rcnn python train.py \
     --config-name linemod-kp \
     --overwrite-experiment \
     --experiment-name $EXPERIMENT_PREFIX
