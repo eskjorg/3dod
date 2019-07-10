@@ -1,7 +1,6 @@
 from attrdict import AttrDict
 
 import torch
-from maskrcnn_benchmark.layers import nms
 
 import numpy as np
 import math
@@ -44,9 +43,7 @@ class GroupedCorrespondenceSet():
         self.grouped_idx_lists = []
         self.U = np.empty((4, 0))
         self.u = np.empty((3, 0))
-        self.b_per_sample = np.empty((2, 0,))
-        self.sample_loc = np.empty((2, 0,))
-        self.sample_visib = np.empty((0,))
+        self.sample_confidences = np.empty((0,))
 
     @property
     def nbr_samples(self):
@@ -55,10 +52,6 @@ class GroupedCorrespondenceSet():
     @property
     def nbr_groups(self):
         return len(self.grouped_idx_lists)
-
-    @property
-    def sample_confidences(self):
-        return self._packed['sample_confidences']
 
     @property
     def u_grouped(self):
@@ -71,14 +64,6 @@ class GroupedCorrespondenceSet():
     @property
     def sample_confidences_grouped(self):
         return self._packed['sample_confidences_grouped']
-
-    @property
-    def sample_loc_grouped(self):
-        return self._packed['sample_loc_grouped']
-
-    @property
-    def sample_visib_grouped(self):
-        return self._packed['sample_visib_grouped']
 
     @property
     def group_confidences(self):
@@ -104,43 +89,34 @@ class GroupedCorrespondenceSet():
     def pack(self):
         u_grouped = [self.u[:, idx_list] for idx_list in self.grouped_idx_lists]
         U_grouped = [self.U[:, idx_list] for idx_list in self.grouped_idx_lists]
-        sample_confidences = 0.25 / np.prod(self.b_per_sample, axis=0)
-        sample_confidences *= self.sample_visib
-        sample_confidences_grouped = [sample_confidences[idx_list] for idx_list in self.grouped_idx_lists]
-        sample_loc_grouped = [self.sample_loc[:, idx_list] for idx_list in self.grouped_idx_lists]
-        sample_visib_grouped = [self.sample_visib[idx_list] for idx_list in self.grouped_idx_lists]
+        sample_confidences_grouped = [self.sample_confidences[idx_list] for idx_list in self.grouped_idx_lists]
         group_confidences = [sample_confidences_in_group.max() for sample_confidences_in_group in sample_confidences_grouped]
         self._packed = {
             'u_grouped': u_grouped,
             'U_grouped': U_grouped,
-            'sample_confidences': sample_confidences,
             'sample_confidences_grouped': sample_confidences_grouped,
-            'sample_loc_grouped': sample_loc_grouped,
-            'sample_visib_grouped': sample_visib_grouped,
             'group_confidences': group_confidences,
         }
 
-    def add_correspondence_group(self, group_id, keypoint, u_unnorm, b, sample_loc, sample_visib):
+    def add_correspondence_group(self, group_id, keypoint, u_unnorm, sample_confidences=None):
         """
         Adds a group of unnormalized 2D points u corresponding to the given keypoint
         group_id            - int
         keypoint            - array (3,)
         u_unnorm            - array (2, N)
-        b                   - array (2, N)
-        sample_loc          - array (2, N)
-        sample_visib        - array (1, N)
+        sample_confidences  - array (N,)
         """
         curr_nbr_samples = self.nbr_samples
         curr_nbr_groups = self.nbr_groups
         nbr_samples_added = u_unnorm.shape[1]
+        if sample_confidences is None:
+            sample_confidences = np.ones((nbr_samples_added,))
         u = normalize(pextend(u_unnorm), self.K)
         self.group_ids.append(group_id)
         self._group_id2group_idx_dict[group_id] = curr_nbr_groups
         self.grouped_idx_lists.append(list(range(curr_nbr_samples, curr_nbr_samples+nbr_samples_added)))
         self.u = np.concatenate([self.u, u], axis=1)
-        self.b_per_sample = np.concatenate([self.b_per_sample, b], axis=1)
-        self.sample_loc = np.concatenate([self.sample_loc, sample_loc], axis=1)
-        self.sample_visib = np.concatenate([self.sample_visib, sample_visib], axis=0)
+        self.sample_confidences = np.concatenate([self.sample_confidences, sample_confidences], axis=0)
         self.U = np.concatenate([self.U, pextend(np.tile(keypoint[:,np.newaxis], (1, nbr_samples_added)))], axis=1)
 
 def normalize_vec(vec):
@@ -325,24 +301,27 @@ class Runner(RunnerIf):
         return stride * np.indices((map_height, map_width), dtype=np.float32)
 
     def run(self, cnn_outs, batch, frame_index):
-        # Detach output tensors
-        kp_maps_dict = {task_name: task_output[0][frame_index].detach() for task_name, task_output in cnn_outs.items() if task_name.startswith('keypoint')}
-        kp_ln_b_maps_dict = {task_name: task_output[1][frame_index].detach() for task_name, task_output in cnn_outs.items() if task_name.startswith('keypoint')}
-        visibility_maps = self._sigmoid(cnn_outs['clsnonmutex'][0][frame_index].detach())
-        gt_visibility_maps = batch.gt_map['clsnonmutex'][frame_index]
+        # calib = batch.calibration[frame_index]
+        # # image_tensor = normalize(batch.input[frame_index], mean=-TV_MEAN/TV_STD, std=1/TV_STD)
+        # image_tensor = batch.input[frame_index] 
+        # # frame_id = batch.id[frame_index]
+        # annotations = batch.annotation[frame_index]
 
-        group_logit_maps = self._sigmoid(cnn_outs['clsgroup'][0][frame_index].detach())
-        # TODO: Use seg_map instead of gt_seg_map if GT not available..? (i.e. test mode)
-        seg_map = group_logit_maps.argmax(0)
-        gt_seg_map = batch.gt_map['clsgroup'][frame_index][0,:,:]
+        detections = []
+        for obj in zip(*cnn_outs[frame_index].values()):
+            obj = dict(zip(cnn_outs[frame_index], obj))
+            if obj['scores'] < 0.1:
+                continue
+            detections.append(AttrDict({
+                'bbox2d': obj['boxes'],
+                'cls': obj['labels'].item(),
+                'confidence': obj['scores'],
+                'keypoints': obj['keypoints'].cpu().detach().numpy(),
+                'pose_results': None,
+            }))
 
-        # Suppress visibility maps outside of segmentation
-        for group_id in self._class_map.get_group_ids():
-            class_ids = np.array([self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)])
-            for kp_idx in range(NBR_KEYPOINTS):
-                class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
-                # visibility_maps[class_id-2,:,:][seg_map != group_id] = 0.0
-                visibility_maps[class_id-2,:,:][gt_seg_map != group_id] = 0.0
+        # gt_visibility_maps = batch.gt_map['clsnonmutex'][frame_index]
+        # gt_seg_map = batch.gt_map['clsgroup'][frame_index][0,:,:]
 
         # GT annotations
         if self._configs.postprocessing.rigidpose_ransac.method == 'lm_jb' and self._configs.postprocessing.rigidpose_ransac.lm_jb.initialization == 'gt':
@@ -352,110 +331,34 @@ class Runner(RunnerIf):
             annotations = batch.annotation[frame_index]
 
             anno_lookup = dict(zip([anno.cls for anno in annotations], annotations))
-            anno_group_lookup = {}
-            for group_id in self._class_map.get_group_ids():
-                # All keypoints share the same pose annotation - choose the first existing one
-                for kp_idx in range(NBR_KEYPOINTS):
-                    class_id = self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx)
-                    if class_id in anno_lookup:
-                        anno_group_lookup[group_id] = anno_lookup[class_id]
-                        break
 
         # Intrinsic camera parameters
         K = batch.calibration[frame_index][:,:3]
 
-        # Generate index map
-        index_map = self._numpy2gpu(self._get_index_map(self._configs.data.img_dims, self._configs.network.output_stride))
+        frame_results = detections
+        for det in detections:
+            class_id = det.cls
+            class_label = self._class_map.label_from_id(class_id)
 
-        frame_results = {}
-        for group_id in self._class_map.get_group_ids():
-            frame_results[group_id] = {}
-
-            class_ids = [self._class_map.class_id_from_group_id_and_kp_idx(group_id, kp_idx) for kp_idx in range(NBR_KEYPOINTS)]
-            group_label = self._class_map.group_label_from_group_id(group_id)
+            curr_results = {}
+            det.pose_results = curr_results
 
             corr_set = GroupedCorrespondenceSet(K)
 
-            frame_results[group_id]['keypoints'] = [None]*NBR_KEYPOINTS
+            curr_results['keypoints'] = [None]*NBR_KEYPOINTS
             # For each keypoint, find and store samples from visible grid cells
             for kp_idx in range(NBR_KEYPOINTS):
-                class_id = class_ids[kp_idx]
-                key = '{}_{}'.format('keypoint', self._class_map.label_from_id(class_id))
+                kp_visible_flag = det.keypoints[kp_idx,2] > 0.5
+                print(kp_visible_flag)
+                if kp_visible_flag:
+                    x, y = det.keypoints[kp_idx,:2]
+                    corr_set.add_correspondence_group(
+                        kp_idx,
+                        self._metadata['objects'][class_label]['keypoints'][:,kp_idx],
+                        det.keypoints[[kp_idx],:2].T,
+                    )
 
-                visibility_map = visibility_maps[class_id-2,:,:]
-                gt_visibility_map = gt_visibility_maps[class_id-2,:,:]
-                frame_results[group_id]['keypoints'][kp_idx] = {
-                    'pred_visib_map': visibility_map,
-                    'gt_visib_map': gt_visibility_map.cuda(),
-                    'kp_map': torch.flip(index_map, [0]) + kp_maps_dict[key],
-                    'kp_ln_b_map': kp_ln_b_maps_dict[key],
-                }
-
-                th = VISIB_TH
-                mask_confident = visibility_map >= th
-                nbr_confident = torch.sum(mask_confident).cpu().numpy()
-                if nbr_confident == 0:
-                    # frame_results[group_id]['keypoints'][kp_idx] = None
-                    continue
-
-                visib_vec = visibility_map[mask_confident].flatten()
-                idx_x_vec = index_map[1,:,:][mask_confident].flatten()
-                idx_y_vec = index_map[0,:,:][mask_confident].flatten()
-                kp_x_vec = (index_map[1,:,:] + kp_maps_dict[key][0,:,:]) [mask_confident].flatten()
-                kp_y_vec = (index_map[0,:,:] + kp_maps_dict[key][1,:,:]) [mask_confident].flatten()
-                kp_x_ln_b_vec = kp_ln_b_maps_dict[key][0,:,:][mask_confident].flatten()
-                kp_y_ln_b_vec = kp_ln_b_maps_dict[key][1,:,:][mask_confident].flatten()
-                # Laplace distribution, going from log(b) to b, to sigma=sqrt(2)*b
-                # kp_std1_vec = math.sqrt(2) * torch.exp(kp_x_ln_b_vec)
-                # kp_std2_vec = math.sqrt(2) * torch.exp(kp_y_ln_b_vec)
-
-                if self._configs.postprocessing.rigidpose_ransac.max_nbr_corr is not None and nbr_confident > self._configs.postprocessing.rigidpose_ransac.max_nbr_corr:
-                    _, top_confident = torch.topk(kp_x_ln_b_vec+kp_y_ln_b_vec, k=MAX_NBR_SAMPLES, largest=False, sorted=False)
-                    visib_vec = visib_vec[top_confident]
-                    idx_x_vec = idx_x_vec[top_confident]
-                    idx_y_vec = idx_y_vec[top_confident]
-                    kp_x_vec = kp_x_vec[top_confident]
-                    kp_y_vec = kp_y_vec[top_confident]
-                    kp_x_ln_b_vec = kp_x_ln_b_vec[top_confident]
-                    kp_y_ln_b_vec = kp_y_ln_b_vec[top_confident]
-
-                # center_likelihood_vec = (0.5 / torch.exp(kp_x_ln_b_vec)) * (0.5 / torch.exp(kp_y_ln_b_vec))
-
-                # Could not happen, right..?
-                # if not center_likelihood_vec.max() > 0.0:
-                #     print("Discarding group - no samples with confidence > 0.0")
-                #     continue
-
-                corr_set.add_correspondence_group(
-                    kp_idx,
-                    self._metadata['objects'][group_label]['keypoints'][:,kp_idx],
-                    np.vstack([
-                        kp_x_vec.cpu().numpy(),
-                        kp_y_vec.cpu().numpy(),
-                    ]),
-                    np.vstack([
-                        torch.exp(kp_x_ln_b_vec).cpu().numpy(),
-                        torch.exp(kp_y_ln_b_vec).cpu().numpy(),
-                    ]),
-                    np.vstack([
-                        idx_x_vec.cpu().numpy(),
-                        idx_y_vec.cpu().numpy(),
-                    ]),
-                    visib_vec.cpu().numpy(),
-                    # center_likelihood_vec.cpu().numpy(),
-                )
-
-                frame_results[group_id]['keypoints'][kp_idx].update({
-                    'visib_vec': visib_vec,
-                    'idx_x_vec': idx_x_vec,
-                    'idx_y_vec': idx_y_vec,
-                    'kp_x_vec': kp_x_vec,
-                    'kp_y_vec': kp_y_vec,
-                    'kp_x_ln_b_vec': kp_x_ln_b_vec,
-                    'kp_y_ln_b_vec': kp_y_ln_b_vec,
-                })
-
-            frame_results[group_id]['corr_set'] = corr_set
+            curr_results['corr_set'] = corr_set
 
             if self._configs.postprocessing.rigidpose_ransac.method == 'ransac':
                 ransac_estimator = RansacEstimator(
@@ -467,23 +370,23 @@ class Runner(RunnerIf):
                 )
                 try:
                     P_ransac, indices_best_minimal_set, inlier_mask, fraction_inliers, niter = ransac_estimator.estimate()
-                    print("Object {}: Inlier fraction: {:.4f}, Iterations: {}".format(group_label, fraction_inliers, niter))
+                    print("Object {}: Inlier fraction: {:.4f}, Iterations: {}".format(class_label, fraction_inliers, niter))
                 except RANSACException as e:
                     print("No solution found through RANSAC.")
                     print(e)
                     P_ransac = None
 
                 if P_ransac is None:
-                    frame_results[group_id]['P_est'] = None
-                    frame_results[group_id]['ransac'] = None
+                    curr_results['P_est'] = None
+                    curr_results['ransac'] = None
                     continue
                 best_minimal_set = {}
                 for corr_idx in indices_best_minimal_set:
-                    curr_kp_idx, corr_idx_within_kp_group = corr_set.corr_idx2group_id_and_idx_within_group(corr_idx)
+                    curr_kp_idx, corr_idx_within_kp_group = corr_set.corr_idx2class_id_and_idx_within_group(corr_idx)
                     # best_minimal_set[curr_kp_idx] = corr_idx
                     best_minimal_set[curr_kp_idx] = corr_idx_within_kp_group
-                frame_results[group_id]['P_est'] = P_ransac
-                frame_results[group_id]['ransac'] = {
+                curr_results['P_est'] = P_ransac
+                curr_results['ransac'] = {
                     'P': P_ransac,
                     'fraction_inliers': fraction_inliers,
                     'inlier_mask': inlier_mask,
@@ -491,8 +394,8 @@ class Runner(RunnerIf):
                 }
             elif self._configs.postprocessing.rigidpose_ransac.method == 'lm_jb':
                 if self._configs.postprocessing.rigidpose_ransac.lm_jb.initialization == 'gt':
-                    if group_id in anno_group_lookup:
-                        P0 = np.concatenate([anno_group_lookup[group_id].rotation, anno_group_lookup[group_id].location[:,None]], axis=1)
+                    if class_id in anno_lookup:
+                        P0 = np.concatenate([anno_lookup[class_id].rotation, anno_lookup[class_id].location[:,None]], axis=1)
                     else:
                         P0 = None
                 elif self._configs.postprocessing.rigidpose_ransac.lm_jb.initialization == 'ransac':
@@ -510,8 +413,8 @@ class Runner(RunnerIf):
                     P_est = lm_jb_estimator.estimate()
                 else:
                     P_est = None
-                frame_results[group_id]['P_est'] = P_est
-                frame_results[group_id]['ransac'] = None
+                curr_results['P_est'] = P_est
+                curr_results['ransac'] = None
             else:
                 assert False
 

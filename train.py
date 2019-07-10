@@ -88,8 +88,9 @@ class Trainer():
                 loss.backward()
                 self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
-            results = self._post_proc.run(batch, outputs_cnn)
-            self._result_saver.save(results, mode, batch)
+            if mode != TRAIN:
+                results = self._post_proc.run(batch, outputs_cnn)
+                self._result_saver.save(results, mode, batch)
             cnt += 1
             # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
             # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
@@ -110,7 +111,8 @@ class Trainer():
             # TODO: implement evaluation for other datasets
             self._visualizer.report_score(epoch, score, mode)
         self._visualizer.report_loss(self._loss_handler.get_averages(), mode)
-        self._visualizer.save_images(batch, outputs_cnn, results, mode, index=epoch)
+        if mode != TRAIN:
+            self._visualizer.save_images(batch, outputs_cnn, results, mode, index=epoch)
 
         self._loss_handler.finish_epoch(epoch, mode)
         # TODO: implement evaluation for other datasets
@@ -136,7 +138,7 @@ def main(setup):
     if args.train_seqs is not None:
         configs['data']['sequences']['train'] = args.train_seqs.split(',')
     if args.group_labels is not None:
-        configs['data']['group_labels'] = args.group_labels.split(',')
+        configs['data']['class_labels'] = args.group_labels.split(',')
     trainer = Trainer(configs)
     configs['data']['data_loader'] = trainer._data_loader
     trainer.train()

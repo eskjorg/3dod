@@ -11,8 +11,13 @@
         "learning_rate": 0.0001,
         "weighting_mode": null
     },
+    "visualization1": {
+        "gt": [
+        ],
+        "det": [
+        ]
+    },
     "visualization": {
-        "keypoints": false,
         "gt": [
             "bbox2d",
             "keypoints"
@@ -21,6 +26,25 @@
             "bbox2d",
             "keypoints"
         ]
+    },
+    "postprocessing": {
+        "methods1": [
+        ],
+        "methods": [
+            "rigidpose_ransac"
+        ],
+        "rigidpose_ransac": {
+            "method1": "ransac",
+            "method": "lm_jb",
+            "max_nbr_corr": null,
+            "ransac": {
+                "n_iter": 100,
+                "th": 0.02
+            },
+            "lm_jb": {
+                "initialization": "gt"
+            }
+        }
     },
     "data":{
         "dataformat": "sixd",
@@ -39,10 +63,10 @@
                 "train_unoccl/glue",
                 "train_unoccl/holepuncher"
             ],
-            "val1": [
+            "val": [
                 "train_occl/ape"
             ],
-            "val": [
+            "val2": [
                 "train_unoccl/duck"
             ],
             "test": [
@@ -55,16 +79,22 @@
         "train": {
             "batch_size": 4,
             "shuffle": true,
+            "max_nbr_batches": null,
+            "max_nbr_batches2": 3,
             "num_workers": 8
         },
         "val": {
             "batch_size": 4,
-            "shuffle": "fixed",
+            "shuffle": false,
+            "max_nbr_batches": 30,
+            "max_nbr_batches2": 4,
             "num_workers": 8
         },
         "test": {
-            "batch_size": 1,
-            "shuffle": false,
+            "batch_size": 4,
+            "shuffle": "fixed",
+            "max_nbr_batches1": null,
+            "max_nbr_batches": 4,
             "num_workers": 6
         }
     }

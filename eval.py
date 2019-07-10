@@ -2,20 +2,18 @@
 import logging
 import torch
 
-from apex import amp
-amp_handle = amp.init()
-
 import lib.setup
 from lib.checkpoint import CheckpointHandler
 from lib.constants import TRAIN, VAL, TEST
 from lib.postprocessing import PostProc
-from lib.loss import LossHandler
-from lib.model import Model
+from lib.keypointrcnn.loss import LossHandler
+# from lib.model import Model
+from lib.keypointrcnn.model import Model
 from lib.result import ResultSaver
 from lib.utils import get_device, get_configs
 from lib.visualize import Visualizer
 
-from lib.data.loader import Loader
+from lib.keypointrcnn.loader import Loader
 
 class Evaluator():
     """Evaluator."""
@@ -27,6 +25,7 @@ class Evaluator():
         self._loss_handler = LossHandler(configs, self.__class__.__name__)
         self._checkpoint_handler = CheckpointHandler(configs)
         self._model = self._checkpoint_handler.init(Model(configs), force_load=True)
+        self._model.eval()
         self._post_proc = PostProc(configs)
         self._visualizer = Visualizer(configs)
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -36,10 +35,12 @@ class Evaluator():
             self._model.eval()
             cnt = 0
             for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
-                outputs_cnn = self._run_model(batch.input)
+                outputs_cnn = self._run_model(batch.input, batch.targets, mode)
+
                 if mode in (TRAIN, VAL):
-                    loss = self._loss_handler.calc_loss(batch.gt_map, outputs_cnn)
+                    # loss = self._loss_handler.calc_loss(outputs_cnn) # Not possible during eval...
                     self._loss_handler.log_batch(0, batch_id, mode)
+
                 results = self._post_proc.run(batch, outputs_cnn)
                 self._result_saver.save(results, mode, batch)
                 for sample_idx in range(len(batch.id)):
@@ -50,10 +51,16 @@ class Evaluator():
                     break
             self._result_saver.summarize_epoch(mode)
 
-    def _run_model(self, inputs):
-        inputs = inputs.to(get_device(), non_blocking=True)
-        with torch.no_grad():
-            return self._model(inputs)
+    def _run_model(self, inputs, targets, mode):
+        #inputs = inputs.to(get_device(), non_blocking=True)
+        inputs = [data.contiguous().to(get_device(), non_blocking=True) for data in inputs]
+        targets = [{k: v.to(get_device()) for k, v in t.items()} for t in targets]
+        with torch.set_grad_enabled(mode == TRAIN):
+            return self._model(inputs, targets)
+    # def _run_model(self, inputs):
+    #     inputs = inputs.to(get_device(), non_blocking=True)
+    #     with torch.no_grad():
+    #         return self._model(inputs)
 
 def main(setup):
     args = setup.parse_arguments()
@@ -74,7 +81,7 @@ def main(setup):
     if args.train_seqs is not None:
         configs['data']['sequences']['train'] = args.train_seqs.split(',')
     if args.group_labels is not None:
-        configs['data']['group_labels'] = args.group_labels.split(',')
+        configs['data']['class_labels'] = args.group_labels.split(',')
     evaluator = Evaluator(configs)
     configs['data']['data_loader'] = evaluator._data_loader
     evaluator.eval()

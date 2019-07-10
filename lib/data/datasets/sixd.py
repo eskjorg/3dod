@@ -174,7 +174,9 @@ class ClassMap:
         #     class_labels_int = sorted(yaml.load(model_file, Loader=yaml.CLoader).keys())
         # class_labels_str = list(map(self.format_label, class_labels_int))
         # class_labels_str = ['07'] # duck in occluded-linemod-augmented/
-        class_labels_str = ['09'] # duck in occluded-linemod-augmented2_gdists/
+        # class_labels_str = ['09'] # duck in occluded-linemod-augmented2_gdists/
+        assert configs.data.class_labels is not None
+        class_labels_str = configs.data.class_labels
 
         # In network, 0 and 1 are reserved for background and don't_care
         class_ids = list(range(1, len(class_labels_str)+1))
