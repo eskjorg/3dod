@@ -6,10 +6,16 @@ NEW_EXPERIMENT_PREFIX=$2
 
 
 # KP CLASSIF & VISIBILITY
-REPOPATH=/home/lucas/research/3dod
-DATAPATH=/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06
-CONTAINER=3dod-opengv
-CONFIGNAME=lm-kp-nonmutex
+# REPOPATH=/home/lucas/research/3dod
+# DATAPATH=/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06
+# CONTAINER=3dod-opengv
+# CONFIGNAME=lm-kp-nonmutex
+
+# KP-RCNN
+REPOPATH=/home/lucas/research/3dod-kp-rcnn
+DATAPATH=/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2_gdists
+CONTAINER=3dod-kp-rcnn
+CONFIGNAME=linemod-kp
 
 
 
@@ -19,13 +25,15 @@ rm -rf $WS
 cp -r $REPOPATH $WS
 
 
+# OBJECTS=(07) # duck in occluded-linemod-augmented/
+OBJECTS=(09) # duck in occluded-linemod-augmented2_gdists/
 # OBJECTS=(duck)
 # OBJECTS=(can)
 # OBJECTS=(can duck)
 # OBJECTS=(can cat)
 
 # Discard driller (not present in validation sequence):
-OBJECTS=(duck can cat eggbox glue holepuncher ape)
+# OBJECTS=(duck can cat eggbox glue holepuncher ape)
 
 # OBJECTS=(duck can cat driller eggbox glue holepuncher)
 # OBJECTS=(duck can cat driller eggbox glue holepuncher ape)
