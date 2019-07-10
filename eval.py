@@ -55,7 +55,7 @@ class Evaluator():
         #inputs = inputs.to(get_device(), non_blocking=True)
         inputs = [data.contiguous().to(get_device(), non_blocking=True) for data in inputs]
         targets = [{k: v.to(get_device()) for k, v in t.items()} for t in targets]
-        with torch.set_grad_enabled(mode == TRAIN):
+        with torch.set_grad_enabled(False):
             return self._model(inputs, targets)
     # def _run_model(self, inputs):
     #     inputs = inputs.to(get_device(), non_blocking=True)
