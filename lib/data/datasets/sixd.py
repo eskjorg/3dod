@@ -45,7 +45,7 @@ Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'keypoints', 'kp_visibil
 
 class SixdDataset(Dataset):
     def __init__(self, configs, mode):
-        self._configs = configs.data
+        self._configs = configs
         self._yaml_dict = {}
         self._metadata = get_metadata(configs)
         self._mode = mode
@@ -64,14 +64,14 @@ class SixdDataset(Dataset):
 
     def _init_sequence_lengths(self):
         sequences = OrderedDict()
-        root_path = self._configs.path
-        for sequence in self._configs.sequences[self._mode]:
+        root_path = self._configs.data.path
+        for sequence in self._configs.data.sequences[self._mode]:
             num_images = len(listdir_nohidden(join(root_path, sequence, 'rgb')))
             sequences[sequence] = num_images
         return sequences
 
     def _init_models(self):
-        return self._read_yaml(join(self._configs.path, 'models', 'models_info.yml'))
+        return self._read_yaml(join(self._configs.data.path, 'models', 'models_info.yml'))
 
     def __len__(self):
         return sum(self._sequence_lengths.values())
@@ -79,7 +79,7 @@ class SixdDataset(Dataset):
     def __getitem__(self, index):
         #index = int(index)
         seq_name, img_ind = self._get_data_pointers(index)
-        dir_path = join(self._configs.path, seq_name)
+        dir_path = join(self._configs.data.path, seq_name)
         data = self._read_data(dir_path, img_ind)
         calibration = self._read_calibration(dir_path, img_ind)
         annotations = self._read_annotations(dir_path, img_ind, calibration)
@@ -90,7 +90,7 @@ class SixdDataset(Dataset):
     def _read_data(self, dir_path, img_ind):
         path = join(dir_path, 'rgb', str(img_ind).zfill(4) + '.png')
         image = read_image_to_pt(path)
-        max_h, max_w = self._configs.img_dims
+        max_h, max_w = self._configs.data.img_dims
         return image[:, :max_h, :max_w]
 
     def _read_annotations(self, dir_path, img_ind, calib):
