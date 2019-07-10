@@ -4,10 +4,20 @@ set -e
 OLD_EXPERIMENT_PREFIX=$1
 NEW_EXPERIMENT_PREFIX=$2
 
+
+# KP CLASSIF & VISIBILITY
+REPOPATH=/home/lucas/research/3dod
+DATAPATH=/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06
+CONTAINER=3dod-opengv
+CONFIGNAME=lm-kp-nonmutex
+
+
+
 TMP_SUFFIX=$(openssl rand -hex 4)
 WS=/tmp/3dod-ws-$TMP_SUFFIX
 rm -rf $WS
-cp -r /home/lucas/research/3dod $WS
+cp -r $REPOPATH $WS
+
 
 # OBJECTS=(duck)
 # OBJECTS=(can)
@@ -31,11 +41,11 @@ for OBJ in ${OBJECTS[@]}; do
         -w /workspace/3dod \
         -v $WS:/workspace/3dod \
         -v /hdd/lucas/out/3dod-experiments:/workspace/3dod/experiments \
-        -v /home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06:/datasets/occluded-linemod-augmented 3dod-opengv python eval.py \
+        -v $DATAPATH:/datasets/occluded-linemod-augmented $CONTAINER python eval.py \
         --eval-mode val \
         --eval-mode train \
         --overwrite-experiment \
-        --config-name lm-kp-nonmutex \
+        --config-name $CONFIGNAME \
         --experiment-name $NEW_EXPERIMENT_PREFIX/$OBJ \
         --checkpoint-load-path /workspace/3dod/experiments/$OLD_EXPERIMENT_PREFIX/$OBJ/checkpoints/best_model.pth.tar \
         --group-labels $OBJ

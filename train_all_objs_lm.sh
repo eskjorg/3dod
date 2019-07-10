@@ -3,10 +3,20 @@ set -e
 
 EXPERIMENT_PREFIX=$1
 
+
+# KP CLASSIF & VISIBILITY
+REPOPATH=/home/lucas/research/3dod
+DATAPATH=/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06
+CONTAINER=3dod-opengv
+CONFIGNAME=lm-kp-nonmutex
+
+
+
 TMP_SUFFIX=$(openssl rand -hex 4)
 WS=/tmp/3dod-ws-$TMP_SUFFIX
 rm -rf $WS
-cp -r /home/lucas/research/3dod $WS
+cp -r $REPOPATH $WS
+
 
 # Discard driller (not present in validation sequence):
 OBJECTS=(duck can cat eggbox glue holepuncher ape)
@@ -23,9 +33,9 @@ for OBJ in ${OBJECTS[@]}; do
         -w /workspace/3dod \
         -v $WS:/workspace/3dod \
         -v /hdd/lucas/out/3dod-experiments:/workspace/3dod/experiments \
-        -v /home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06:/datasets/occluded-linemod-augmented 3dod-opengv python train.py \
+        -v $DATAPATH:/datasets/occluded-linemod-augmented $CONTAINER python train.py \
         --overwrite-experiment \
-        --config-name lm-kp-nonmutex \
+        --config-name $CONFIGNAME \
         --experiment-name $EXPERIMENT_PREFIX/$OBJ \
         --train-seqs train_unoccl/* \
         --group-labels $OBJ
