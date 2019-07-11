@@ -13,7 +13,7 @@ NEW_EXPERIMENT_PREFIX=$2
 
 # KP-RCNN
 REPOPATH=/home/lucas/research/3dod-kp-rcnn
-DATAPATH=/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented2_gdists
+DATAPATH=/home/lucas/datasets/pose-data/sixd/occluded-linemod-augmented3_format06
 CONTAINER=3dod-kp-rcnn
 CONFIGNAME=linemod-kp
 

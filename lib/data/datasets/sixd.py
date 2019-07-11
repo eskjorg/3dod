@@ -88,7 +88,7 @@ class SixdDataset(Dataset):
         return Sample(annotations, data, gt_maps, calibration, index)
 
     def _read_data(self, dir_path, img_ind):
-        path = join(dir_path, 'rgb', str(img_ind).zfill(4) + '.png')
+        path = join(dir_path, 'rgb', str(img_ind).zfill(6) + '.png')
         image = read_image_to_pt(path)
         max_h, max_w = self._configs.data.img_dims
         return image[:, :max_h, :max_w]
