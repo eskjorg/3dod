@@ -27,6 +27,12 @@ class LossHandler:
     def calc_loss(self, outputs_cnn):
         loss = 0
         for loss_name, loss_tensor in outputs_cnn.items():
+            if loss_name == 'loss_keypoint':
+                loss_tensor *= 0.05
+            # if loss_name == 'loss_keypoint':
+            #     loss += 0.05 * loss_tensor
+            # else:
+            #     loss += loss_tensor
             loss += loss_tensor #* self._layers[layer_name]['loss_weight']
             self._losses[loss_name].append(loss_tensor.item())
         return loss
