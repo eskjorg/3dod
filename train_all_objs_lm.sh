@@ -24,8 +24,7 @@ rm -rf $WS
 cp -r $REPOPATH $WS
 
 
-# OBJECTS=(07) # duck in occluded-linemod-augmented/
-OBJECTS=(09) # duck in occluded-linemod-augmented2_gdists/
+OBJECTS=(duck) # duck in occluded-linemod-augmented2_gdists/
 # Discard driller (not present in validation sequence):
 # OBJECTS=(duck can cat eggbox glue holepuncher ape)
 # OBJECTS=(duck can cat driller eggbox glue holepuncher ape)

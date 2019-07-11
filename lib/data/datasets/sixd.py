@@ -28,8 +28,12 @@ def get_metadata(configs):
             obj_anno[prefix + '_y'],
             obj_anno[prefix + '_z'],
         ])
+    def get_bbox3d(min_bounds, diff):
+        max_bounds = min_bounds + diff
+        return np.hstack([min_bounds[:,None], max_bounds[:,None]])
     return {
-        'objects': {'{:02}'.format(obj_label): {
+        'objects': {obj_anno['readable_label']: {
+            'bbox3d': get_bbox3d(rows2array(obj_anno, 'min'), rows2array(obj_anno, 'size')),
             'keypoints': rows2array(obj_anno, 'kp'),
             'kp_normals': rows2array(obj_anno, 'kp_normals'),
         } for obj_label, obj_anno in models_info.items()},
@@ -98,7 +102,7 @@ class SixdDataset(Dataset):
         gts = self._read_yaml(join(dir_path, 'gt.yml'))[img_ind]
         for gt in gts:
             model = self._models[gt['obj_id']]
-            class_label = self._class_map.format_label(gt['obj_id'])
+            class_label = self._class_map.sixd_obj_id2class_label(gt['obj_id'])
             if class_label not in self._class_map._label2id_dict.keys():
                 continue
             class_id = self._class_map.id_from_label(class_label)
@@ -170,13 +174,13 @@ class ClassMap:
 
     """
     def __init__(self, configs):
-        # with open(join(configs.data.path, 'models', 'models_info.yml'), 'r') as model_file:
-        #     class_labels_int = sorted(yaml.load(model_file, Loader=yaml.CLoader).keys())
-        # class_labels_str = list(map(self.format_label, class_labels_int))
-        # class_labels_str = ['07'] # duck in occluded-linemod-augmented/
-        # class_labels_str = ['09'] # duck in occluded-linemod-augmented2_gdists/
-        assert configs.data.class_labels is not None
-        class_labels_str = configs.data.class_labels
+        with open(join(configs.data.path, 'models', 'models_info.yml'), 'r') as model_file:
+            self._models_info = yaml.load(model_file, Loader=yaml.CLoader)
+            class_labels_int = sorted(self._models_info.keys())
+        class_labels_str = list(map(self.sixd_obj_id2class_label, class_labels_int))
+        if configs.data.class_labels is not None:
+            assert set(configs.data.class_labels) <= set(class_labels_str)
+            class_labels_str = configs.data.class_labels
 
         # In network, 0 and 1 are reserved for background and don't_care
         class_ids = list(range(1, len(class_labels_str)+1))
@@ -184,8 +188,8 @@ class ClassMap:
         self._label2id_dict = dict(list(zip(class_labels_str, class_ids)))
         self._id2label_dict = dict(list(zip(class_ids, class_labels_str)))
 
-    def format_label(self, class_label_int):
-        class_label_str = "{:02d}".format(class_label_int)
+    def sixd_obj_id2class_label(self, sixd_obj_id):
+        class_label_str = self._models_info[sixd_obj_id]['readable_label']
         return class_label_str
 
     def id_from_label(self, class_label):

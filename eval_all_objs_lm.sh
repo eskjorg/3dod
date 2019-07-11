@@ -25,9 +25,7 @@ rm -rf $WS
 cp -r $REPOPATH $WS
 
 
-# OBJECTS=(07) # duck in occluded-linemod-augmented/
-OBJECTS=(09) # duck in occluded-linemod-augmented2_gdists/
-# OBJECTS=(duck)
+OBJECTS=(duck)
 # OBJECTS=(can)
 # OBJECTS=(can duck)
 # OBJECTS=(can cat)
