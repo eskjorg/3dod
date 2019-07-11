@@ -2,6 +2,9 @@
 from os.path import join
 from collections import namedtuple, OrderedDict
 import yaml
+import os
+import shutil
+import glob
 
 import numpy as np
 from torch import Tensor
@@ -44,6 +47,15 @@ def get_dataset(configs, mode):
     return SixdDataset(configs, mode)
 
 
+def seq_glob_expand(configs, seq_pattern):
+    """
+    Find multiple sequences from wildcard pattern
+    """
+    seqs = glob.glob(os.path.join(configs.data.path, seq_pattern))
+    seqs = [os.path.relpath(absolute_path, configs.data.path) for absolute_path in seqs]
+    return seqs
+
+
 Annotation = namedtuple('Annotation', ['cls', 'bbox2d', 'keypoints', 'kp_visibility', 'size', 'location', 'rotation'])
 
 
@@ -66,12 +78,26 @@ class SixdDataset(Dataset):
         #         self._yaml_dict[path] = yaml.load(f, Loader=yaml.CLoader)
         # return self._yaml_dict[path]
 
+    def _check_seq_has_annotations_of_interest(self, root_path, sequence):
+        global_info_path = join(root_path, sequence, 'global_info.yml')
+        if os.path.exists(global_info_path):
+            global_info_yaml = self._read_yaml(global_info_path)
+            objs_of_interest = sorted(self._class_map._label2id_dict.keys())
+            if len(set(objs_of_interest) & set(global_info_yaml['obj_annotated_and_present'])) == 0:
+                print('No annotations for objects of interest {} in sequence, discarding: {}'.format(objs_of_interest, sequence))
+                return False
+        return True
+
     def _init_sequence_lengths(self):
         sequences = OrderedDict()
         root_path = self._configs.data.path
-        for sequence in self._configs.data.sequences[self._mode]:
+        seqs = [seq for seq_pattern in self._configs.data.sequences[self._mode] for seq in seq_glob_expand(self._configs, seq_pattern)] # Parse & expand glob patterns
+        for sequence in seqs:
+            if not self._check_seq_has_annotations_of_interest(root_path, sequence):
+                continue
             num_images = len(listdir_nohidden(join(root_path, sequence, 'rgb')))
             sequences[sequence] = num_images
+        assert len(sequences) > 0
         return sequences
 
     def _init_models(self):

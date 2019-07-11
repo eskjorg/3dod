@@ -44,7 +44,7 @@ for OBJ in ${OBJECTS[@]}; do
         --overwrite-experiment \
         --config-name $CONFIGNAME \
         --experiment-name $EXPERIMENT_PREFIX/$OBJ \
-        --train-seqs train_unoccl/duck \
+        --train-seqs train_unoccl/* \
         --group-labels $OBJ
 done
 rm -rf $WS

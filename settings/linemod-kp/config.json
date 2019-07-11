@@ -51,17 +51,7 @@
         "path": "/datasets/occluded-linemod-augmented",
         "sequences": {
             "train": [
-                "train_unoccl/duck"
-            ],
-            "train2": [
-                "train_unoccl/ape",
-                "train_unoccl/can",
-                "train_unoccl/cat",
-                "train_unoccl/driller",
-                "train_unoccl/duck",
-                "train_unoccl/eggbox",
-                "train_unoccl/glue",
-                "train_unoccl/holepuncher"
+                "train_unoccl/*"
             ],
             "val": [
                 "train_occl/ape"
