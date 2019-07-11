@@ -8,6 +8,7 @@ import glob
 
 import numpy as np
 from torch import Tensor
+from torchvision.transforms import ColorJitter
 from torch.utils.data import Dataset
 from matplotlib.pyplot import cm
 
@@ -71,6 +72,12 @@ class SixdDataset(Dataset):
         self._sequence_lengths = self._init_sequence_lengths()
         if self._mode == TRAIN:
             self._extra_sequence_lengths = self._init_extra_sequence_lengths()
+        # self._aug_transform = None
+        if self._mode == TRAIN:
+            self._aug_transform = ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.03)
+            # self._aug_transform = ColorJitter(brightness=(0.7, 1.5), contrast=(0.7, 1.5), saturation=(0.7, 1.5), hue=(-0.03, 0.03))
+        else:
+            self._aug_transform = None
         self._models = self._init_models()
 
     def _read_yaml(self, path):
@@ -133,7 +140,7 @@ class SixdDataset(Dataset):
 
     def _read_data(self, dir_path, img_ind):
         path = join(dir_path, 'rgb', str(img_ind).zfill(6) + '.png')
-        image = read_image_to_pt(path)
+        image = read_image_to_pt(path, normalize_flag=True, transform=self._aug_transform)
         max_h, max_w = self._configs.data.img_dims
         return image[:, :max_h, :max_w]
 
