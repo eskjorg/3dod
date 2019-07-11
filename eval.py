@@ -22,7 +22,7 @@ class Evaluator():
         self._configs = configs
         self._data_loader = Loader((TRAIN, VAL, TEST), self._configs)
         self._result_saver = ResultSaver(configs)
-        self._loss_handler = LossHandler(configs, self.__class__.__name__)
+        # self._loss_handler = LossHandler(configs, self.__class__.__name__)
         self._checkpoint_handler = CheckpointHandler(configs)
         self._model = self._checkpoint_handler.init(Model(configs), force_load=True)
         self._model.eval()
@@ -37,9 +37,9 @@ class Evaluator():
             for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
                 outputs_cnn = self._run_model(batch.input, batch.targets, mode)
 
-                if mode in (TRAIN, VAL):
-                    # loss = self._loss_handler.calc_loss(outputs_cnn) # Not possible during eval...
-                    self._loss_handler.log_batch(0, batch_id, mode)
+                # if mode in (TRAIN, VAL):
+                #     # loss = self._loss_handler.calc_loss(outputs_cnn) # Not possible during eval...
+                #     self._loss_handler.log_batch(0, batch_id, mode)
 
                 results = self._post_proc.run(batch, outputs_cnn)
                 self._result_saver.save(results, mode, batch)
@@ -55,7 +55,7 @@ class Evaluator():
         #inputs = inputs.to(get_device(), non_blocking=True)
         inputs = [data.contiguous().to(get_device(), non_blocking=True) for data in inputs]
         targets = [{k: v.to(get_device()) for k, v in t.items()} for t in targets]
-        with torch.set_grad_enabled(False):
+        with torch.no_grad():
             return self._model(inputs, targets)
     # def _run_model(self, inputs):
     #     inputs = inputs.to(get_device(), non_blocking=True)

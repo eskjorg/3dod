@@ -75,22 +75,19 @@ class Trainer():
             self._checkpoint_handler.save(self._model, epoch, val_score)
 
     def _run_epoch(self, epoch, mode):
-        getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
+        self._model.train()
+        # getattr(self._model, {TRAIN: 'train', VAL: 'eval'}[mode])()
         cnt = 0
         for batch_id, batch in enumerate(self._data_loader.gen_batches(mode)):
             outputs_cnn = self._run_model(batch.input, batch.targets, mode)
 #             if batch_id == 0:
 #                 self._visualizer.show_outputs(outputs_cnn, batch, index=epoch)
-            if mode == TRAIN:
-                loss = self._loss_handler.calc_loss(outputs_cnn)
-                self._optimizer.zero_grad()
+            loss = self._loss_handler.calc_loss(outputs_cnn)
+            self._optimizer.zero_grad()
 #                with amp.scale_loss(loss, self._optimizer) as scaled_loss:
-                loss.backward()
-                self._optimizer.step()
+            loss.backward()
+            self._optimizer.step()
             self._loss_handler.log_batch(epoch, batch_id, mode)
-            if mode != TRAIN:
-                results = self._post_proc.run(batch, outputs_cnn)
-                self._result_saver.save(results, mode, batch)
             cnt += 1
             # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
             # NOTE: VALIDATION SET ALSO REDUCED IN SIZE!
@@ -100,8 +97,6 @@ class Trainer():
 
             if cnt % 10 == 0:
                 self._visualizer.report_loss(self._loss_handler.get_averages(), mode)
-            # if cnt % 10 == 0:
-            #     self._visualizer.save_images(batch, outputs_cnn, results, mode, index=cnt)
 
             if self._configs.loading[mode]['max_nbr_batches'] is not None and batch_id+1 >= self._configs.loading[mode]['max_nbr_batches']:
                 break
@@ -111,8 +106,6 @@ class Trainer():
             # TODO: implement evaluation for other datasets
             self._visualizer.report_score(epoch, score, mode)
         self._visualizer.report_loss(self._loss_handler.get_averages(), mode)
-        if mode != TRAIN:
-            self._visualizer.save_images(batch, outputs_cnn, results, mode, index=epoch)
 
         self._loss_handler.finish_epoch(epoch, mode)
         # TODO: implement evaluation for other datasets
@@ -123,8 +116,7 @@ class Trainer():
         #inputs = inputs.to(get_device(), non_blocking=True)
         inputs = [data.contiguous().to(get_device(), non_blocking=True) for data in inputs]
         targets = [{k: v.to(get_device()) for k, v in t.items()} for t in targets]
-        with torch.set_grad_enabled(mode == TRAIN):
-            return self._model(inputs, targets)
+        return self._model(inputs, targets)
 
 
 def main(setup):
