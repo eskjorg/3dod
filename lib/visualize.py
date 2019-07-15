@@ -114,7 +114,7 @@ class Visualizer:
         img = image_tensor.permute(1, 2, 0)
 
         fig, axes = pyplot.subplots(
-            nrows = 3,
+            nrows = 1,
             ncols = 1,
             squeeze = False,
             figsize = [10, 25],
@@ -123,10 +123,10 @@ class Visualizer:
         plot_img(axes[0,0], img, 'Both', bbox2d=bbox2d)
         plot_gt(axes[0,0])
         plot_det(axes[0,0])
-        plot_img(axes[1,0], img, 'GT', bbox2d=bbox2d)
-        plot_gt(axes[1,0])
-        plot_img(axes[2,0], img, 'Det', bbox2d=bbox2d)
-        plot_det(axes[2,0])
+        # plot_img(axes[1,0], img, 'GT', bbox2d=bbox2d)
+        # plot_gt(axes[1,0])
+        # plot_img(axes[2,0], img, 'Det', bbox2d=bbox2d)
+        # plot_det(axes[2,0])
 
 
         self._writer.add_figure(mode, fig, index)
