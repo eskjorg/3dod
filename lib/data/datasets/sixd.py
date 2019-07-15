@@ -12,7 +12,7 @@ from torchvision.transforms import ColorJitter
 from torch.utils.data import Dataset
 from matplotlib.pyplot import cm
 
-from lib.constants import IGNORE_IDX_CLS, TRAIN, VAL
+from lib.constants import IGNORE_IDX_CLS, TRAIN, VAL, NBR_KEYPOINTS
 from lib.data.loader import Sample
 from lib.data.maps import GtMapsGenerator
 from lib.utils import read_image_to_pt
@@ -167,6 +167,7 @@ class SixdDataset(Dataset):
 
             kp_normals_global_frame = rot_matrix @ self._metadata['objects'][class_label]['kp_normals']
             kp_visibility = kp_normals_global_frame[2,:] <= 0.0 # neg z-coordinate => normal points towards camera
+            # kp_visibility = np.ones((NBR_KEYPOINTS,))
 
             bbox2d = Tensor(gt['obj_bb'])
             bbox2d[2:] += bbox2d[:2]  # x,y,w,h, -> x1,y1,x2,y2
