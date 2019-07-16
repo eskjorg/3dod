@@ -382,7 +382,7 @@ class Runner(RunnerIf):
                     continue
                 best_minimal_set = {}
                 for corr_idx in indices_best_minimal_set:
-                    curr_kp_idx, corr_idx_within_kp_group = corr_set.corr_idx2class_id_and_idx_within_group(corr_idx)
+                    curr_kp_idx, corr_idx_within_kp_group = corr_set.corr_idx2group_id_and_idx_within_group(corr_idx)
                     # best_minimal_set[curr_kp_idx] = corr_idx
                     best_minimal_set[curr_kp_idx] = corr_idx_within_kp_group
                 curr_results['P_est'] = P_ransac
