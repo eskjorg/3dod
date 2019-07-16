@@ -349,8 +349,8 @@ class Runner(RunnerIf):
             # For each keypoint, find and store samples from visible grid cells
             for kp_idx in range(NBR_KEYPOINTS):
                 kp_visible_flag = det.keypoints[kp_idx,2] > 0.5
-                print(kp_visible_flag)
                 if kp_visible_flag:
+                    # Note: Keypoint R-CNN implementation always considers every keypoint to be visible during inference
                     x, y = det.keypoints[kp_idx,:2]
                     corr_set.add_correspondence_group(
                         kp_idx,
